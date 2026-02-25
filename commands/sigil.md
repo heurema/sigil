@@ -572,6 +572,7 @@ Agent B (Skeptic):
    - Same key, same agent → keep higher severity
    - Same key, cross-agent → merge, set `source: "both"`, keep higher severity
    - Unique findings → set `source: "reviewer"` or `source: "skeptic"`
+   - **Algorithm:** two-pass. First collapse same-agent duplicates by key, then cross-reference across agents. Output order: sort by severity (critical → important → minor), then by file path (alphabetical), then by line number (ascending). This guarantees stable indices for Round 2 refutals.
 
 4. **Recompute round verdict from VALIDATED findings** (do NOT use raw agent verdicts):
    ```
@@ -628,7 +629,7 @@ Substitute these variables:
 
 6. **Handle Round 2 UNRELIABLE agents:**
    - Both Round 2 agents UNRELIABLE → skip refutals and additions entirely; recompute verdict from unmodified Round 1 findings; log `"unreliable_round2_agents": ["reviewer", "skeptic"]` in review-summary.json. Proceed to item 8.
-   - One Round 2 agent UNRELIABLE → exclude its `refuted[]` and `added[]` from the merge; use only the reliable agent's output. Log `"unreliable_round2_agents": ["<agent>"]`.
+   - One Round 2 agent UNRELIABLE → exclude its `refuted[]` and `added[]` from the merge. Since the BOTH-must-agree rule (item 8) cannot be satisfied with one agent, **no findings may be refuted**. Only `added[]` from the reliable agent are applied. Log `"unreliable_round2_agents": ["<agent>"]`.
    - Both reliable → proceed to item 7.
 
 7. **Validate `added[]` findings** using the same validation pipeline as Step 3.8b (file exists, line range, evidence grep, scope check).
@@ -643,26 +644,23 @@ Substitute these variables:
 
 10. **If recomputed verdict is still BLOCK and Round 1 had gap 2: Codex tiebreaker**
    `{verdict_A}` = Round 1 **recomputed** reviewer verdict, `{verdict_B}` = Round 1 **recomputed** skeptic verdict (from Step 3.8b item 4, NOT raw agent self-reports).
-   Prepare tiebreaker input:
+   Prepare tiebreaker input — the orchestrator MUST substitute `verdict_A` and `verdict_B` with the actual recomputed verdicts (PASS/WARN/BLOCK strings) from Step 3.8b item 4 before running this block:
    ```bash
-   # SECURITY: never interpolate file/agent content into shell strings — use tempfile
-   # Assign variables from prior steps before building the prompt
-   verdict_A="<recomputed reviewer verdict from Step 3.8b item 4>"
-   verdict_B="<recomputed skeptic verdict from Step 3.8b item 4>"
-   merged_json=$(cat .dev/review-round-2-validated.json 2>/dev/null || cat .dev/review-round-1-validated.json)
-   DIFF_FIRST_50KB=$(head -c 51200 .dev/review-diff.txt)
-
-   cat > /tmp/sigil-tiebreaker-$$.txt <<TIEBREAK_EOF
-   Tiebreak review. Reviewer: ${verdict_A}. Skeptic: ${verdict_B}.
-   Findings: ${merged_json}.
-   Diff (truncated to 50KB):
-   ${DIFF_FIRST_50KB}
-   Reply ONLY: PASS, WARN, or BLOCK with one sentence reason.
-   TIEBREAK_EOF
-   cat /tmp/sigil-tiebreaker-$$.txt | timeout 120 codex exec --ephemeral --skip-git-repo-check "" 2>&1
-   rm -f /tmp/sigil-tiebreaker-$$.txt
+   # SECURITY: build prompt via printf + cat (no heredoc expansion of untrusted content)
+   TMPFILE="/tmp/sigil-tiebreaker-$$.txt"
+   trap 'rm -f "$TMPFILE"' EXIT
+   (umask 077; touch "$TMPFILE")
+   {
+     printf 'Tiebreak review. Reviewer: %s. Skeptic: %s.\n' "$verdict_A" "$verdict_B"
+     printf 'Findings:\n'
+     cat .dev/review-round-2-validated.json 2>/dev/null || cat .dev/review-round-1-validated.json
+     printf '\nDiff (truncated to 50KB):\n'
+     head -c 51200 .dev/review-diff.txt
+     printf '\nReply ONLY: PASS, WARN, or BLOCK with one sentence reason.\n'
+   } > "$TMPFILE"
+   cat "$TMPFILE" | timeout 120 codex exec --ephemeral --skip-git-repo-check "" 2>&1
+   rm -f "$TMPFILE"
    ```
-   The orchestrator MUST substitute `verdict_A` and `verdict_B` with the actual recomputed verdicts (PASS/WARN/BLOCK strings) from Step 3.8b item 4 before running this block.
    - Codex error handling (apply after each `codex` invocation):
      1. Check binary: `which codex` — if empty, log "Codex CLI not installed — skipping", set `codex_status: "not_installed"` in `.dev/review-summary.json`, proceed without Codex
      2. Run the codex command with timeout: `timeout 120 codex ...`
@@ -698,7 +696,9 @@ Substitute these variables:
   "findings": [],
   "out_of_scope_warnings": [],
   "unreliable_agents": [],
+  "unreliable_round2_agents": [],
   "refuted_findings": [],
+  "disputed_refutals": [],
   "override": null,
   "diff_sha": "..."
 }
@@ -707,7 +707,9 @@ Substitute these variables:
 For `round_2`: same structure as `round_1` when Round 2 was executed, `null` otherwise.
 For `codex_tiebreaker`: `{"input": "...", "output": "...", "verdict": "..."}` when invoked, `null` otherwise.
 For `override`: `{"rationale": "...", "timestamp": "..."}` when user overrides BLOCK, `null` otherwise.
-For `refuted_findings`: array of `{"index": N, "rationale": "..."}` from Round 2 refutals.
+For `refuted_findings`: array of `{"index": N, "rationale_reviewer": "...", "rationale_skeptic": "..."}` — only when BOTH agents agreed to refute.
+For `disputed_refutals`: array of `{"index": N, "agent": "reviewer|skeptic", "rationale": "..."}` — single-agent refutals (informational, finding kept).
+For `unreliable_round2_agents`: array of agent names flagged UNRELIABLE in Round 2 (separate from Round 1 `unreliable_agents`).
 
 2. **Write `.dev/review-verdict.md`** (human-readable):
 ```

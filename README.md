@@ -29,18 +29,22 @@ Risk-adaptive development pipeline with adversarial consensus code review for [C
 ## Install
 
 ```bash
-# Clone the plugin
 git clone https://github.com/Real-AI-Engineering/sigil.git ~/.claude/plugins/sigil
-
-# Enable it in Claude Code settings (~/.claude/settings.json)
-# Add to "enabledPlugins": { "sigil@local": true }
 ```
 
-Or if `claude plugin install` is available in your Claude Code version:
+Then enable in `~/.claude/settings.json`:
 
-```bash
-claude plugin install Real-AI-Engineering/sigil
+```json
+{
+  "enabledPlugins": {
+    "sigil@local": true
+  }
+}
 ```
+
+If the file already exists, add `"sigil@local": true` inside the existing `enabledPlugins` object. Note: the key must be `enabledPlugins` (not `plugins`).
+
+Verify: `ls ~/.claude/plugins/sigil/commands/sigil.md` should show the command file. Then open a new Claude Code session.
 
 ## Quick Start
 
@@ -132,7 +136,7 @@ Run history is archived to `.dev/runs/<timestamp>/` after each completed build.
 | `jq: command not found` | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
 | `codex: auth expired` | Run `codex auth` to refresh credentials |
 | `.dev/` exists from previous run | `/sigil` detects this and offers resume/restart/abort |
-| Plugin not loading | Verify symlink: `ls -la ~/.claude/plugins/sigil` and `enabledPlugins` in settings |
+| Plugin not loading | Verify: `ls ~/.claude/plugins/sigil/commands/sigil.md` exists and `"sigil@local": true` in `~/.claude/settings.json` `enabledPlugins` |
 
 ## Configuration (v2 Roadmap)
 
