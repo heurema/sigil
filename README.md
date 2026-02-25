@@ -144,6 +144,15 @@ Coming in v2:
 - `.sigil.json` project overrides (custom risk thresholds, review strategy, agent counts)
 - Configurable timeouts and cost limits
 
+## See Also
+
+Other [Real-AI-Engineering](https://github.com/Real-AI-Engineering) projects:
+
+- **[herald](https://github.com/Real-AI-Engineering/herald)** — daily curated news digest plugin for Claude Code
+- **[teams-field-guide](https://github.com/Real-AI-Engineering/teams-field-guide)** — comprehensive guide to Claude Code multi-agent teams
+- **[codex-partner](https://github.com/Real-AI-Engineering/codex-partner)** — using Codex CLI as second AI alongside Claude Code
+- **[proofpack](https://github.com/Real-AI-Engineering/proofpack)** — proof-carrying CI gate for AI agent changes
+
 ## License
 
 MIT

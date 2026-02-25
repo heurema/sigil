@@ -1,0 +1,13 @@
+{
+  "name": "sigil",
+  "plugins": [
+    {
+      "name": "sigil",
+      "description": "Risk-adaptive development pipeline with adversarial consensus code review",
+      "skills": ["./skills"],
+      "commands": ["./commands"],
+      "agents": ["./agents"],
+      "strict": false
+    }
+  ]
+}

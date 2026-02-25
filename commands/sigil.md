@@ -1,5 +1,13 @@
 ---
-description: Risk-adaptive development pipeline with adversarial consensus code review
+description: |
+  Risk-adaptive development pipeline with adversarial consensus code review.
+  Direct triggers: "implement", "add feature", "build", "develop", "create",
+  "/sigil", "/dev", "let's build", "implement this properly".
+  Indirect/symptom triggers: "my last PR broke things", "I want proper tests
+  this time", "this touches multiple systems", "this feels risky", "I'm not
+  sure what files to change", "needs careful review", code that touches auth,
+  payments, or data model; changes spanning 3+ files; any task requiring
+  branch + tests + PR workflow.
 argument-hint: Feature description (e.g., "add user authentication with JWT")
 ---
 

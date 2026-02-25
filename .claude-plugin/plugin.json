@@ -8,7 +8,5 @@
   "homepage": "https://github.com/Real-AI-Engineering/sigil",
   "repository": "https://github.com/Real-AI-Engineering/sigil",
   "license": "MIT",
-  "commands": ["commands"],
-  "agents": ["agents"],
   "keywords": ["dev-pipeline", "code-review", "adversarial", "consensus", "risk-adaptive"]
 }
