@@ -346,7 +346,7 @@ Handle responses:
 **Step 3.1 — Read both input files.** Extract `agent_count`, `risk`, `base_ref` from scope.json. Assign for use in subsequent steps:
 ```bash
 BASE_REF=$(jq -r '.base_ref' .dev/scope.json) || { echo "FATAL: jq failed reading scope.json"; exit 1; }
-[ -z "$BASE_REF" ] || [ "$BASE_REF" = "null" ] && { echo "FATAL: base_ref is empty/null in scope.json"; exit 1; }
+if [ -z "$BASE_REF" ] || [ "$BASE_REF" = "null" ]; then echo "FATAL: base_ref is empty/null in scope.json"; exit 1; fi
 ```
 
 **Step 3.2 — Plan tasks from `## Files` section of design.md.** Group files by independence (files that don't share imports/deps can be done in parallel).
@@ -790,7 +790,7 @@ BLOCK is the only verdict that hard-fails. STOP is handled interactively in Step
 **Step 3.10 — Archive run artifacts:**
 ```bash
 STARTED_AT=$(jq -r '.started_at' .dev/scope.json | tr ':' '-' | tr 'T' '_' | tr -d 'Z')
-[ -z "$STARTED_AT" ] || [ "$STARTED_AT" = "null" ] && STARTED_AT="unknown"
+if [ -z "$STARTED_AT" ] || [ "$STARTED_AT" = "null" ]; then STARTED_AT="unknown"; fi
 mkdir -p ".dev/runs/$STARTED_AT"
 cp .dev/scope.json .dev/exploration.md .dev/design.md ".dev/runs/$STARTED_AT/" 2>/dev/null
 [ -f .dev/observer-report.md ] && cp .dev/observer-report.md ".dev/runs/$STARTED_AT/"
