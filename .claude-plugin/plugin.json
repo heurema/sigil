@@ -1,0 +1,14 @@
+{
+  "name": "sigil",
+  "description": "Risk-adaptive development pipeline with adversarial consensus code review",
+  "version": "1.0.0",
+  "author": {
+    "name": "Real-AI-Engineering"
+  },
+  "homepage": "https://github.com/Real-AI-Engineering/sigil",
+  "repository": "https://github.com/Real-AI-Engineering/sigil",
+  "license": "MIT",
+  "commands": ["commands"],
+  "agents": ["agents"],
+  "keywords": ["dev-pipeline", "code-review", "adversarial", "consensus", "risk-adaptive"]
+}
