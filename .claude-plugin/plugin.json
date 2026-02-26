@@ -3,10 +3,10 @@
   "description": "Risk-adaptive development pipeline with adversarial consensus code review",
   "version": "1.0.0",
   "author": {
-    "name": "Real-AI-Engineering"
+    "name": "heurema"
   },
-  "homepage": "https://github.com/Real-AI-Engineering/sigil",
-  "repository": "https://github.com/Real-AI-Engineering/sigil",
+  "homepage": "https://github.com/heurema/sigil",
+  "repository": "https://github.com/heurema/sigil",
   "license": "MIT",
   "keywords": ["dev-pipeline", "code-review", "adversarial", "consensus", "risk-adaptive"]
 }

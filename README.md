@@ -29,7 +29,7 @@ Risk-adaptive development pipeline with adversarial consensus code review for [C
 ## Install
 
 ```bash
-git clone https://github.com/Real-AI-Engineering/sigil.git ~/.claude/plugins/sigil
+git clone https://github.com/heurema/sigil.git ~/.claude/plugins/sigil
 ```
 
 Then enable in `~/.claude/settings.json`:
@@ -146,12 +146,12 @@ Coming in v2:
 
 ## See Also
 
-Other [Real-AI-Engineering](https://github.com/Real-AI-Engineering) projects:
+Other [heurema](https://github.com/heurema) projects:
 
-- **[herald](https://github.com/Real-AI-Engineering/herald)** — daily curated news digest plugin for Claude Code
-- **[teams-field-guide](https://github.com/Real-AI-Engineering/teams-field-guide)** — comprehensive guide to Claude Code multi-agent teams
-- **[codex-partner](https://github.com/Real-AI-Engineering/codex-partner)** — using Codex CLI as second AI alongside Claude Code
-- **[proofpack](https://github.com/Real-AI-Engineering/proofpack)** — proof-carrying CI gate for AI agent changes
+- **[herald](https://github.com/heurema/herald)** — daily curated news digest plugin for Claude Code
+- **[teams-field-guide](https://github.com/heurema/teams-field-guide)** — comprehensive guide to Claude Code multi-agent teams
+- **[codex-partner](https://github.com/heurema/codex-partner)** — using Codex CLI as second AI alongside Claude Code
+- **[proofpack](https://github.com/heurema/proofpack)** — proof-carrying CI gate for AI agent changes
 
 ## License
 
