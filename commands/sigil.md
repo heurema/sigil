@@ -660,7 +660,7 @@ echo "$GEMINI_RESULT" > .dev/gemini-round-1.json
 
 **Step 3.8b — Validate and Merge:**
 
-1. **Per-finding validation** (for each finding from each agent):
+1. **Per-finding validation** (for each finding from each agent AND each external provider):
 
    a. `file == "_spec_"` → skip file/line/evidence validation, `verified=true`
       - Cap: max 3 `_spec_` findings per agent. If exceeded: warn "Agent produced too many spec-level findings — capping at 3."
@@ -681,6 +681,13 @@ echo "$GEMINI_RESULT" > .dev/gemini-round-1.json
 
    f. Invalid count threshold: if `invalid_count > 50%` of agent's findings → flag agent `UNRELIABLE`, retry agent once (same prompt). If retry also >50% invalid → agent stays `UNRELIABLE`.
 
+   g. **Provider source tagging:** Tag each finding with its source provider:
+      - Findings from Reviewer agent → `source: "claude_reviewer"`
+      - Findings from Skeptic agent → `source: "claude_skeptic"`
+      - Findings from Codex → `source: "codex"`
+      - Findings from Gemini → `source: "gemini"`
+      External provider findings with `status ≠ "ok"` (auth_expired, error, timeout, abstain) are EXCLUDED entirely — no findings from failed providers enter the pool.
+
 2. **Handle unreliable agents:**
    - Both UNRELIABLE → write `## Review Verdict: UNRELIABLE` to `.dev/review-verdict.md`, ask user: "Both review agents unreliable. retry-all / skip / abort"
      - `retry-all` → re-run Step 3.8a from scratch
@@ -688,25 +695,49 @@ echo "$GEMINI_RESULT" > .dev/gemini-round-1.json
      - `abort` → write `## Review Verdict: ABORTED` → STOP
    - One UNRELIABLE → exclude from verdict, use other agent's verdict only. Tag unreliable agent in `review-summary.json` under `unreliable_agents[]`.
 
-3. **Dedup across agents:**
-   ```
-   dedup_key = (file, category, first_20_words_of_claim)
-   ```
-   - `_spec_` findings: separate dedup pool (key = `category + first_20_words` only)
-   - Same key, same agent → keep higher severity
-   - Same key, cross-agent → merge, set `source: "both"`, keep higher severity
-   - Unique findings → set `source: "reviewer"` or `source: "skeptic"`
-   - **Algorithm:** two-pass. First collapse same-agent duplicates by key, then cross-reference across agents. Output order: sort by severity (critical → important → minor), then by file path (alphabetical), then by line number (ascending). This guarantees stable indices for Round 2 refutals.
+3. **Cross-provider finding clustering:**
 
-4. **Recompute round verdict from VALIDATED findings** (do NOT use raw agent verdicts):
+   All validated findings from ALL providers enter a unified pool. Cluster them:
+
    ```
-   validated_findings = all findings that passed gates (b)-(e), excluding out-of-scope
-   if any validated finding has severity "critical" → BLOCK
-   else if any validated finding has severity "important" → WARN
-   else → PASS
-   Exclude UNRELIABLE agents from this computation entirely.
+   claim_normalized = lowercase(strip_punctuation(first_10_words_of_claim))
+   cluster_key = (file, category, claim_normalized)
    ```
-   Note: this may differ from what agents self-reported. The validated set is authoritative.
+   NOTE: 10 words (not 20) and normalization reduce cross-model phrasing mismatches.
+
+   - `_spec_` findings: separate cluster pool (key = `category + claim_normalized` only)
+   - Same cluster key, same provider → keep higher severity
+   - Same cluster key, cross-provider → merge into one cluster:
+     - `sources`: list of all providers that found it (e.g., `["claude_reviewer", "codex"]`)
+     - `severity`: max(severities across providers)
+     - `verified`: any(verified across providers)
+     - `representative`: finding with longest evidence string
+   - Unique findings → single-source cluster
+
+   **Cluster enrichment:**
+   - `cross_provider`: `len(sources) >= 2`
+   - `diversity`: `sources` includes at least one non-Claude provider
+
+   **Sort order:** severity (critical → important → minor) → file path (alphabetical) → line number (ascending). Stable for Round 2 indexing.
+
+4. **Compute verdict from findings-level quorum** (NOT raw agent/provider verdicts):
+
+   ```
+   verdict = PASS
+   for cluster in clusters:
+       if cluster.severity == "critical" AND cluster.verified:
+           verdict = BLOCK    # any-veto: one verified critical from ANY provider = BLOCK
+           break
+       if cluster.severity == "important" AND len(cluster.sources) >= 2:
+           verdict = max(verdict, WARN)    # quorum: 2+ providers agree on important
+   # Single-provider important findings: informational only (no verdict impact)
+   # Minor findings: always informational only
+   # UNRELIABLE/ABSTAIN providers excluded from source counts
+   ```
+
+   **Provider counting:** Claude agents (reviewer, skeptic) are separate sources for quorum. Two Claude agents agreeing triggers WARN even without external confirmation. The `diversity` signal requires at least one non-Claude source. When all external providers fail, system uses per-agent counting among Claude agents only.
+
+   Note: for `risk=low` (single Claude reviewer), any verified critical → BLOCK, any verified important → WARN (quorum is 1/1).
 
 5. **Write `.dev/review-round-1-validated.json`**
 
