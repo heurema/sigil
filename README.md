@@ -28,6 +28,15 @@ Risk-adaptive development pipeline with adversarial consensus code review for [C
 
 ## Install
 
+### Via Emporium (recommended)
+
+```bash
+claude plugin marketplace add heurema/emporium   # once
+claude plugin install sigil@emporium
+```
+
+### Manual
+
 ```bash
 git clone https://github.com/heurema/sigil.git ~/.claude/plugins/sigil
 ```
