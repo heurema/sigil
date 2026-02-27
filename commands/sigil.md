@@ -529,11 +529,14 @@ If `DIFF_SIZE > 51200` (50KB):
 
 3. **Cost estimate + user confirmation:**
 ```
-adversarial: ~$0.10-0.20 (2 agents × 1 round)
-consensus:   ~$0.20-0.40 (2 agents × up to 2 rounds + Codex)
-Proceed? (yes / skip-review / abort)
+adversarial (claude only):     ~$0.10-0.20 (2 Claude agents × 1 round)
+adversarial (claude+codex):    ~$0.15-0.30 (2 Claude agents + Codex CLI)
+consensus (claude+codex+gem):  ~$0.30-0.60 (2 Claude agents + Codex + Gemini × up to 2 rounds)
+Providers: <from scope.json review_providers>
+Proceed? (yes / skip-review / skip-external / abort)
 ```
 - `skip-review` → write `## Review Verdict: SKIPPED` to `.dev/review-verdict.md` → go to Step 3.9
+- `skip-external` → keep Claude review, drop external providers (set `review_providers: ["claude"]`)
 - `abort` → write `## Review Verdict: ABORTED` to `.dev/review-verdict.md` → STOP
 
 4. **REVIEWER_PROMPT** — injected from plugin prompts:
@@ -554,6 +557,29 @@ Substitute the same variables as REVIEWER_PROMPT:
 - `{design_md}` → contents of `.dev/design.md`
 - `{scope_json}` → contents of `.dev/scope.json`
 
+5a. **User consent for external dispatch (merged into cost estimate above):**
+If `review_providers` includes non-Claude providers, the cost estimate MUST also show:
+```
+Review will send your diff to: {dynamic list from review_providers, e.g. "Codex (OpenAI)" or "Codex (OpenAI), Gemini (Google)"}
+Proceed? (yes / skip-external / abort)
+```
+The provider list is generated dynamically from `scope.json.review_providers` — never hardcoded.
+If user chooses `skip-external`, set `review_providers: ["claude"]` and proceed with Claude-only review.
+
+5b. **Build external review prompt:**
+```bash
+# Single-pass substitution via Python (avoids cross-contamination if diff contains {design_md})
+python3 -c "
+import sys
+tmpl = open(sys.argv[1]).read()
+diff = open(sys.argv[2]).read()
+design = open(sys.argv[3]).read()
+result = tmpl.replace('{diff}', diff).replace('{design_md}', design)
+print(result)
+" "${CLAUDE_PLUGIN_ROOT}/lib/prompts/external-reviewer.md" .dev/review-diff.txt .dev/design.md \
+  > .dev/external-review-prompt.txt
+```
+
 6. **Launch parallel (separate output files):**
 ```
 Agent A (Reviewer):
@@ -567,7 +593,52 @@ Agent B (Skeptic):
   Instruct agent to write output to .dev/skeptic-round-1.json
 ```
 
-7. **Wait for both agents. Timeout: 5 minutes per agent.** If an agent exceeds timeout, mark it `UNRELIABLE` and proceed with the other agent's output only.
+6a. **Launch external providers (if in review_providers):**
+
+Read `review_providers` from `.dev/scope.json`. For each external provider, launch in parallel with `run_in_background=true`:
+
+**If "codex" in review_providers:**
+```bash
+REVIEW_PROMPT=$(<.dev/external-review-prompt.txt)
+OUT=$(mktemp); ERR=$(mktemp)
+echo "$REVIEW_PROMPT" | codex exec --ephemeral --skip-git-repo-check \
+  -C "$PWD" -p fast --output-last-message "$OUT" - 2>"$ERR"
+CODEX_EXIT=$?
+if [ $CODEX_EXIT -ne 0 ]; then
+  if grep -qi "auth\|token\|api.key\|unauthorized" "$ERR"; then
+    CODEX_STATUS="auth_expired"
+  else
+    CODEX_STATUS="error"
+  fi
+else
+  CODEX_STATUS="ok"
+fi
+CODEX_RESULT=$(cat "$OUT"); rm -f "$OUT" "$ERR"
+echo "$CODEX_RESULT" > .dev/codex-round-1.json
+```
+
+**If "gemini" in review_providers:**
+```bash
+REVIEW_PROMPT=$(<.dev/external-review-prompt.txt)
+ERR=$(mktemp)
+GEMINI_RESULT=$(echo "$REVIEW_PROMPT" | gemini -p - -o text 2>"$ERR")
+GEMINI_EXIT=$?
+if [ $GEMINI_EXIT -ne 0 ]; then
+  if grep -qi "auth\|login\|403\|401\|credentials" "$ERR"; then
+    GEMINI_STATUS="auth_expired"
+  else
+    GEMINI_STATUS="error"
+  fi
+else
+  GEMINI_STATUS="ok"
+fi
+rm -f "$ERR"
+echo "$GEMINI_RESULT" > .dev/gemini-round-1.json
+```
+
+**Timeout:** 120 seconds per external provider. Kill and set `status: "timeout"` if exceeded.
+
+7. **Wait for ALL agents and providers.** Timeout: 5 minutes for Claude agents, 120 seconds for external providers. If an agent/provider exceeds timeout: mark `UNRELIABLE` (Claude) or set status to `"timeout"` (external) and proceed with remaining outputs.
 
 8. **JSON recovery chain (5 steps, per agent):**
    0. Check file exists: `[ -f .dev/reviewer-round-1.json ]` (or skeptic). If missing → skip to step (c) (agent retry).
@@ -576,6 +647,14 @@ Agent B (Skeptic):
    c. If fails: **retry the AGENT** once with amended prompt: "Previous output was invalid JSON. Output ONLY valid JSON." (this re-runs the agent, not just re-parses)
    d. If retry output fails: extract from fences again
    e. If still fails: mark agent `UNRELIABLE`, use `{"findings": [], "verdict": "UNRELIABLE"}`
+
+8a. **JSON recovery chain for external providers (per provider):**
+   0. Check file exists: `[ -f .dev/codex-round-1.json ]` (or gemini). If missing or provider status ≠ "ok" → skip.
+   a. `json.loads(output)` — direct parse
+   b. If fails: extract content between ` ```json ` and ` ``` ` fences, parse
+   c. If fails: strip text before first `{` and after last `}`, parse
+   d. If fails: mark provider `ABSTAIN` — set `status: "abstain"`, exclude from quorum, log reason
+   NOTE: No agent retry for external providers (unlike Claude agents). External CLI calls are expensive — one attempt + JSON recovery, then ABSTAIN.
 
 9. **Write `.dev/review-round-1.json`** combining both agent outputs + `diff_sha`
 
