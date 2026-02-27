@@ -841,49 +841,66 @@ echo "$GEMINI_RESULT" > .dev/gemini-round-1.json
 ```json
 {
   "strategy": "simple|adversarial|consensus",
-  "rounds": 1,  // set to 2 when Step 3.8d (Round 2) was executed
-  "round_1": {
-    "reviewer": {"verdict": "PASS|WARN|BLOCK|UNRELIABLE", "findings_count": 0, "invalid_count": 0},
-    "skeptic":  {"verdict": "PASS|WARN|BLOCK|UNRELIABLE", "findings_count": 0, "invalid_count": 0}
+  "consensus_model": "findings_quorum",
+  "rounds": 1,
+  "providers": {
+    "claude_reviewer": {"status": "ok|unreliable", "findings_raw": 0, "findings_valid": 0},
+    "claude_skeptic": {"status": "ok|unreliable|null", "findings_raw": 0, "findings_valid": 0},
+    "codex": {"status": "ok|not_installed|auth_expired|timeout|error|abstain|skipped", "findings_raw": 0, "findings_valid": 0},
+    "gemini": {"status": "ok|not_installed|auth_expired|timeout|error|abstain|skipped", "findings_raw": 0, "findings_valid": 0}
   },
+  "clusters_total": 0,
+  "clusters_cross_provider": 0,
+  "clusters": [
+    {
+      "id": 1,
+      "severity": "critical|important|minor",
+      "category": "bug|security|...",
+      "file": "path/to/file.py",
+      "line": 42,
+      "claim": "description",
+      "evidence": "code quote",
+      "sources": ["claude_reviewer", "codex"],
+      "cross_provider": true,
+      "diversity": true,
+      "verified": true,
+      "verdict_impact": "BLOCK|WARN|none"
+    }
+  ],
   "round_2": null,
-  "escalation_reason": "gap_2|null",
-  "codex_invoked": false,
-  "codex_status": "ok|not_installed|auth_expired|error|skipped",
-  "codex_tiebreaker": null,
+  "panel_tiebreaker": null,
   "final_verdict": "PASS|WARN|BLOCK|SKIPPED|ABORTED|UNRELIABLE",
   "findings_total": 0,
   "findings_verified": 0,
-  "findings": [],
   "out_of_scope_warnings": [],
   "unreliable_agents": [],
-  "unreliable_round2_agents": [],
+  "provider_abstained": [],
   "refuted_findings": [],
-  "disputed_refutals": [],
+  "refuted_findings_round2": [],
   "override": null,
   "diff_sha": "..."
 }
 ```
 
-For `round_2`: same structure as `round_1` when Round 2 was executed, `null` otherwise.
-For `codex_tiebreaker`: `{"input": "...", "output": "...", "verdict": "..."}` when invoked, `null` otherwise.
-For `override`: `{"rationale": "...", "timestamp": "..."}` when user overrides BLOCK, `null` otherwise.
-For `refuted_findings`: array of `{"index": N, "rationale_reviewer": "...", "rationale_skeptic": "..."}` — only when BOTH agents agreed to refute.
-For `disputed_refutals`: array of `{"index": N, "agent": "reviewer|skeptic", "rationale": "..."}` — single-agent refutals (informational, finding kept).
-For `unreliable_round2_agents`: array of agent names flagged UNRELIABLE in Round 2 (separate from Round 1 `unreliable_agents`).
-
 2. **Write `.dev/review-verdict.md`** (human-readable):
 ```
 ## Review Verdict: {PASS|WARN|BLOCK|SKIPPED|ABORTED|UNRELIABLE}
 
-**Strategy:** {strategy}
-**Rounds:** {N}
-**Codex tiebreaker:** {yes|no}
+**Strategy:** {strategy} ({consensus_model})
+**Providers:** {provider_name} ({status}), ...
+**Round 2:** {yes|no}
+**Panel tiebreaker:** {yes|no}
 
-### Findings ({total} total, {verified} verified)
-| # | Sev | Cat | File:Line | Claim | Source | Verified |
-|---|-----|-----|-----------|-------|--------|----------|
+### Clusters ({total} total, {cross_provider} cross-provider)
+| # | Sev | Cat | File:Line | Claim | Sources | Cross? | Diverse? | Verified | Impact |
+|---|-----|-----|-----------|-------|---------|--------|----------|----------|--------|
 ...
+
+### Provider Summary
+- claude_reviewer: N raw → M valid (ok)
+- claude_skeptic: N raw → M valid (ok)
+- codex: N raw → M valid (ok|auth_expired|...)
+- gemini: skipped (not_installed|auth_expired|...)
 
 ### Out-of-Scope Warnings
 | File:Line | Claim | Source |
@@ -954,6 +971,10 @@ cp .dev/scope.json .dev/exploration.md .dev/design.md ".dev/runs/$STARTED_AT/" 2
 for f in .dev/reviewer-round-*.json .dev/skeptic-round-*.json .dev/review-round-*-validated.json; do
   [ -f "$f" ] && cp "$f" ".dev/runs/$STARTED_AT/"
 done
+# Archive external provider artifacts (prompt + all round outputs)
+for f in .dev/external-review-prompt.txt .dev/codex-round-*.json .dev/gemini-round-*.json; do
+  [ -f "$f" ] && cp "$f" ".dev/runs/$STARTED_AT/"
+done
 ```
 
 **Step 3.11 — Present final summary to user:**
@@ -970,7 +991,8 @@ done
 **Review verdict:** PASS | WARN | BLOCK | SKIPPED | N/A
 **Review strategy:** simple | adversarial | consensus
 **Review rounds:** 1 | 2 | N/A
-**Codex tiebreaker:** yes | no | N/A
+**Review providers:** claude | claude+codex | claude+codex+gemini
+**Cross-provider findings:** N clusters confirmed by 2+ providers
 **Run archived:** .dev/runs/<started_at>/
 
 ### Next Steps
