@@ -8,5 +8,8 @@
   "homepage": "https://github.com/heurema/sigil",
   "repository": "https://github.com/heurema/sigil",
   "license": "MIT",
-  "keywords": ["dev-pipeline", "code-review", "adversarial", "consensus", "risk-adaptive"]
+  "keywords": ["dev-pipeline", "code-review", "adversarial", "consensus", "risk-adaptive"],
+  "status": "active",
+  "owner": "heurema",
+  "tags": ["devtools", "pipeline", "code-review"]
 }
