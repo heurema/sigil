@@ -14,11 +14,14 @@ Review rigor scales automatically with complexity. Low-risk changes get a fast s
 
 ## Quick Start
 
+<!-- INSTALL:START — auto-synced from emporium/INSTALL_REFERENCE.md -->
 ```bash
-# Install
-claude plugin marketplace add heurema/emporium   # once
+claude plugin marketplace add heurema/emporium
 claude plugin install sigil@emporium
+```
+<!-- INSTALL:END -->
 
+```bash
 # Use — describe what you want to build
 /sigil add user authentication with JWT
 ```
