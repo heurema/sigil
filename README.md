@@ -4,6 +4,8 @@
 
 Sigil is a Claude Code plugin that turns a feature description into a complete development cycle — risk assessment, codebase mapping, architecture design, implementation, and multi-agent code review. One command, four phases.
 
+**v1.1.0** adds the `diverge` build strategy: for complex changes, Sigil can dispatch three independent implementations (via arbiter) and let you choose the best solution before tests, observer, and review run on the winner.
+
 Review rigor scales automatically with complexity. Low-risk changes get a fast single-reviewer pass. High-risk changes escalate to adversarial consensus: independent AI agents (Claude Reviewer + Skeptic + Codex + Gemini) review the same diff blind, with machine-validated findings and cross-provider verification.
 
 ```
@@ -42,6 +44,7 @@ Sigil assesses risk, maps the codebase, presents a design for your approval, imp
 
 - **4-phase pipeline**: Scope (zero-LLM) → Explore → Design (approval gate) → Build + Review
 - **3 review strategies** auto-selected by risk: simple, adversarial, consensus
+- **Diverge build strategy**: dispatch 3 independent implementations (Claude + Codex + Gemini via arbiter), pick the winner — then tests, observer, and review run normally on the selected solution
 - **Machine-validated findings**: file existence, line range, evidence grep, scope check — hallucinated findings are silently dropped
 - **Session resume**: interrupt and pick up where you left off
 - **External AI optional**: Codex and Gemini provide independent review perspectives with explicit consent

@@ -55,6 +55,22 @@ Produces an architecture document with:
 
 Implementation agents write the code, then the review pipeline runs.
 
+### Build Strategy
+
+Before launching implementers, Sigil reads `build_strategy` from `scope.json`. Three paths are available:
+
+**normal** (default): Standard flow — implementer agents write code directly into the feature branch, then tests, observer, and review run as usual.
+
+**diverge**: Sigil delegates to the arbiter plugin to produce 3 independent implementations in isolated git worktrees — one each from Claude (minimal strategy), Codex (refactor strategy), and Gemini (redesign strategy). An anonymized evaluator scores them using a weighted decision matrix (correctness, maintainability, test coverage, security, etc.) and presents a Diverge Report. You pick the winning solution; arbiter merges it into the feature branch. Sigil then resumes its normal Phase 4 flow from the test step — tests, observer, and review run once on the selected implementation, not three times.
+
+**diverge-lite**: Arbiter produces 3 alternative *designs* (not implementations) — useful for exploring architectural options without committing to code. On selection, the chosen design overwrites `.dev/design.md`, and Sigil re-enters Phase 4 from the task planning step, building from the updated design.
+
+Sigil suggests diverge automatically at the scope confirmation prompt when:
+- Estimated file count > 10 AND risk is not `low`, OR
+- The feature description contains keywords: `refactor`, `redesign`, `migrate`, or `rewrite`
+
+Both `diverge` and `diverge-lite` require arbiter to be installed. The strategy can also be set manually by typing `build=diverge` or `build=diverge-lite` at the scope confirmation prompt.
+
 ### Observer Agent
 
 A read-only sonnet agent (medium/high risk only) that audits the implementation against the approved design. Checks for scope creep, missing test coverage, and deviations from the plan. Reports PASS/BLOCK/STOP verdict.
