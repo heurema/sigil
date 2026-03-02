@@ -3,7 +3,7 @@
   "plugins": [
     {
       "name": "sigil",
-      "description": "Risk-adaptive development pipeline with adversarial consensus code review",
+      "description": "Evidence-driven development pipeline with multi-model code review",
       "commands": ["./commands"],
       "agents": ["./agents"],
       "strict": false
