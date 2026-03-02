@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "decision", "contract", "diff", "checks", "checksums", "summary"],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "2.0" },
+    "runId": { "type": "string", "pattern": "^sigil-" },
+    "decision": { "type": "string", "enum": ["AUTO_OK", "AUTO_BLOCK", "HUMAN_REVIEW"] },
+    "contract": { "type": "string" },
+    "diff": { "type": "string" },
+    "checks": {
+      "type": "object",
+      "required": ["mechanic", "reviews", "audit_summary"],
+      "properties": {
+        "mechanic": { "type": "string" },
+        "reviews": {
+          "type": "object",
+          "properties": {
+            "claude": { "type": "string" },
+            "codex": { "type": "string" },
+            "gemini": { "type": "string" }
+          }
+        },
+        "audit_summary": { "type": "string" }
+      }
+    },
+    "checksums": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "pattern": "^sha256:" }
+    },
+    "summary": { "type": "string" },
+    "executeLog": { "type": "string" }
+  }
+}
