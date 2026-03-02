@@ -1,14 +1,12 @@
 {
   "name": "sigil",
-  "description": "Risk-adaptive development pipeline with adversarial consensus code review",
-  "version": "1.2.0",
-  "author": {
-    "name": "heurema"
-  },
+  "description": "Evidence-driven development pipeline with multi-model code review",
+  "version": "2.0.0",
+  "author": { "name": "heurema" },
   "homepage": "https://github.com/heurema/sigil",
   "repository": "https://github.com/heurema/sigil",
   "license": "MIT",
-  "keywords": ["dev-pipeline", "code-review", "adversarial", "consensus", "risk-adaptive"],
+  "keywords": ["dev-pipeline", "code-review", "multi-model", "evidence-driven", "proofpack"],
   "status": "active",
   "owner": "heurema",
   "tags": ["devtools", "pipeline", "code-review"]

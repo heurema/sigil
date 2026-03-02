@@ -1,15 +1,13 @@
 # Sigil
 
-> Risk-adaptive dev pipeline with adversarial code review
+> Evidence-driven development pipeline with multi-model code review
 
-Sigil is a Claude Code plugin that turns a feature description into a complete development cycle — risk assessment, codebase mapping, architecture design, implementation, and multi-agent code review. One command, four phases.
+Sigil is a Claude Code plugin that turns a task description into a complete development cycle: contract generation, implementation with repair loop, and parallel audit by independent AI models. One command, four phases, verifiable output.
 
-**v1.1.0** adds the `diverge` build strategy: for complex changes, Sigil can dispatch three independent implementations (via arbiter) and let you choose the best solution before tests, observer, and review run on the winner.
-
-Review rigor scales automatically with complexity. Low-risk changes get a fast single-reviewer pass. High-risk changes escalate to adversarial consensus: independent AI agents (Claude Reviewer + Skeptic + Codex + Gemini) review the same diff blind, with machine-validated findings and cross-provider verification.
+Contract-first, multi-model-verified, proof-packaged.
 
 ```
-/sigil add JWT authentication to the API
+/sigil "add JWT authentication to the API"
 ```
 
 ## Quick Start
@@ -22,55 +20,63 @@ claude plugin install sigil@emporium
 <!-- INSTALL:END -->
 
 ```bash
-# Use — describe what you want to build
-/sigil add user authentication with JWT
+# Run — describe what you want to build
+/sigil "your task description"
 ```
 
-Sigil assesses risk, maps the codebase, presents a design for your approval, implements the code, and reviews it — all automatically.
+Sigil generates a contract, shows it for approval, implements the code with an automatic repair loop, audits the result with multiple independent AI models, and produces a `proofpack.json` artifact.
 
-## How It Works
+## Architecture
 
 ```
-┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-│  Scope  │───>│ Explore  │───>│  Design  │───>│  Build   │
-│ (bash)  │    │ (sonnet) │    │(son/opus)│    │ (sonnet) │
-└─────────┘    └──────────┘    └──────────┘    └──────────┘
+CONTRACT → EXECUTE → AUDIT → PACK
+                       ↓
+                  ┌────┼────┐
+               Claude Codex Gemini
+                  └────┼────┘
+                       ↓
+                  proofpack.json
 ```
 
-| Risk  | Explore | Design  | Build        | Review Strategy |
-|-------|---------|---------|--------------|-----------------|
-| low   | 1 agent | sonnet  | 1 agent      | simple (1 reviewer) |
-| med   | 2 agents| opus    | 2 + observer | adversarial (Reviewer + Skeptic + Codex) |
-| high  | 3 agents| opus    | 3 + observer | consensus (all providers, 2 rounds) |
+| Phase | Agent | Output |
+|-------|-------|--------|
+| CONTRACT | Contractor (haiku/sonnet) | `contract.json` |
+| EXECUTE | Engineer (sonnet) + repair loop | feature branch, commits |
+| AUDIT | Claude Opus + Codex + Gemini | per-provider findings |
+| PACK | Synthesizer (sonnet) | `proofpack.json` |
 
 ## Key Features
 
-- **4-phase pipeline**: Scope (zero-LLM) → Explore → Design (approval gate) → Build + Review
-- **3 review strategies** auto-selected by risk: simple, adversarial, consensus
-- **Diverge build strategy**: dispatch 3 independent implementations (Claude + Codex + Gemini via arbiter), pick the winner — then tests, observer, and review run normally on the selected solution
-- **Machine-validated findings**: file existence, line range, evidence grep, scope check — hallucinated findings are silently dropped
-- **Session resume**: interrupt and pick up where you left off
-- **External AI optional**: Codex and Gemini provide independent review perspectives with explicit consent
+- **Multi-model audit panel**: Claude Opus, Codex, and Gemini each review the diff independently. Findings are cross-validated and synthesized with deterministic rules — any critical finding blocks, important findings confirmed by 2+ providers warn.
+- **Contract-driven**: Every run starts with a structured `contract.json` defining acceptance criteria, affected files, and test strategy. Implementation is measured against it.
+- **Proofpack output**: `proofpack.json` is a CI-gate artifact — it records the contract, all audit findings, verdict, execution log, and provider availability in a single verifiable file.
+- **Repair loop**: The engineer agent retries failing tests up to 3 times before halting, reducing noise from transient build issues.
+- **CLI adapter for external models**: Codex and Gemini are invoked via their CLIs with explicit user consent. Sigil degrades gracefully if either is unavailable or unauthenticated.
+- **Finding validation**: Every AI finding is validated against the actual diff — file existence, line range bounds, evidence grep, scope check. Hallucinated findings are dropped before synthesis.
 
 ## Privacy & Data
 
-All orchestration runs inside Claude Code. External AI providers (Codex CLI, Gemini CLI) are **optional** — they require explicit consent and receive only the diff, never your full codebase. Use `skip-external` to opt out entirely. No API keys required. No telemetry. Artifacts stored in `.dev/` (auto-added to `.gitignore`).
+All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) require explicit consent and receive the diff only — never the full codebase. Use `skip-external` to run Claude-only audit. No API keys required beyond standard CLI auth. No telemetry. Artifacts stored in `.dev/` (auto-added to `.gitignore`).
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) v2.1.47+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) v2.1+
 - `git`, `jq`
 - Optional: [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 ## Documentation
 
-- **[How it Works](docs/how-it-works.md)** — architecture, review pipeline, trust boundaries
+- **[How it Works](docs/how-it-works.md)** — pipeline, agents, multi-model audit, trust boundaries, limitations
 - **[Reference](docs/reference.md)** — usage examples, artifacts, troubleshooting, cost estimates
 
 ## Links
 
 - [skill7.dev/development/sigil](https://skill7.dev/development/sigil)
 - [Report Issue](https://github.com/heurema/sigil/issues)
+
+## Version
+
+2.0.0
 
 ## License
 
