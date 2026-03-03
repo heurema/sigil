@@ -48,6 +48,7 @@ rm -f .signum/contract.json .signum/execute_log.json .signum/combined.patch \
        .signum/policy_violations.json \
        .signum/spec_quality.json .signum/spec_validation.json \
        .signum/repo_contract_baseline.json .signum/repo_contract_violations.json \
+       .signum/contract-hash.txt .signum/execution_context.json \
        .signum/reviews/claude.json .signum/reviews/codex.json .signum/reviews/gemini.json \
        .signum/review_prompt_codex.txt .signum/review_prompt_gemini.txt \
        .signum/reviews/codex_raw.txt .signum/reviews/gemini_raw.txt
@@ -352,6 +353,32 @@ jq -r 'if .riskLevel == "high" then "Risk signals: " + (.riskSignals // [] | joi
 
 Wait for confirmation. If the user says no, stop.
 
+### Step 1.4.5: Record approval timestamp (contract-hash.txt)
+
+After the user confirms, anchor the approved contract with a SHA-256 hash and timestamp. This creates the root of the audit chain.
+
+Use the Bash tool:
+
+```bash
+if command -v sha256sum >/dev/null 2>&1; then
+  CONTRACT_HASH=$(sha256sum .signum/contract.json | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+  CONTRACT_HASH=$(shasum -a 256 .signum/contract.json | awk '{print $1}')
+else
+  CONTRACT_HASH="unavailable"
+fi
+
+APPROVAL_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+cat > .signum/contract-hash.txt <<EOF
+contract_sha256: $CONTRACT_HASH
+approved_at: $APPROVAL_TS
+contract_file: .signum/contract.json
+EOF
+
+echo "Audit chain anchored: $CONTRACT_HASH at $APPROVAL_TS"
+```
+
 ### Step 1.5: Prepare sanitized engineer contract
 
 Use the Bash tool to create a contract stripped of holdout scenarios (data-level isolation):
@@ -451,9 +478,15 @@ print(f'contract-policy.json written (risk={risk}, allowed_paths={len(in_scope)}
 
 ### Step 2.0: Capture baseline (before any changes)
 
-Use the Bash tool to run project checks BEFORE the engineer touches anything:
+Use the Bash tool to record the current commit SHA (audit chain: this is where the Engineer starts from) and run project checks BEFORE the engineer touches anything:
 
 ```bash
+# Record base commit for audit chain
+BASE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "no-git")
+EXECUTE_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo "{\"base_commit\":\"$BASE_COMMIT\",\"started_at\":\"$EXECUTE_START\"}" > .signum/execution_context.json
+echo "Execution context: base_commit=$BASE_COMMIT"
+
 # Lint
 if [ -f "pyproject.toml" ] && grep -q "ruff" pyproject.toml 2>/dev/null; then
   BL_LINT_EXIT=$(ruff check . >/dev/null 2>&1; echo $?)
@@ -1061,6 +1094,11 @@ RUN_DATE=$(date +%Y-%m-%d)
 RUN_RANDOM=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
 RUN_ID="signum-${RUN_DATE}-${RUN_RANDOM}"
 
+# Audit chain fields
+CONTRACT_HASH=$(grep 'contract_sha256:' .signum/contract-hash.txt 2>/dev/null | awk '{print $2}' || echo "unavailable")
+APPROVED_AT=$(grep 'approved_at:' .signum/contract-hash.txt 2>/dev/null | awk '{print $2}' || echo "unavailable")
+BASE_COMMIT=$(jq -r '.base_commit // "unavailable"' .signum/execution_context.json 2>/dev/null || echo "unavailable")
+
 # Cross-platform sha256
 if command -v sha256sum >/dev/null 2>&1; then
   HASH_CMD="sha256sum"
@@ -1086,6 +1124,9 @@ jq -n \
   --arg sum_patch "$sum_patch" \
   --arg sum_mechanic "$sum_mechanic" \
   --arg sum_audit "$sum_audit" \
+  --arg contract_hash "$CONTRACT_HASH" \
+  --arg approved_at "$APPROVED_AT" \
+  --arg base_commit "$BASE_COMMIT" \
   '{
     schemaVersion: $schema,
     runId: $runId,
@@ -1109,7 +1150,12 @@ jq -n \
     },
     confidence: { overall: $confidence },
     summary: $summary,
-    executeLog: "execute_log.json"
+    executeLog: "execute_log.json",
+    auditChain: {
+      contract_sha256: $contract_hash,
+      approved_at: $approved_at,
+      base_commit: $base_commit
+    }
   }' > .signum/proofpack.json
 
 echo "Proofpack written: $RUN_ID"
