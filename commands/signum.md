@@ -198,6 +198,112 @@ jq -n --argjson total "$TOTAL" --arg grade "$GRADE" \
   > .signum/spec_quality.json
 ```
 
+### Step 1.3.7: Multi-model spec validation (optional, if providers available)
+
+Use the Bash tool to check which providers are available:
+
+```bash
+CODEX_AVAIL=$(which codex > /dev/null 2>&1 && echo "yes" || echo "no")
+GEMINI_AVAIL=$(which gemini > /dev/null 2>&1 && echo "yes" || echo "no")
+echo "codex=$CODEX_AVAIL gemini=$GEMINI_AVAIL"
+```
+
+If both are UNAVAILABLE, skip to Step 1.4.
+
+If at least one is available: read the contract to build validation context:
+
+```bash
+SPEC_CONTEXT=$(python3 -c "
+import json
+c = json.load(open('.signum/contract.json'))
+acs = '\n'.join(f'  - [{a[\"id\"]}] {a[\"description\"]}' for a in c.get('acceptanceCriteria', []))
+inscope = ', '.join(c.get('inScope', []))
+print(f'''Goal: {c[\"goal\"]}
+Risk: {c[\"riskLevel\"]}
+In scope: {inscope}
+Acceptance criteria:
+{acs}
+Assumptions: {', '.join(c.get('assumptions', ['none']))}
+Out of scope: {', '.join(c.get('outOfScope', ['not specified']))}
+''')
+")
+echo "$SPEC_CONTEXT"
+```
+
+If codex is available, use the Bash tool with **`run_in_background: true`** to ask codex about spec ambiguities:
+
+```bash
+ERR=$(mktemp)
+OUT=$(mktemp)
+PROMPT="You are reviewing a software specification BEFORE any code is written. Your job: find problems with the spec itself, not the code.
+
+Specification:
+$SPEC_CONTEXT
+
+Answer these questions concisely (3-5 bullet points each):
+1. AMBIGUITIES: What is unclear or could be interpreted multiple ways by different developers?
+2. ASSUMPTIONS: What unstated assumptions would you make to implement this?
+3. MISSING: What important behavior, error case, or constraint is not specified?
+
+Be specific and brief. Focus on gaps that would cause implementation mistakes."
+
+codex exec --ephemeral -C "$PWD" -p fast --output-last-message "$OUT" "$PROMPT" 2>"$ERR"
+CODEX_SPEC_EXIT=$?
+CODEX_SPEC_OUT=$(cat "$OUT" 2>/dev/null || cat "$ERR" | head -c 1000)
+rm -f "$OUT" "$ERR"
+echo "---CODEX_SPEC---"
+echo "$CODEX_SPEC_OUT"
+```
+
+Save the task ID as CODEX_SPEC_TASK_ID.
+
+If gemini is available, immediately (without waiting) use the Bash tool with **`run_in_background: true`** to ask gemini about missing coverage:
+
+```bash
+ERR=$(mktemp)
+PROMPT="You are reviewing a software specification BEFORE any code is written. Your job: find gaps in the spec.
+
+Specification:
+$SPEC_CONTEXT
+
+Answer concisely (3-5 bullet points each):
+1. EDGE CASES: What scenarios, inputs, or states are not covered by the acceptance criteria?
+2. FAILURE MODES: What can go wrong that the spec doesn't address?
+3. MISSING CONSTRAINTS: What performance, security, or compatibility constraints should be specified?
+
+Be specific. Focus on what would cause bugs or user complaints if left unaddressed."
+
+RESP=$(gemini -p "$PROMPT" -o text 2>"$ERR")
+GEMINI_SPEC_EXIT=$?
+if [ $GEMINI_SPEC_EXIT -ne 0 ]; then
+  GEMINI_SPEC_OUT="[gemini error: $(cat $ERR | head -c 200)]"
+else
+  GEMINI_SPEC_OUT="$RESP"
+fi
+rm -f "$ERR"
+echo "---GEMINI_SPEC---"
+echo "$GEMINI_SPEC_OUT"
+```
+
+Save the task ID as GEMINI_SPEC_TASK_ID.
+
+Use the TaskOutput tool with `block: true` to wait for CODEX_SPEC_TASK_ID (if launched). Then use the TaskOutput tool with `block: true` to wait for GEMINI_SPEC_TASK_ID (if launched).
+
+Write collected findings to `.signum/spec_validation.json`:
+
+```bash
+jq -n \
+  --arg codex_out "$CODEX_SPEC_OUT" \
+  --arg gemini_out "$GEMINI_SPEC_OUT" \
+  --arg codex_avail "$CODEX_AVAIL" \
+  --arg gemini_avail "$GEMINI_AVAIL" \
+  '{
+    codex: { available: ($codex_avail == "yes"), findings: $codex_out },
+    gemini: { available: ($gemini_avail == "yes"), findings: $gemini_out }
+  }' > .signum/spec_validation.json
+echo "Spec validation written to .signum/spec_validation.json"
+```
+
 ### Step 1.4: Display contract summary
 
 Use the Bash tool to extract and display:
@@ -213,6 +319,22 @@ jq -r '"Goal: " + .goal,
 QUALITY=$(jq -r '"Spec quality: " + (.total | tostring) + "/100 (grade " + .grade + ")"' \
   .signum/spec_quality.json 2>/dev/null || echo "Spec quality: not computed")
 echo "$QUALITY"
+
+# Show spec validation findings if available
+if [ -f .signum/spec_validation.json ]; then
+  CODEX_AVAIL=$(jq -r '.codex.available' .signum/spec_validation.json)
+  GEMINI_AVAIL=$(jq -r '.gemini.available' .signum/spec_validation.json)
+  if [ "$CODEX_AVAIL" = "true" ]; then
+    echo ""
+    echo "--- Codex spec review (ambiguities + assumptions) ---"
+    jq -r '.codex.findings' .signum/spec_validation.json
+  fi
+  if [ "$GEMINI_AVAIL" = "true" ]; then
+    echo ""
+    echo "--- Gemini spec review (edge cases + failure modes) ---"
+    jq -r '.gemini.findings' .signum/spec_validation.json
+  fi
+fi
 ```
 
 Also display any riskSignals if riskLevel is "high":
