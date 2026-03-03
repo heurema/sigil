@@ -115,6 +115,25 @@ jq -r 'if .riskLevel == "high" then "Risk signals: " + (.riskSignals // [] | joi
 
 Wait for confirmation. If the user says no, stop.
 
+### Step 1.5: Prepare sanitized engineer contract
+
+Use the Bash tool to create a contract stripped of holdout scenarios (data-level isolation):
+
+```bash
+# Create contract-engineer.json: full contract minus holdoutScenarios
+# Engineer cannot see holdouts — not a prompt instruction, actual data removal
+python3 -c "
+import json
+with open('.signum/contract.json') as f:
+    c = json.load(f)
+c.pop('holdoutScenarios', None)
+with open('.signum/contract-engineer.json', 'w') as f:
+    json.dump(c, f, indent=2)
+ac_count = len(c.get('acceptanceCriteria', []))
+print(f'contract-engineer.json written ({ac_count} ACs, holdouts removed)')
+"
+```
+
 ---
 
 ## Phase 2: EXECUTE
@@ -169,7 +188,7 @@ echo "Baseline captured: lint=$BL_LINT_EXIT type=$BL_TYPE_EXIT test=$BL_TEST_EXI
 Use the Agent tool to launch the "engineer" agent with this prompt:
 
 ```
-Read .signum/contract.json and implement the required changes.
+Read .signum/contract-engineer.json and implement the required changes.
 Read .signum/baseline.json for pre-existing check state.
 Implement, run the repair loop (max 3 attempts), save artifacts.
 Write .signum/combined.patch and .signum/execute_log.json.
