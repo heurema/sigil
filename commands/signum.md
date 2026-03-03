@@ -44,6 +44,9 @@ rm -f .signum/contract.json .signum/execute_log.json .signum/combined.patch \
        .signum/baseline.json .signum/mechanic_report.json \
        .signum/audit_summary.json .signum/proofpack.json \
        .signum/holdout_report.json \
+       .signum/contract-engineer.json .signum/contract-policy.json \
+       .signum/policy_violations.json \
+       .signum/spec_quality.json .signum/spec_validation.json \
        .signum/reviews/claude.json .signum/reviews/codex.json .signum/reviews/gemini.json \
        .signum/review_prompt_codex.txt .signum/review_prompt_gemini.txt \
        .signum/reviews/codex_raw.txt .signum/reviews/gemini_raw.txt
@@ -399,6 +402,45 @@ Keep all other contract fields the same.
 ```
 
 After contractor re-runs, repeat the holdout count check. If count is still insufficient after one retry, continue with a warning (do not block indefinitely).
+
+### Step 1.6: Generate execution policy
+
+Derive `contract-policy.json` from the contract. This file defines what the Engineer may and may not do during EXECUTE.
+
+Use the Bash tool:
+
+```bash
+python3 -c "
+import json
+with open('.signum/contract.json') as f:
+    c = json.load(f)
+risk = c.get('riskLevel', 'low')
+in_scope = c.get('inScope', [])
+max_files = {'low': 25, 'medium': 15, 'high': 10}.get(risk, 15)
+policy = {
+    'schemaVersion': '1.0',
+    'generatedFrom': c.get('taskId', 'unknown'),
+    'riskLevel': risk,
+    'allowed_tools': ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash'],
+    'denied_tools': ['WebSearch', 'WebFetch', 'Agent', 'Task'],
+    'bash_deny_patterns': [
+        r'rm\s+-[rf]+\s+/',
+        r'git\s+push\s+--force',
+        r'curl[^|]*\|\s*sh',
+        r'eval\s+\\\$',
+        r'dd\s+if=',
+        r'mkfs\.',
+        r'>\s*/dev/sd',
+    ],
+    'allowed_paths': in_scope,
+    'max_files_changed': max_files,
+    'network_access': False,
+}
+with open('.signum/contract-policy.json', 'w') as f:
+    json.dump(policy, f, indent=2)
+print(f'contract-policy.json written (risk={risk}, allowed_paths={len(in_scope)}, max_files={max_files})')
+"
+```
 
 ---
 
