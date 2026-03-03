@@ -430,15 +430,21 @@ print(tmpl.replace('{goal}', goal).replace('{diff}', diff))
 Run codex and attempt 3-level parsing:
 
 ```bash
-# Run codex
+# Run codex (modern CLI: codex exec --ephemeral)
 PROMPT=$(cat .signum/review_prompt_codex.txt)
-codex -q "$PROMPT" > .signum/reviews/codex_raw.txt 2>&1 &
+OUT=$(mktemp)
+codex exec --ephemeral -C "$PWD" -p fast --output-last-message "$OUT" "$PROMPT" \
+  > .signum/reviews/codex_stdout.txt 2>&1 &
 CODEX_PID=$!
 ( sleep 180; kill $CODEX_PID 2>/dev/null ) &
 TIMER_PID=$!
 wait $CODEX_PID 2>/dev/null
 CODEX_EXIT=$?
 kill $TIMER_PID 2>/dev/null; wait $TIMER_PID 2>/dev/null
+# Copy last-message output (clean JSON) to raw file for subsequent parsing
+cp "$OUT" .signum/reviews/codex_raw.txt 2>/dev/null || \
+  cp .signum/reviews/codex_stdout.txt .signum/reviews/codex_raw.txt
+rm -f "$OUT"
 
 # Level 1: valid JSON directly
 if jq -e '.verdict' .signum/reviews/codex_raw.txt > /dev/null 2>&1; then
