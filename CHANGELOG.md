@@ -1,5 +1,28 @@
 # Changelog
 
+## [4.0.0] - 2026-03-04
+
+### Changed
+- **BREAKING**: proofpack.json schema v3.0 → v4.0
+- All artifact fields changed from file path strings to envelope objects with embedded content
+- `checksums` top-level field removed (per-artifact sha256 in each envelope)
+- `checks.audit_summary` renamed to `checks.auditSummary` (camelCase unification)
+- `auditChain` fields renamed: `contract_sha256` → `contractSha256`, `approved_at` → `approvedAt`, `base_commit` → `baseCommit`
+- Hash format changed from `sha256:hex` prefix to plain hex string
+
+### Added
+- Self-contained proofpack: all artifact contents embedded in single JSON file
+- Envelope format: `{ content, sha256, sizeBytes, status, omitReason? }`
+- Envelope status field: `present | omitted | error` for each artifact
+- Contract redaction: holdouts stripped from embedded content, `fullSha256` preserves original hash
+- Diff omit-but-hash: patches >100KB stored as hash + size only
+- Dynamic review provider keys (not limited to claude/codex/gemini)
+- `signumVersion` and `createdAt` top-level fields
+- `baseline` and `executeLog` as first-class proofpack artifacts
+
+### Planned (v4.1)
+- Multi-path execution: parallel implementation strategies with winner selection via worktree isolation
+
 ## [3.0.0] - 2026-03-03
 
 ### Added
