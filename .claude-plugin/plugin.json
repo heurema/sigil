@@ -1,7 +1,7 @@
 {
   "name": "signum",
   "description": "Evidence-driven development pipeline with multi-model code review",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "author": { "name": "heurema" },
   "homepage": "https://github.com/heurema/signum",
   "repository": "https://github.com/heurema/signum",
