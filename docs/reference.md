@@ -89,7 +89,7 @@ Pre-existing failures (checks that failed in baseline AND still fail) no longer 
 
 ### Phase 4: PACK
 
-Assembles `.signum/proofpack.json` — machine-readable evidence bundle with SHA-256 checksums for every artifact and confidence score.
+Assembles `.signum/proofpack.json` — self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
 
 ## Artifacts
 
@@ -107,7 +107,7 @@ All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
 | `reviews/codex.json` | Audit | Codex CLI security review (or unavailable marker) |
 | `reviews/gemini.json` | Audit | Gemini CLI performance review (or unavailable marker) |
 | `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
-| `proofpack.json` | Pack | Complete evidence bundle with checksums and confidence |
+| `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
 
 ### contract.json fields
 
@@ -124,16 +124,31 @@ All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
 | `riskSignals` | string[] | Why risk level was assigned |
 | `openQuestions` | string[] | Must be empty to proceed |
 
-### proofpack.json fields
+### proofpack.json fields (v4.0)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schemaVersion` | `"3.0"` | Always "3.0" |
+| `schemaVersion` | `"4.0"` | Always "4.0" |
+| `signumVersion` | string | Signum version that generated this proofpack |
+| `createdAt` | string | ISO 8601 timestamp of proofpack creation |
 | `runId` | string | `signum-YYYY-MM-DD-XXXXXX` |
 | `decision` | `AUTO_OK\|AUTO_BLOCK\|HUMAN_REVIEW` | Final verdict |
-| `checksums` | object | SHA-256 of each artifact |
-| `confidence` | object | `{ overall: 0-100 }` — weighted confidence score |
 | `summary` | string | One-line human-readable summary |
+| `confidence` | object | `{ overall: 0-100 }` — weighted confidence score |
+| `auditChain` | object | `{ contractSha256, approvedAt, baseCommit }` — immutable audit anchors |
+| `contract` | envelope | Redacted contract (holdouts stripped), `fullSha256` for original |
+| `diff` | envelope | Patch content (omitted if >100KB) |
+| `baseline` | envelope | Pre-change lint/typecheck/test results |
+| `executeLog` | envelope | Attempt history and check results |
+| `checks.mechanic` | envelope | Lint, typecheck, test with regression flags |
+| `checks.holdout` | envelope | Holdout scenario pass/fail (if applicable) |
+| `checks.reviews.*` | envelope | Per-provider review (dynamic keys) |
+| `checks.auditSummary` | envelope | Synthesized decision with confidence |
+
+Each artifact uses the **envelope format**: `{ content, sha256, sizeBytes, status, omitReason? }`.
+- `status: present` — content embedded
+- `status: omitted` — content null, validate by sha256
+- `status: error` — generation failed, see omitReason
 
 ### Confidence scoring
 
