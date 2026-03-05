@@ -132,6 +132,26 @@ Signum grades your spec, shows the contract for approval, implements with an aut
 └─────────────────────────────────────────────────────────┘
 ```
 
+## Provider Configuration (optional)
+
+Create `~/.claude/emporium-providers.local.md` to customize which models Codex and Gemini use:
+
+```yaml
+---
+version: 1
+defaults:
+  codex:
+    model: "gpt-5.3-codex"
+  gemini:
+    model: "gemini-3.1-pro"
+routing:
+  review:
+    gemini: "gemini-3-flash"
+---
+```
+
+Without this file, signum uses each CLI's default model. See `forge doctor` to validate your config.
+
 ## Requirements
 
 - Claude Code v2.1+
