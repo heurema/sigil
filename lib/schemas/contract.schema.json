@@ -3,7 +3,7 @@
   "type": "object",
   "required": ["schemaVersion", "goal", "inScope", "acceptanceCriteria", "riskLevel"],
   "properties": {
-    "schemaVersion": { "type": "string", "const": "3.0" },
+    "schemaVersion": { "type": "string", "enum": ["3.0", "3.1"] },
     "goal": { "type": "string", "minLength": 10 },
     "inScope": {
       "type": "array",
@@ -27,13 +27,85 @@
         "properties": {
           "id": { "type": "string", "pattern": "^AC[0-9]+$" },
           "description": { "type": "string" },
+          "visibility": { "type": "string", "enum": ["visible", "holdout"] },
           "verify": {
-            "type": "object",
-            "required": ["type", "value"],
-            "properties": {
-              "type": { "type": "string", "enum": ["command", "manual"] },
-              "value": { "type": "string" }
-            }
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["type", "value"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["command", "manual"] },
+                  "value": { "type": "string" }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["steps"],
+                "properties": {
+                  "steps": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "capture": { "type": "string" }
+                      },
+                      "oneOf": [
+                        {
+                          "required": ["http"],
+                          "properties": {
+                            "http": {
+                              "type": "object",
+                              "required": ["method", "url"],
+                              "properties": {
+                                "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"] },
+                                "url": { "type": "string" },
+                                "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+                                "body": {}
+                              }
+                            },
+                            "capture": { "type": "string" }
+                          }
+                        },
+                        {
+                          "required": ["exec"],
+                          "properties": {
+                            "exec": {
+                              "type": "object",
+                              "required": ["command"],
+                              "properties": {
+                                "command": { "type": "string" },
+                                "args": { "type": "array", "items": { "type": "string" } }
+                              }
+                            },
+                            "capture": { "type": "string" }
+                          }
+                        },
+                        {
+                          "required": ["expect"],
+                          "properties": {
+                            "expect": {
+                              "type": "object",
+                              "required": ["status"],
+                              "properties": {
+                                "status": { "type": "integer" },
+                                "bodyContains": { "type": "string" },
+                                "jsonPath": { "type": "string" },
+                                "equals": {}
+                              }
+                            },
+                            "capture": { "type": "string" }
+                          }
+                        }
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "timeout_ms": { "type": "integer", "minimum": 0 }
+                },
+                "additionalProperties": false
+              }
+            ]
           }
         }
       },
@@ -77,6 +149,16 @@
       "type": "array",
       "items": { "type": "string" }
     },
-    "requiredInputsProvided": { "type": "boolean" }
+    "requiredInputsProvided": { "type": "boolean" },
+    "trust": { "type": "string", "enum": ["local"] },
+    "holdoutManifest": {
+      "type": "object",
+      "required": ["count", "hash"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "hash": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
   }
 }
