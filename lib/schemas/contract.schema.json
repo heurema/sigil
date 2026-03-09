@@ -72,10 +72,9 @@
                           "properties": {
                             "exec": {
                               "type": "object",
-                              "required": ["command"],
+                              "required": ["argv"],
                               "properties": {
-                                "command": { "type": "string" },
-                                "args": { "type": "array", "items": { "type": "string" } }
+                                "argv": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
                               }
                             },
                             "capture": { "type": "string" }
@@ -86,12 +85,14 @@
                           "properties": {
                             "expect": {
                               "type": "object",
-                              "required": ["status"],
                               "properties": {
-                                "status": { "type": "integer" },
-                                "bodyContains": { "type": "string" },
-                                "jsonPath": { "type": "string" },
-                                "equals": {}
+                                "json_path": { "type": "string" },
+                                "equals": {},
+                                "stdout_contains": { "type": "string" },
+                                "stdout_matches": { "type": "string" },
+                                "exit_code": { "type": "integer" },
+                                "file_exists": { "type": "string" },
+                                "source": { "type": "string" }
                               }
                             },
                             "capture": { "type": "string" }

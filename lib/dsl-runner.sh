@@ -274,7 +274,15 @@ _run_http() {
   curl_args+=("$url")
 
   local output
-  output=$(curl "${curl_args[@]}" 2>/dev/null) || return $?
+  local curl_stderr
+  curl_stderr=$(mktemp)
+  output=$(curl "${curl_args[@]}" 2>"$curl_stderr") || {
+    local rc=$?
+    printf 'curl error (exit %d): %s' "$rc" "$(cat "$curl_stderr")" >&2
+    rm -f "$curl_stderr"
+    return $rc
+  }
+  rm -f "$curl_stderr"
   # Truncate to 64KB
   printf '%s' "${output:0:$CAPTURE_MAX_BYTES}"
 }
