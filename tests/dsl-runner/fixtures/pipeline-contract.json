@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "3.1",
+  "trust": "local",
+  "goal": "Test full holdout pipeline end-to-end",
+  "inScope": ["lib/dsl-runner.sh", "lib/schemas/contract.schema.json"],
+  "acceptanceCriteria": [
+    {
+      "id": "AC01",
+      "description": "DSL runner script exists and is executable",
+      "visibility": "visible",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["test", "-x", "lib/dsl-runner.sh"]}}
+        ],
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "AC02",
+      "description": "Contract schema file exists",
+      "visibility": "visible",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["test", "-f", "lib/schemas/contract.schema.json"]}}
+        ],
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "AC03",
+      "description": "DSL runner validates correct input without error",
+      "visibility": "holdout",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["cat", "tests/dsl-runner/fixtures/valid-exec.json"]}, "capture": "content"},
+          {"expect": {"stdout_contains": "steps", "source": "content"}}
+        ],
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "AC04",
+      "description": "Schema file contains schemaVersion field",
+      "visibility": "holdout",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["cat", "lib/schemas/contract.schema.json"]}, "capture": "schema"},
+          {"expect": {"stdout_contains": "schemaVersion", "source": "schema"}}
+        ],
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "id": "AC05",
+      "description": "Exec whitelist includes jq",
+      "visibility": "holdout",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["cat", "lib/dsl-runner.sh"]}, "capture": "runner_src"},
+          {"expect": {"stdout_contains": "jq", "source": "runner_src"}}
+        ],
+        "timeout_ms": 5000
+      }
+    }
+  ],
+  "riskLevel": "medium"
+}
