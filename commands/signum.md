@@ -905,27 +905,79 @@ If any check has a NEW regression, continue to reviews — mechanic regression i
 
 ### Step 3.1.5: Holdout validation
 
-If contract has `holdoutScenarios`, run them now (Engineer never saw these):
+Run holdout verification using the typed DSL runner. Supports both new format (`acceptanceCriteria` with `visibility: "holdout"`) and legacy `holdoutScenarios`:
 
 ```bash
-HOLDOUTS=$(jq -r '.holdoutScenarios // [] | length' .signum/contract.json)
-if [ "$HOLDOUTS" -gt 0 ]; then
-  PASS=0; FAIL=0
-  for i in $(seq 0 $((HOLDOUTS - 1))); do
-    CMD=$(jq -r ".holdoutScenarios[$i].verify.value" .signum/contract.json)
-    DESC=$(jq -r ".holdoutScenarios[$i].description" .signum/contract.json)
-    if eval "$CMD" > /dev/null 2>&1; then
-      PASS=$((PASS + 1))
+# Count holdouts: new format (visibility=holdout) + legacy (holdoutScenarios)
+HOLDOUT_ACS=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' .signum/contract.json)
+LEGACY_HOLDOUTS=$(jq '.holdoutScenarios // [] | length' .signum/contract.json)
+TOTAL_HOLDOUTS=$((HOLDOUT_ACS + LEGACY_HOLDOUTS))
+
+if [ "$TOTAL_HOLDOUTS" -gt 0 ]; then
+  PASS=0; FAIL=0; ERRORS=0
+  RESULTS="[]"
+
+  # New format: AC with visibility=holdout
+  for i in $(seq 0 $((HOLDOUT_ACS - 1))); do
+    ID=$(jq -r "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].id" .signum/contract.json)
+    DESC=$(jq -r "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].description" .signum/contract.json)
+
+    VERIFY_FILE=$(mktemp)
+    jq "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].verify" .signum/contract.json > "$VERIFY_FILE"
+
+    if ! bash lib/dsl-runner.sh validate "$VERIFY_FILE" > /dev/null 2>&1; then
+      ERRORS=$((ERRORS + 1))
+      RESULTS=$(echo "$RESULTS" | jq --arg id "$ID" --arg desc "$DESC" \
+        '. + [{"id": $id, "description": $desc, "status": "ERROR", "error": "DSL validation failed"}]')
+      echo "HOLDOUT ERROR: $DESC (invalid DSL)"
     else
-      FAIL=$((FAIL + 1))
-      echo "HOLDOUT FAIL: $DESC"
+      REPORT=$(bash lib/dsl-runner.sh run "$VERIFY_FILE" 2>&1) || true
+      STATUS=$(echo "$REPORT" | jq -r '.status // "ERROR"')
+      ERROR=$(echo "$REPORT" | jq -r '.error // empty')
+
+      if [ "$STATUS" = "PASS" ]; then
+        PASS=$((PASS + 1))
+      else
+        FAIL=$((FAIL + 1))
+        echo "HOLDOUT FAIL: $DESC${ERROR:+ ($ERROR)}"
+      fi
+      RESULTS=$(echo "$RESULTS" | jq --arg id "$ID" --arg desc "$DESC" --arg st "$STATUS" --arg err "$ERROR" \
+        '. + [{"id": $id, "description": $desc, "status": $st, "error": (if $err == "" then null else $err end)}]')
     fi
+    rm -f "$VERIFY_FILE"
   done
-  jq -n --argjson pass "$PASS" --argjson fail "$FAIL" \
-    '{ total: ($pass + $fail), passed: $pass, failed: $fail }' > .signum/holdout_report.json
-  echo "Holdout: $PASS passed, $FAIL failed"
+
+  # Legacy format: holdoutScenarios (backward compat)
+  for i in $(seq 0 $((LEGACY_HOLDOUTS - 1))); do
+    ID=$(jq -r ".holdoutScenarios[$i].id // \"HO$((i+1))\"" .signum/contract.json)
+    DESC=$(jq -r ".holdoutScenarios[$i].description" .signum/contract.json)
+    HAS_STEPS=$(jq ".holdoutScenarios[$i].verify | has(\"steps\")" .signum/contract.json)
+    if [ "$HAS_STEPS" = "true" ]; then
+      VERIFY_FILE=$(mktemp)
+      jq ".holdoutScenarios[$i].verify" .signum/contract.json > "$VERIFY_FILE"
+      if bash lib/dsl-runner.sh validate "$VERIFY_FILE" > /dev/null 2>&1; then
+        REPORT=$(bash lib/dsl-runner.sh run "$VERIFY_FILE" 2>&1) || true
+        STATUS=$(echo "$REPORT" | jq -r '.status // "ERROR"')
+      else
+        STATUS="ERROR"
+      fi
+      rm -f "$VERIFY_FILE"
+    else
+      STATUS="ERROR"
+      echo "HOLDOUT SKIP: $DESC (legacy shell format — migrate to DSL)"
+    fi
+
+    if [ "$STATUS" = "PASS" ]; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); fi
+    RESULTS=$(echo "$RESULTS" | jq --arg id "$ID" --arg desc "$DESC" --arg st "$STATUS" \
+      '. + [{"id": $id, "description": $desc, "status": $st}]')
+  done
+
+  echo "$RESULTS" | jq --argjson pass "$PASS" --argjson fail "$FAIL" --argjson err "$ERRORS" \
+    '{total: ($pass + $fail + $err), passed: $pass, failed: $fail, errors: $err, results: .}' \
+    > .signum/holdout_report.json
+  echo "Holdout: $PASS passed, $FAIL failed, $ERRORS errors"
 else
-  echo '{"total":0,"passed":0,"failed":0}' > .signum/holdout_report.json
+  echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > .signum/holdout_report.json
   echo "No holdout scenarios"
 fi
 ```
