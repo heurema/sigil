@@ -1,0 +1,1 @@
+{"steps":[{"exec":{"argv":["jq","-n","{\"x\":42}"]},"capture":"out"},{"expect":{"json_path":"$.x","source":"out","equals":"42"}}],"timeout_ms":5000}

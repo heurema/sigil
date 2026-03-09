@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # dsl-runner.sh — typed DSL runner for signum verify blocks
-# Subcommands: validate
+# Subcommands: validate, run
 set -euo pipefail
 
 readonly MAX_STEPS=20
 readonly MAX_TIMEOUT_MS=120000
 readonly EXEC_WHITELIST="test ls wc cat jq"
+readonly CAPTURE_MAX_BYTES=65536  # 64KB
 
 # --- helpers ---
 
+die() { printf '{"status":"ERROR","error":"%s"}\n' "$1" >&2; exit 1; }
 validate_error() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 validate_ok() { printf 'VALID\n'; exit 0; }
 
 need_jq() {
-  command -v jq >/dev/null 2>&1 || { printf 'ERROR: jq not found\n' >&2; exit 1; }
+  command -v jq >/dev/null 2>&1 || die "jq not found"
 }
 
 # --- validate ---
@@ -181,6 +183,199 @@ _validate_expect() {
   fi
 }
 
+# --- run ---
+
+cmd_run() {
+  local file="${1:-}"
+  [[ -z "$file" ]] && die "usage: dsl-runner.sh run <file.json>"
+
+  # Validate first — capture stderr, check exit code
+  local validate_output
+  if ! validate_output=$(cmd_validate "$file" 2>&1); then
+    die "validation failed: $validate_output"
+  fi
+
+  need_jq
+
+  local step_count timeout_ms
+  step_count=$(jq '.steps | length' "$file")
+  timeout_ms=$(jq '.timeout_ms // 30000' "$file")
+  local timeout_s=$(( (timeout_ms + 999) / 1000 ))  # ceil to seconds
+
+  # State
+  declare -A captures=()
+  local __last_exit__=0
+
+  local i
+  for (( i = 0; i < step_count; i++ )); do
+    local has_http has_exec has_expect
+    has_http=$(jq -r ".steps[$i] | has(\"http\")" "$file")
+    has_exec=$(jq -r ".steps[$i] | has(\"exec\")" "$file")
+    has_expect=$(jq -r ".steps[$i] | has(\"expect\")" "$file")
+
+    local step_stdout=""
+
+    # Run http
+    if [[ "$has_http" == "true" ]]; then
+      step_stdout=$(_run_http "$file" "$i" "$timeout_s") && __last_exit__=0 || __last_exit__=$?
+    fi
+
+    # Run exec
+    if [[ "$has_exec" == "true" ]]; then
+      step_stdout=$(_run_exec "$file" "$i") && __last_exit__=0 || __last_exit__=$?
+    fi
+
+    # Save capture if requested
+    local capture_name
+    capture_name=$(jq -r ".steps[$i].capture // empty" "$file")
+    if [[ -n "$capture_name" ]]; then
+      captures["$capture_name"]="$step_stdout"
+    fi
+
+    # Evaluate expect
+    if [[ "$has_expect" == "true" ]]; then
+      local expect_err
+      if ! expect_err=$(_run_expect "$file" "$i" "$__last_exit__" "$step_stdout"); then
+        printf '{"status":"FAIL","error":"%s"}\n' "$expect_err"
+        exit 1
+      fi
+    fi
+
+    # If exec/http step failed and there's no expect on this step, report failure
+    if [[ "$has_expect" != "true" && "$__last_exit__" -ne 0 ]]; then
+      printf '{"status":"FAIL","error":"step %d exited with code %d"}\n' "$i" "$__last_exit__"
+      exit 1
+    fi
+  done
+
+  printf '{"status":"PASS","error":null}\n'
+  exit 0
+}
+
+_run_http() {
+  local file="$1" idx="$2" timeout_s="$3"
+  local url method body
+  url=$(jq -r ".steps[$idx].http.url" "$file")
+  method=$(jq -r ".steps[$idx].http.method" "$file")
+  body=$(jq -r ".steps[$idx].http.body // empty" "$file")
+
+  # Prepend http:// if no protocol
+  if [[ "$url" != http://* && "$url" != https://* ]]; then
+    url="http://$url"
+  fi
+
+  local -a curl_args=(-s -S --max-time "$timeout_s" --no-location -X "$method")
+  if [[ "$method" == "POST" || "$method" == "PUT" || "$method" == "PATCH" ]]; then
+    curl_args+=(-H "Content-Type: application/json")
+    if [[ -n "$body" ]]; then
+      curl_args+=(-d "$body")
+    fi
+  fi
+  curl_args+=("$url")
+
+  local output
+  output=$(curl "${curl_args[@]}" 2>/dev/null) || return $?
+  # Truncate to 64KB
+  printf '%s' "${output:0:$CAPTURE_MAX_BYTES}"
+}
+
+_run_exec() {
+  local file="$1" idx="$2"
+  local argc
+  argc=$(jq ".steps[$idx].exec.argv | length" "$file")
+
+  local -a argv=()
+  local j
+  for (( j = 0; j < argc; j++ )); do
+    argv+=("$(jq -r ".steps[$idx].exec.argv[$j]" "$file")")
+  done
+
+  local output
+  output=$("${argv[@]}" 2>&1) || return $?
+  # Truncate to 64KB
+  printf '%s' "${output:0:$CAPTURE_MAX_BYTES}"
+}
+
+_run_expect() {
+  local file="$1" idx="$2" last_exit="$3" step_stdout="$4"
+
+  # Resolve source — use captured output if source is specified
+  local source resolved_stdout
+  source=$(jq -r ".steps[$idx].expect.source // empty" "$file")
+  if [[ -n "$source" ]]; then
+    resolved_stdout="${captures[$source]:-}"
+  else
+    resolved_stdout="$step_stdout"
+  fi
+
+  # json_path + equals
+  local has_json_path
+  has_json_path=$(jq -r ".steps[$idx].expect | has(\"json_path\")" "$file")
+  if [[ "$has_json_path" == "true" ]]; then
+    local json_path equals actual
+    json_path=$(jq -r ".steps[$idx].expect.json_path" "$file")
+    # Convert JSONPath $.x to jq .x
+    json_path="${json_path#\$}"
+    equals=$(jq -r ".steps[$idx].expect.equals" "$file")
+    actual=$(printf '%s' "$resolved_stdout" | jq -r "$json_path" 2>/dev/null) || {
+      printf 'step %d: json_path extraction failed' "$idx"
+      return 1
+    }
+    if [[ "$actual" != "$equals" ]]; then
+      printf 'step %d: json_path %s = \"%s\", expected \"%s\"' "$idx" "$json_path" "$actual" "$equals"
+      return 1
+    fi
+  fi
+
+  # stdout_contains
+  local has_stdout_contains
+  has_stdout_contains=$(jq -r ".steps[$idx].expect | has(\"stdout_contains\")" "$file")
+  if [[ "$has_stdout_contains" == "true" ]]; then
+    local needle
+    needle=$(jq -r ".steps[$idx].expect.stdout_contains" "$file")
+    if ! printf '%s' "$resolved_stdout" | grep -qF "$needle"; then
+      printf 'step %d: stdout does not contain \"%s\"' "$idx" "$needle"
+      return 1
+    fi
+  fi
+
+  # stdout_matches
+  local has_stdout_matches
+  has_stdout_matches=$(jq -r ".steps[$idx].expect | has(\"stdout_matches\")" "$file")
+  if [[ "$has_stdout_matches" == "true" ]]; then
+    local pattern
+    pattern=$(jq -r ".steps[$idx].expect.stdout_matches" "$file")
+    if ! printf '%s' "$resolved_stdout" | grep -qE "$pattern"; then
+      printf 'step %d: stdout does not match regex \"%s\"' "$idx" "$pattern"
+      return 1
+    fi
+  fi
+
+  # exit_code
+  local has_exit_code
+  has_exit_code=$(jq -r ".steps[$idx].expect | has(\"exit_code\")" "$file")
+  if [[ "$has_exit_code" == "true" ]]; then
+    local expected_exit
+    expected_exit=$(jq -r ".steps[$idx].expect.exit_code" "$file")
+    if [[ "$last_exit" -ne "$expected_exit" ]]; then
+      printf 'step %d: exit_code = %d, expected %d' "$idx" "$last_exit" "$expected_exit"
+      return 1
+    fi
+  fi
+
+  # file_exists
+  local has_file_exists
+  has_file_exists=$(jq -r ".steps[$idx].expect | has(\"file_exists\")" "$file")
+  if [[ "$has_file_exists" == "true" ]]; then
+    local fpath
+    fpath=$(jq -r ".steps[$idx].expect.file_exists" "$file")
+    if [[ ! -f "$fpath" ]]; then
+      printf 'step %d: file does not exist: %s' "$idx" "$fpath"
+      return 1
+    fi
+  fi
+}
+
 # --- dispatch ---
 
 main() {
@@ -189,7 +384,8 @@ main() {
 
   case "$subcmd" in
     validate) cmd_validate "$@" ;;
-    *)        printf 'usage: dsl-runner.sh validate <file.json>\n' >&2; exit 1 ;;
+    run)      cmd_run "$@" ;;
+    *)        printf 'usage: dsl-runner.sh <validate|run> <file.json>\n' >&2; exit 1 ;;
   esac
 }
 
