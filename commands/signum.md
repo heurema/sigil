@@ -465,21 +465,27 @@ echo "Audit chain anchored: $CONTRACT_HASH at $APPROVAL_TS"
 
 ### Step 1.5: Prepare sanitized engineer contract
 
-Use the Bash tool to create a contract stripped of holdout scenarios (data-level isolation):
+Use the Bash tool to create a contract stripped of holdout scenarios and holdout ACs (data-level isolation):
 
 ```bash
-# Create contract-engineer.json: full contract minus holdoutScenarios
-# Engineer cannot see holdouts — not a prompt instruction, actual data removal
-python3 -c "
-import json
-with open('.signum/contract.json') as f:
-    c = json.load(f)
-c.pop('holdoutScenarios', None)
-with open('.signum/contract-engineer.json', 'w') as f:
-    json.dump(c, f, indent=2)
-ac_count = len(c.get('acceptanceCriteria', []))
-print(f'contract-engineer.json written ({ac_count} ACs, holdouts removed)')
-"
+# Create engineer contract: remove holdouts + holdoutScenarios
+jq '{
+  schemaVersion, goal, inScope, allowNewFilesUnder, outOfScope,
+  acceptanceCriteria: [.acceptanceCriteria[] | select(.visibility != "holdout")],
+  assumptions, openQuestions, riskLevel, riskSignals, requiredInputsProvided
+} | with_entries(select(.value != null))' .signum/contract.json > .signum/contract-engineer.json
+
+# Generate holdout manifest for committed spec
+HOLDOUT_COUNT=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' .signum/contract.json)
+if [ "$HOLDOUT_COUNT" -gt 0 ]; then
+  HOLDOUT_HASH=$(jq -c '[.acceptanceCriteria[] | select(.visibility == "holdout")]' .signum/contract.json | shasum -a 256 | cut -c1-16)
+  jq --argjson count "$HOLDOUT_COUNT" --arg hash "sha256:$HOLDOUT_HASH" \
+    '. + {holdoutManifest: {count: $count, hash: $hash}}' .signum/contract-engineer.json > .signum/contract-engineer-tmp.json
+  mv .signum/contract-engineer-tmp.json .signum/contract-engineer.json
+fi
+
+AC_VISIBLE=$(jq '[.acceptanceCriteria[] | select(.visibility != "holdout")] | length' .signum/contract.json)
+echo "contract-engineer.json written ($AC_VISIBLE visible ACs, $HOLDOUT_COUNT holdouts redacted)"
 ```
 
 After writing `contract-engineer.json`, validate holdout count against risk level:
