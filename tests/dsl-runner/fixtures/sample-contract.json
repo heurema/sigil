@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "3.1",
+  "trust": "local",
+  "goal": "Test DSL runner end-to-end",
+  "inScope": ["lib/dsl-runner.sh"],
+  "acceptanceCriteria": [
+    {
+      "id": "AC01",
+      "description": "DSL runner script exists",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["test", "-f", "lib/dsl-runner.sh"]}}
+        ],
+        "timeout_ms": 5000
+      },
+      "visibility": "visible"
+    },
+    {
+      "id": "AC02",
+      "description": "DSL runner is executable",
+      "verify": {
+        "steps": [
+          {"exec": {"argv": ["test", "-x", "lib/dsl-runner.sh"]}}
+        ],
+        "timeout_ms": 5000
+      },
+      "visibility": "holdout"
+    }
+  ],
+  "holdoutManifest": {
+    "count": 1,
+    "hash": "sha256:placeholder"
+  },
+  "riskLevel": "low"
+}
