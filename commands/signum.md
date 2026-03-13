@@ -186,7 +186,7 @@ Do not proceed to Phase 2 until the user provides answers to every open question
 
 ### Step 1.3.5: Spec quality check
 
-Use the Bash tool to score the contract on 6 dimensions. A score below 60 (grade D) means the contract is too vague for reliable autonomous execution.
+Use the Bash tool to score the contract on 7 dimensions. A score below 69 (grade D) means the contract is too vague for reliable autonomous execution.
 
 ```bash
 GOAL=$(jq -r '.goal' .signum/contract.json)
@@ -240,25 +240,78 @@ BOUNDARY=0
 [ "$HAS_OUTOFSCOPE" -eq 1 ] && BOUNDARY=$((BOUNDARY + 5))
 [ "$HAS_ASSUMPTIONS" -eq 1 ] && BOUNDARY=$((BOUNDARY + 5))
 
-TOTAL=$((TESTABILITY + COMPLETENESS + SCOPE_SCORE + NEG_SCORE + CLARITY + BOUNDARY))
+# NL Consistency (0-15): vague verb detection + terminology consistency + AC contradiction detection
 
-if [ "$TOTAL" -ge 90 ]; then GRADE="A"
-elif [ "$TOTAL" -ge 75 ]; then GRADE="B"
-elif [ "$TOTAL" -ge 60 ]; then GRADE="C"
+# Sub-check 1: Vague verb detection (0-5)
+# Synonym map for terminology consistency (endpoint/route, function/method, test/spec,
+#   error/exception, config/configuration/settings, user/client, file/document)
+ALL_AC_TEXT=$(jq -r '[.acceptanceCriteria[].description] | join(" ")' .signum/contract.json)
+VAGUE_VERBS_PATTERN="handle|process|manage|support|ensure|implement|perform|utilize|leverage|facilitate"
+VAGUE_VERBS_FOUND=$(echo "$ALL_AC_TEXT $GOAL" | grep -ciE "\b($VAGUE_VERBS_PATTERN)\b" 2>/dev/null || echo 0)
+if [ "$VAGUE_VERBS_FOUND" -eq 0 ]; then VAGUE_VERB_PTS=5; else VAGUE_VERB_PTS=0; fi
+
+# Sub-check 2: Terminology consistency (0-5)
+# Check for SYNONYM pairs that indicate inconsistent terminology
+# SYNONYM map: endpoint/route, function/method, test/spec, error/exception, config/configuration/settings, user/client, file/document
+SYNONYM_INCONSISTENT=0
+_check_synonyms() {
+  local text="$1"
+  local a="$2" b="$3"
+  local has_a has_b
+  has_a=$(echo "$text" | grep -ciw "$a" 2>/dev/null || echo 0)
+  has_b=$(echo "$text" | grep -ciw "$b" 2>/dev/null || echo 0)
+  if [ "$has_a" -gt 0 ] && [ "$has_b" -gt 0 ]; then echo 1; else echo 0; fi
+}
+_s() { _check_synonyms "$GOAL $ALL_AC_TEXT" "$1" "$2"; }
+r1=$(_s "endpoint" "route")
+r2=$(_s "function" "method")
+r3=$(_s "test" "spec")
+r4=$(_s "error" "exception")
+r5=$(_s "config" "configuration")
+r6=$(_s "config" "settings")
+r7=$(_s "user" "client")
+r8=$(_s "file" "document")
+SYNONYM_INCONSISTENT=$((r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8))
+if [ "$SYNONYM_INCONSISTENT" -eq 0 ]; then TERM_PTS=5; else TERM_PTS=0; fi
+
+# Sub-check 3: AC contradiction detection (0-5)
+# Check pairs of AC descriptions for negation contradictions (must X vs must not X, allow Y vs prevent Y)
+AC_TEXTS=$(jq -r '.acceptanceCriteria[].description' .signum/contract.json 2>/dev/null || echo "")
+CONTRADICTION_FOUND=0
+while IFS= read -r ac_line; do
+  pos=$(echo "$ac_line" | grep -oi "must [a-z]*\|allow [a-z]*\|enable [a-z]*" 2>/dev/null | grep -vi "must not" | head -5)
+  while IFS= read -r phrase; do
+    [ -z "$phrase" ] && continue
+    word=$(echo "$phrase" | awk '{print $2}')
+    neg_count=$(echo "$AC_TEXTS" | grep -ci "must not $word\|prevent $word\|disallow $word\|disable $word" 2>/dev/null || echo 0)
+    if [ "$neg_count" -gt 0 ]; then CONTRADICTION_FOUND=1; break; fi
+  done <<< "$pos"
+  [ "$CONTRADICTION_FOUND" -eq 1 ] && break
+done <<< "$AC_TEXTS"
+if [ "$CONTRADICTION_FOUND" -eq 0 ]; then CONTRADICTION_PTS=5; else CONTRADICTION_PTS=0; fi
+
+NL_CONSISTENCY=$((VAGUE_VERB_PTS + TERM_PTS + CONTRADICTION_PTS))
+
+TOTAL=$((TESTABILITY + COMPLETENESS + SCOPE_SCORE + NEG_SCORE + CLARITY + BOUNDARY + NL_CONSISTENCY))
+
+if [ "$TOTAL" -ge 103 ]; then GRADE="A"
+elif [ "$TOTAL" -ge 86 ]; then GRADE="B"
+elif [ "$TOTAL" -ge 69 ]; then GRADE="C"
 else GRADE="D"
 fi
 
-echo "Spec quality: $TOTAL/100 (grade $GRADE)"
+echo "Spec quality: $TOTAL/115 (grade $GRADE)"
 echo "  Testability:       $TESTABILITY/25 (ACs with verify: $AC_WITH_VERIFY/$AC_COUNT)"
 echo "  Negative coverage: $NEG_SCORE/20 (holdouts: $HAS_HOLDOUTS, negative ACs: $NEG_ACS)"
 echo "  Clarity:           $CLARITY/20 (goal length: $GOAL_LEN chars)"
 echo "  Scope boundedness: $SCOPE_SCORE/15 (files in scope: $INSCOPE_COUNT)"
 echo "  Completeness:      $COMPLETENESS/10"
 echo "  Boundary system:   $BOUNDARY/10"
+echo "  NL Consistency:    $NL_CONSISTENCY/15 (vague verbs: $VAGUE_VERB_PTS, terminology: $TERM_PTS, contradictions: $CONTRADICTION_PTS)"
 
 if [ "$GRADE" = "D" ]; then
   echo ""
-  echo "SPEC QUALITY GATE FAILED (grade D, score $TOTAL/100)"
+  echo "SPEC QUALITY GATE FAILED (grade D, score $TOTAL/115)"
   echo "Gaps:"
   [ "$TESTABILITY" -lt 15 ] && echo "  - Testability: only $AC_WITH_VERIFY/$AC_COUNT ACs have verify commands. Add 'verify: {type, value}' to each AC."
   [ "$NEG_SCORE" -lt 10 ] && echo "  - Negative coverage: no holdout scenarios and no 'must not / reject / prevent' ACs. Add at least one negative test."
@@ -266,6 +319,7 @@ if [ "$GRADE" = "D" ]; then
   [ "$SCOPE_SCORE" -lt 8 ] && echo "  - Scope: $INSCOPE_COUNT files in scope (limit: 15 for medium risk) or missing outOfScope list."
   [ "$COMPLETENESS" -lt 8 ] && echo "  - Completeness: requiredInputsProvided=$REQ_OK or openQuestions not empty."
   [ "$BOUNDARY" -lt 5 ] && echo "  - Boundary system: missing outOfScope list or assumptions."
+  [ "$NL_CONSISTENCY" -lt 10 ] && echo "  - nl_consistency < 10: use more consistent terminology or fix AC contradictions."
   echo ""
   echo "Re-run the Contractor agent with this feedback to improve the contract."
   exit 1
@@ -276,10 +330,12 @@ jq -n --argjson total "$TOTAL" --arg grade "$GRADE" \
   --argjson testability "$TESTABILITY" --argjson neg_score "$NEG_SCORE" \
   --argjson clarity "$CLARITY" --argjson scope "$SCOPE_SCORE" \
   --argjson completeness "$COMPLETENESS" --argjson boundary "$BOUNDARY" \
+  --argjson nl_consistency "$NL_CONSISTENCY" \
   '{ total: $total, grade: $grade,
      dimensions: { testability: $testability, negative_coverage: $neg_score,
                    clarity: $clarity, scope_boundedness: $scope,
-                   completeness: $completeness, boundary_system: $boundary } }' \
+                   completeness: $completeness, boundary_system: $boundary,
+                   nl_consistency: $nl_consistency } }' \
   > .signum/spec_quality.json
 ```
 
@@ -405,7 +461,7 @@ jq -r '"Goal: " + .goal,
        "Holdout scenarios: " + ((.holdoutScenarios // []) | length | tostring) + " defined"' \
   .signum/contract.json
 
-QUALITY=$(jq -r '"Spec quality: " + (.total | tostring) + "/100 (grade " + .grade + ")"' \
+QUALITY=$(jq -r '"Spec quality: " + (.total | tostring) + "/115 (grade " + .grade + ")"' \
   .signum/spec_quality.json 2>/dev/null || echo "Spec quality: not computed")
 echo "$QUALITY"
 
