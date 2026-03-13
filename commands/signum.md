@@ -437,6 +437,17 @@ jq -r 'if .riskLevel == "high" then "Risk signals: " + (.riskSignals // [] | joi
 
 Wait for confirmation. If the user says no, stop.
 
+After the user confirms, transition the contract status from `draft` to `active` and record the `activatedAt` timestamp:
+
+```bash
+ACTIVATED_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+jq --arg ts "$ACTIVATED_TS" \
+  '.status = "active" | .timestamps.activatedAt = $ts' \
+  .signum/contract.json > .signum/contract-tmp.json && \
+  mv .signum/contract-tmp.json .signum/contract.json
+echo "Contract status: draft → active at $ACTIVATED_TS"
+```
+
 ### Step 1.4.5: Record approval timestamp (contract-hash.txt)
 
 After the user confirms, anchor the approved contract with a SHA-256 hash and timestamp. This creates the root of the audit chain.
@@ -470,7 +481,7 @@ Use the Bash tool to create a contract stripped of holdout scenarios and holdout
 ```bash
 # Create engineer contract: remove holdouts + holdoutScenarios
 jq '{
-  schemaVersion, goal, inScope, allowNewFilesUnder, outOfScope,
+  schemaVersion, contractId, status, timestamps, goal, inScope, allowNewFilesUnder, outOfScope,
   acceptanceCriteria: [.acceptanceCriteria[] | select(.visibility != "holdout")],
   assumptions, openQuestions, riskLevel, riskSignals, requiredInputsProvided
 } | with_entries(select(.value != null))' .signum/contract.json > .signum/contract-engineer.json
@@ -1206,6 +1217,19 @@ jq -r '"=== AUDIT SUMMARY ===",
 ## Phase 4: PACK
 
 **Goal:** Bundle all artifacts into a self-contained, verifiable proof package (schema v4.0) with embedded artifact contents.
+
+### Step 4.0: Transition contract status to completed
+
+Transition the contract status from `active` to `completed` and record the `completedAt` timestamp:
+
+```bash
+COMPLETED_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+jq --arg ts "$COMPLETED_TS" \
+  '.status = "completed" | .timestamps.completedAt = $ts' \
+  .signum/contract.json > .signum/contract-tmp.json && \
+  mv .signum/contract-tmp.json .signum/contract.json
+echo "Contract status: active → completed at $COMPLETED_TS"
+```
 
 ### Step 4.1: Collect metadata and build proofpack
 

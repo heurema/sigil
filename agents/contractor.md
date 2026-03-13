@@ -30,6 +30,10 @@ You receive:
    - medium: 5-15 files OR 2+ languages OR test infrastructure changes
    - high: >15 files OR security keywords (auth, token, secret, payment, crypto, permission, password, jwt, oauth, migration, schema, deploy, credential, session, certificate, ssl, tls)
 4. **Generate contract.json** with:
+   - `contractId`: unique identifier in format `sig-YYYYMMDD-<4char-hash>` where YYYYMMDD is the UTC date and the 4-char hash is the first 4 hex characters of the SHA-1 of the goal string. Example: `sig-20260313-a7f2`
+   - `status`: always set to `"draft"` when generating a new contract
+   - `timestamps`: object with `createdAt` set to the current UTC datetime in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ), e.g. `"2026-03-13T10:00:00Z"`
+   - `schemaVersion`: always `"3.2"` for new contracts
    - goal, inScope, outOfScope, allowNewFilesUnder (if new files needed)
    - acceptanceCriteria with typed verify blocks (DSL format), each with `visibility: "visible"`
    - assumptions (state what you're assuming about the codebase)
