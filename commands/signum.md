@@ -5,6 +5,9 @@ arguments:
   - name: task
     description: What to build or fix (feature description)
     required: true
+  - name: project
+    description: "Path to the target project (auto-detected if omitted)"
+    required: false
 ---
 
 # Signum v4.1: Evidence-Driven Development Pipeline
@@ -171,11 +174,65 @@ echo "No proofpack generated. Contract directory preserved for reference."
 
 Do not proceed to Setup or any phase.
 
-## Setup
+## Project Resolution
 
-Use the Bash tool to prepare the workspace:
+Before setup, determine the correct project directory. The pipeline MUST run in the target project's root, not the session's CWD.
+
+**Resolution order:**
+
+1. If the `project` argument is provided, use it as the project path
+2. Otherwise, analyze the task description for project/plugin name references and auto-resolve:
+
+Use the Bash tool to detect and switch to the target project:
 
 ```bash
+CURRENT_DIR=$(pwd)
+TARGET_DIR=""
+
+# 1. Explicit project argument (if provided)
+# TARGET_DIR="<value of project argument>"
+
+# 2. Auto-detect: look for project/plugin names mentioned in the task
+# Search common plugin/project locations for matches
+TASK_LOWER=$(echo "$ARGUMENTS" | tr '[:upper:]' '[:lower:]')
+for SEARCH_DIR in "$HOME/personal/skill7" "$HOME/works" "$HOME/projects" "$CURRENT_DIR/.."; do
+  if [ -d "$SEARCH_DIR" ]; then
+    for CANDIDATE in $(find "$SEARCH_DIR" -maxdepth 3 -name "plugin.json" -path "*/.claude-plugin/*" 2>/dev/null); do
+      PLUGIN_DIR=$(dirname "$(dirname "$CANDIDATE")")
+      PLUGIN_NAME=$(basename "$PLUGIN_DIR")
+      if echo "$TASK_LOWER" | grep -qw "$PLUGIN_NAME"; then
+        TARGET_DIR="$PLUGIN_DIR"
+        echo "Auto-detected project: $PLUGIN_NAME → $TARGET_DIR"
+        break 2
+      fi
+    done
+  fi
+done
+
+# 3. Fallback: check if CWD is a git repo with plugin.json
+if [ -z "$TARGET_DIR" ]; then
+  if [ -f ".claude-plugin/plugin.json" ] || [ -d ".git" ]; then
+    TARGET_DIR="$CURRENT_DIR"
+    echo "Using current directory: $TARGET_DIR"
+  fi
+fi
+
+if [ -z "$TARGET_DIR" ]; then
+  echo "WARNING: Could not detect target project. Using CWD: $CURRENT_DIR"
+  TARGET_DIR="$CURRENT_DIR"
+fi
+
+echo "PROJECT_DIR=$TARGET_DIR"
+```
+
+If `TARGET_DIR` differs from `CURRENT_DIR`, use `cd "$TARGET_DIR"` in ALL subsequent Bash tool calls, or prefix commands with `cd "$TARGET_DIR" &&`. Save `TARGET_DIR` as `PROJECT_ROOT`.
+
+## Setup
+
+Use the Bash tool to prepare the workspace (in PROJECT_ROOT):
+
+```bash
+cd "$PROJECT_ROOT" || exit 1
 mkdir -p .signum/reviews .signum/contracts
 touch .gitignore
 grep -q '^\.signum/$' .gitignore || echo '.signum/' >> .gitignore
@@ -278,7 +335,7 @@ echo "codex_model=${SIGNUM_CODEX_MODEL:-(cli default)} gemini_model=${SIGNUM_GEM
 Save `SIGNUM_CODEX_MODEL` and `SIGNUM_GEMINI_MODEL` for use in all subsequent codex/gemini invocations.
 If either is empty, do NOT pass `--model` — let the CLI use its built-in default.
 
-Record `PROJECT_ROOT` as the current working directory (output of `pwd`).
+Use the `PROJECT_ROOT` determined during Project Resolution. Verify we are in the correct directory:
 
 Check for an existing contract:
 
