@@ -168,6 +168,21 @@
       },
       "description": "Hidden acceptance criteria not shown to Engineer"
     },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description", "verify"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["pre", "post", "invariant"] },
+          "description": { "type": "string" },
+          "verify": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Pre/post conditions and invariants that must hold before, after, or throughout execution"
+    },
     "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] },
     "riskSignals": {
       "type": "array",
