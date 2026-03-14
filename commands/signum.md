@@ -1192,11 +1192,15 @@ Save CODEX_AVAILABLE and GEMINI_AVAILABLE for use in the next step.
 
 ### Step 3.2.5: Launch ALL 3 reviews in parallel
 
+**Fresh-reviewer rule:** If the Engineer used more than 1 attempt (check `totalAttempts` in `.signum/execute_log.json`), use `model: "sonnet"` for the Claude reviewer agent instead of the default opus. This ensures a fresh perspective on retry code rather than the same model re-reviewing similar output.
+
 Use a single message with multiple tool use blocks to launch all 3 reviewers simultaneously. Do NOT wait between launches.
 
 Launch the reviewer-claude Agent with `run_in_background: true`, the Codex Bash with `run_in_background: true`, and the Gemini Bash with `run_in_background: true` — all in the same message:
 
 **Claude (Agent tool, `run_in_background: true`):**
+
+If Engineer used >1 attempt, add `model: "sonnet"` to the Agent tool call.
 
 ```
 Read .signum/contract.json, .signum/combined.patch, and .signum/mechanic_report.json.
