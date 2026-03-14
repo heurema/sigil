@@ -1151,9 +1151,52 @@ fi
 
 If any holdout fails, continue to reviews but synthesizer treats it as regression signal.
 
-### Step 3.2: Reviewer-Claude (agent)
+### Step 3.2: Prepare prompts for all reviewers
 
-Use the Agent tool to launch the "reviewer-claude" agent with this prompt:
+In a single Bash block, check both codex and gemini availability, build both prompts (security-focused for codex, performance-focused for gemini), and save as `.signum/review_prompt_codex.txt` and `.signum/review_prompt_gemini.txt`:
+
+```bash
+which codex > /dev/null 2>&1 && CODEX_AVAILABLE=true || CODEX_AVAILABLE=false
+which gemini > /dev/null 2>&1 && GEMINI_AVAILABLE=true || GEMINI_AVAILABLE=false
+
+if [ "$CODEX_AVAILABLE" = "true" ]; then
+  python3 -c "
+import json, sys
+goal = json.load(open('.signum/contract.json'))['goal']
+diff = open('.signum/combined.patch').read()
+tmpl = open('lib/prompts/review-template-security.md').read()
+print(tmpl.replace('{goal}', goal).replace('{diff}', diff))
+" > .signum/review_prompt_codex.txt
+  echo "codex: AVAILABLE, prompt written"
+else
+  echo "codex: UNAVAILABLE"
+fi
+
+if [ "$GEMINI_AVAILABLE" = "true" ]; then
+  python3 -c "
+import json, sys
+goal = json.load(open('.signum/contract.json'))['goal']
+diff = open('.signum/combined.patch').read()
+tmpl = open('lib/prompts/review-template-performance.md').read()
+print(tmpl.replace('{goal}', goal).replace('{diff}', diff))
+" > .signum/review_prompt_gemini.txt
+  echo "gemini: AVAILABLE, prompt written"
+else
+  echo "gemini: UNAVAILABLE"
+fi
+
+echo "CODEX_AVAILABLE=$CODEX_AVAILABLE GEMINI_AVAILABLE=$GEMINI_AVAILABLE"
+```
+
+Save CODEX_AVAILABLE and GEMINI_AVAILABLE for use in the next step.
+
+### Step 3.2.5: Launch ALL 3 reviews in parallel
+
+Use a single message with multiple tool use blocks to launch all 3 reviewers simultaneously. Do NOT wait between launches.
+
+Launch the reviewer-claude Agent with `run_in_background: true`, the Codex Bash with `run_in_background: true`, and the Gemini Bash with `run_in_background: true` — all in the same message:
+
+**Claude (Agent tool, `run_in_background: true`):**
 
 ```
 Read .signum/contract.json, .signum/combined.patch, and .signum/mechanic_report.json.
@@ -1161,64 +1204,7 @@ Follow lib/prompts/review-template.md and write your review to .signum/reviews/c
 Write ONLY the JSON object, no markers, no markdown.
 ```
 
-After it finishes, verify the output exists:
-
-```bash
-test -f .signum/reviews/claude.json && jq -e '.verdict' .signum/reviews/claude.json > /dev/null \
-  && echo "claude review OK" || echo "WARNING: claude.json missing or invalid"
-```
-
-### Step 3.3: Reviewer-Codex (CLI, security-focused)
-
-Use the Bash tool to check availability:
-
-```bash
-which codex > /dev/null 2>&1 && echo "AVAILABLE" || echo "UNAVAILABLE"
-```
-
-**If AVAILABLE:**
-
-Build the security-focused review prompt:
-
-```bash
-python3 -c "
-import json, sys
-goal = json.load(open('.signum/contract.json'))['goal']
-diff = open('.signum/combined.patch').read()
-tmpl = open('lib/prompts/review-template-security.md').read()
-print(tmpl.replace('{goal}', goal).replace('{diff}', diff))
-" > .signum/review_prompt_codex.txt
-```
-
-Save the availability result as CODEX_AVAILABLE. Codex will be launched in parallel in Step 3.4.5.
-
-### Step 3.4: Reviewer-Gemini (CLI, performance-focused)
-
-Use the Bash tool to check availability:
-
-```bash
-which gemini > /dev/null 2>&1 && echo "AVAILABLE" || echo "UNAVAILABLE"
-```
-
-**If AVAILABLE:**
-
-Build the performance-focused review prompt:
-
-```bash
-python3 -c "
-import json, sys
-goal = json.load(open('.signum/contract.json'))['goal']
-diff = open('.signum/combined.patch').read()
-tmpl = open('lib/prompts/review-template-performance.md').read()
-print(tmpl.replace('{goal}', goal).replace('{diff}', diff))
-" > .signum/review_prompt_gemini.txt
-```
-
-Save the availability result as GEMINI_AVAILABLE. Gemini will be launched in parallel in Step 3.4.5.
-
-### Step 3.4.5: Launch Codex and Gemini in parallel
-
-If CODEX_AVAILABLE, launch codex using the Bash tool with **`run_in_background: true`**:
+**Codex (Bash tool, `run_in_background: true`, only if CODEX_AVAILABLE):**
 
 ```bash
 PROMPT=$(cat .signum/review_prompt_codex.txt)
@@ -1233,9 +1219,7 @@ rm -f "$OUT"
 echo "CODEX_DONE"
 ```
 
-Save the resulting background task ID as CODEX_TASK_ID. Do NOT wait for it.
-
-If GEMINI_AVAILABLE, immediately (without waiting for codex) launch gemini using the Bash tool with **`run_in_background: true`**:
+**Gemini (Bash tool, `run_in_background: true`, only if GEMINI_AVAILABLE):**
 
 ```bash
 PROMPT=$(cat .signum/review_prompt_gemini.txt)
@@ -1245,11 +1229,22 @@ gemini $GEMINI_MODEL_FLAG -p "$PROMPT" > .signum/reviews/gemini_raw.txt 2>&1
 echo "GEMINI_DONE"
 ```
 
-Save the resulting background task ID as GEMINI_TASK_ID. Do NOT wait for it.
+Save the background task IDs: CLAUDE_TASK_ID, CODEX_TASK_ID, GEMINI_TASK_ID. Do NOT wait for any of them before launching the others. Then proceed to Step 3.3 below.
 
-Now collect results. Use the TaskOutput tool with `block: true` to wait for CODEX_TASK_ID (if codex was launched). Then use the TaskOutput tool with `block: true` to wait for GEMINI_TASK_ID (if gemini was launched).
+### Step 3.3: Collect all 3 results
 
-After both complete (or if they were never launched), parse codex output:
+Use the TaskOutput tool with `block: true` to wait for CLAUDE_TASK_ID. Then use the TaskOutput tool with `block: true` to wait for CODEX_TASK_ID (if codex was launched). Then use the TaskOutput tool with `block: true` to wait for GEMINI_TASK_ID (if gemini was launched).
+
+After all complete (or if they were never launched), verify the claude output:
+
+```bash
+test -f .signum/reviews/claude.json && jq -e '.verdict' .signum/reviews/claude.json > /dev/null \
+  && echo "claude review OK" || echo "WARNING: claude.json missing or invalid"
+```
+
+### Step 3.3.5: Parse codex and gemini outputs
+
+After collection, parse codex output and parse gemini output.
 
 If CODEX_AVAILABLE: attempt 3-level parsing of `.signum/reviews/codex_raw.txt`:
 
@@ -1290,8 +1285,6 @@ If CODEX_UNAVAILABLE:
 echo '{"verdict":"UNAVAILABLE","findings":[],"summary":"Codex CLI not installed","available":false}' \
   > .signum/reviews/codex.json
 ```
-
-Parse gemini output:
 
 If GEMINI_AVAILABLE: attempt 3-level parsing of `.signum/reviews/gemini_raw.txt`:
 
