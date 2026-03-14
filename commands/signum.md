@@ -22,7 +22,7 @@ The user's task: `$ARGUMENTS`
 Use the Bash tool to prepare the workspace:
 
 ```bash
-mkdir -p .signum/reviews
+mkdir -p .signum/reviews .signum/contracts
 touch .gitignore
 grep -q '^\.signum/$' .gitignore || echo '.signum/' >> .gitignore
 ```
@@ -162,6 +162,36 @@ jq -e '.schemaVersion and .goal and .inScope and .acceptanceCriteria and .riskLe
 ```
 
 If the file is missing or INVALID, stop and report: "Contractor agent failed to produce a valid contract.json. Check agent output for errors."
+
+### Step 1.2.5: Initialize per-contract directory
+
+After contractor creates contract.json, extract the contractId and set up an isolated directory for this contract's artifacts.
+
+Use the Bash tool:
+
+```bash
+# Source the contract-dir module
+source lib/contract-dir.sh
+
+# Extract contractId from contract.json
+CONTRACT_ID=$(jq -r '.contractId' .signum/contract.json)
+if [ -z "$CONTRACT_ID" ] || [ "$CONTRACT_ID" = "null" ]; then
+  echo "ERROR: contractId not found in contract.json"
+  exit 1
+fi
+echo "contractId: $CONTRACT_ID"
+
+# Create per-contract directory with reviews/ subdirectory
+init_contract_dir "$CONTRACT_ID"
+
+# Copy contract.json to per-contract directory (original stays in .signum/ as working copy)
+CDIR=$(contract_dir "$CONTRACT_ID")
+cp .signum/contract.json "${CDIR}contract.json"
+echo "Archived contract.json to ${CDIR}contract.json"
+
+# Register contract in index.json
+register_contract "$CONTRACT_ID" "draft"
+```
 
 ### Step 1.3: Check for open questions
 
