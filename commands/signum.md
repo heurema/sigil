@@ -68,15 +68,15 @@ Do not proceed to Setup or any phase.
 
 If the user's task starts with `archive` (case-insensitive), do NOT run the pipeline. Instead, archive a completed contract.
 
-If a contract ID is provided (e.g., `archive sig-20260314-a1b2`), use it. Otherwise, read the active contract from `.signum/contracts/index.json`.
+If a contract ID is provided (e.g., `archive sig-20260314-a1b2`), extract it from the user input. Otherwise, the active contract will be used.
 
-Use the Bash tool:
+Before running the Bash tool, parse the contract ID from the user's arguments (everything after `archive `). Pass it as `CONTRACT_ID_FROM_ARGS` environment variable. Use the Bash tool:
 
 ```bash
 source lib/contract-dir.sh
 
-# Resolve contract ID
-CONTRACT_ID="${1:-$(get_active_contract)}"
+# CONTRACT_ID_FROM_ARGS is set by the orchestrator from user input (may be empty)
+CONTRACT_ID="${CONTRACT_ID_FROM_ARGS:-$(get_active_contract)}"
 if [ -z "$CONTRACT_ID" ]; then
   echo "ERROR: No contract ID provided and no active contract found" >&2
   exit 1
@@ -132,15 +132,15 @@ Do not proceed to Setup or any phase.
 
 If the user's task starts with `close` (case-insensitive), do NOT run the pipeline. Instead, mark a contract as closed (abandoned, no proofpack).
 
-If a contract ID is provided (e.g., `close sig-20260314-a1b2`), use it. Otherwise, read the active contract.
+If a contract ID is provided (e.g., `close sig-20260314-a1b2`), extract it from user input. Otherwise, the active contract will be used.
 
-Use the Bash tool:
+Before running the Bash tool, parse the contract ID from the user's arguments (everything after `close `). Pass it as `CONTRACT_ID_FROM_ARGS` environment variable. Use the Bash tool:
 
 ```bash
 source lib/contract-dir.sh
 
-# Resolve contract ID
-CONTRACT_ID="${1:-$(get_active_contract)}"
+# CONTRACT_ID_FROM_ARGS is set by the orchestrator from user input (may be empty)
+CONTRACT_ID="${CONTRACT_ID_FROM_ARGS:-$(get_active_contract)}"
 if [ -z "$CONTRACT_ID" ]; then
   echo "ERROR: No contract ID provided and no active contract found" >&2
   exit 1
@@ -285,7 +285,8 @@ rm -f .signum/contract.json .signum/execute_log.json .signum/combined.patch \
        .signum/contract-hash.txt .signum/execution_context.json \
        .signum/reviews/claude.json .signum/reviews/codex.json .signum/reviews/gemini.json \
        .signum/review_prompt_codex.txt .signum/review_prompt_gemini.txt \
-       .signum/reviews/codex_raw.txt .signum/reviews/gemini_raw.txt
+       .signum/reviews/codex_raw.txt .signum/reviews/gemini_raw.txt \
+       .signum/clover_report.json .signum/approval.json
 ```
 
 ---
@@ -1320,18 +1321,15 @@ If any check has a NEW regression, continue to reviews — mechanic regression i
 
 ### Step 3.1.5: Holdout validation
 
-**Skip if `RISK_LEVEL` is `low`.** Write an empty holdout report and proceed to Step 3.2:
+**Skip if `RISK_LEVEL` is `low`.** Write an empty holdout report and proceed to Step 3.2.
+
+Otherwise, run holdout verification using the typed DSL runner. Supports both new format (`acceptanceCriteria` with `visibility: "holdout"`) and legacy `holdoutScenarios`:
 
 ```bash
 if [ "$RISK_LEVEL" = "low" ]; then
   echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > .signum/holdout_report.json
   echo "Holdout validation skipped (low risk)"
-fi
-```
-
-If not skipped, run holdout verification using the typed DSL runner. Supports both new format (`acceptanceCriteria` with `visibility: "holdout"`) and legacy `holdoutScenarios`:
-
-```bash
+else
 # Count holdouts: new format (visibility=holdout) + legacy (holdoutScenarios)
 HOLDOUT_ACS=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' .signum/contract.json)
 LEGACY_HOLDOUTS=$(jq '.holdoutScenarios // [] | length' .signum/contract.json)
@@ -1403,6 +1401,7 @@ if [ "$TOTAL_HOLDOUTS" -gt 0 ]; then
 else
   echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > .signum/holdout_report.json
   echo "No holdout scenarios"
+fi
 fi
 ```
 
@@ -1882,8 +1881,9 @@ if [ -f lib/contract-dir.sh ]; then
   CONTRACT_ID=$(jq -r '.contractId // empty' .signum/contract.json)
   if [ -n "$CONTRACT_ID" ]; then
     update_contract_status "$CONTRACT_ID" "completed"
-    # Copy proofpack to per-contract directory
+    # Sync updated contract.json + proofpack to per-contract directory
     DIR=$(contract_dir "$CONTRACT_ID")
+    cp .signum/contract.json "${DIR}" 2>/dev/null || true
     cp .signum/proofpack.json "${DIR}" 2>/dev/null || true
     echo "Contract $CONTRACT_ID → completed"
   fi

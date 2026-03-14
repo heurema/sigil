@@ -109,7 +109,7 @@ Write `.signum/audit_summary.json`:
     "baseline_stability": 100,
     "behavioral_evidence": 75,
     "review_alignment": 70,
-    "overall": 74
+    "overall": 82
   }
 }
 ```
