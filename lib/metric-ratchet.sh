@@ -14,6 +14,12 @@ set -euo pipefail
 
 DAYS_CURRENT="${1:-7}"
 DAYS_PREVIOUS="${2:-7}"
+
+if ! [[ "$DAYS_CURRENT" =~ ^[0-9]+$ ]] || ! [[ "$DAYS_PREVIOUS" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: days_current and days_previous must be positive integers" >&2
+  exit 2
+fi
+
 METRICS_DIR=".signum/metrics"
 ARCHIVE_DIR=".signum/archive"
 INDEX_FILE=".signum/proofpack-index.jsonl"
