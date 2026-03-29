@@ -40,11 +40,15 @@ jq -r '
     (.inScope // [])[] // empty,
     (.outOfScope // [])[] // empty,
     (.acceptanceCriteria // [])[].description // empty,
+    (.acceptanceCriteria // [])[].verify // empty | tostring,
     ((.assumptions // [])[] | if type == "object" then .text else . end) // empty,
     (.openQuestions // [])[] // empty,
     (.removals // [])[].reason // empty,
     (.cleanupObligations // [])[].description // empty,
-    .implementationStrategy // empty
+    .implementationStrategy // empty,
+    (.allowNewFilesUnder // [])[] // empty,
+    (.riskSignals // [])[] // empty,
+    (.contextInheritance // {} | .. | strings) // empty
   ] | .[]
 ' "$CONTRACT_FILE" 2>/dev/null | python3 -c "
 import re, sys
