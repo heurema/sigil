@@ -74,6 +74,7 @@ while IFS= read -r sf; do
   esac
   RESOLVED_PATH="$ROOT/$sf"
   if [ -f "$RESOLVED_PATH" ]; then
+    printf '%s\0' "$sf" >> "$TMPFILE"
     cat "$RESOLVED_PATH" >> "$TMPFILE"
   else
     MISSING_FILES_ARR=$(echo "$MISSING_FILES_ARR" | jq --arg f "$sf" '. + [$f]')
