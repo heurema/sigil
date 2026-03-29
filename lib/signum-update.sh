@@ -17,7 +17,7 @@ VERSION="${1:-$(jq -r .version "$PLUGIN_ROOT/.claude-plugin/plugin.json")}"
 PLUGIN_NAME="signum"
 MARKETPLACE="emporium"
 
-if [[ -z "$VERSION" || "$VERSION" == "null" || "$VERSION" =~ [/\\] || "$VERSION" == *..* ]]; then
+if [[ -z "$VERSION" || "$VERSION" == "null" || "$VERSION" =~ [/\\] || "$VERSION" == *..* || "$VERSION" == "." ]]; then
   echo "ERROR: invalid version: $VERSION" >&2
   exit 1
 fi

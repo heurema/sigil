@@ -6,7 +6,7 @@
 set -euo pipefail
 
 PLUGIN_VERSION=$(jq -r '.version' .claude-plugin/plugin.json)
-if [[ -z "$PLUGIN_VERSION" || "$PLUGIN_VERSION" == "null" || "$PLUGIN_VERSION" =~ [/\\] || "$PLUGIN_VERSION" == *..* ]]; then
+if [[ -z "$PLUGIN_VERSION" || "$PLUGIN_VERSION" == "null" || "$PLUGIN_VERSION" =~ [/\\] || "$PLUGIN_VERSION" == *..* || "$PLUGIN_VERSION" == "." ]]; then
   echo "ERROR: invalid version from .claude-plugin/plugin.json: $PLUGIN_VERSION" >&2
   exit 1
 fi
