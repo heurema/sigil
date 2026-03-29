@@ -25,7 +25,11 @@ mkdir -p "$METRICS_DIR"
 collect_proofpacks() {
   local since_days="$1"
   local cutoff
-  cutoff=$(date -v-${since_days}d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "${since_days} days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+  cutoff=$(date -v-${since_days}d +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "${since_days} days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || true)
+  if [ -z "$cutoff" ]; then
+    echo "ERROR: date command failed to compute cutoff" >&2
+    exit 2
+  fi
 
   # From index file (if exists)
   if [ -f "$INDEX_FILE" ]; then
