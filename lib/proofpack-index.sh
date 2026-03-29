@@ -22,7 +22,8 @@ _sha256() {
   elif command -v shasum >/dev/null 2>&1; then
     shasum -a 256 | awk '{print $1}'
   else
-    echo "error_no_sha256_tool"
+    echo "ERROR: no sha256 tool found" >&2
+    return 1
   fi
 }
 
@@ -88,14 +89,14 @@ proofpack_index_verify() {
     return 0
   fi
 
-  python3 -c "
+  python3 - "$INDEX_FILE" <<'PYEOF'
 import json, hashlib, sys
 
 prev_hash = 'genesis'
 line_num = 0
 errors = 0
 
-for line in open('$INDEX_FILE'):
+for line in open(sys.argv[1]):
     line_num += 1
     line = line.strip()
     if not line:
@@ -108,7 +109,7 @@ for line in open('$INDEX_FILE'):
         continue
 
     if entry.get('prev_hash') != prev_hash:
-        print(f'ERROR line {line_num}: prev_hash mismatch (expected {prev_hash[:16]}..., got {entry.get(\"prev_hash\", \"missing\")[:16]}...)')
+        print(f'ERROR line {line_num}: prev_hash mismatch (expected {prev_hash[:16]}..., got {entry.get("prev_hash", "missing")[:16]}...)')
         errors += 1
 
     # Verify chain_hash = sha256(prev_hash + proofpack_sha256)
@@ -124,7 +125,7 @@ if errors == 0:
 else:
     print(f'FAILED: {errors} errors in {line_num} entries')
     sys.exit(1)
-"
+PYEOF
 }
 
 # Query recent entries
@@ -141,8 +142,8 @@ proofpack_index_query() {
   case "$mode" in
     --since)
       local cutoff
-      cutoff=$(date -v-${value} +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "${value} ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
-      jq -sc "[.[] | select(.createdAt >= \"$cutoff\")]" "$INDEX_FILE" 2>/dev/null
+      cutoff=$(date -u -v-${value} +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "${value} ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+      jq -sc --arg cutoff "$cutoff" '[.[] | select(.createdAt >= $cutoff)]' "$INDEX_FILE" 2>/dev/null
       ;;
     --last)
       tail -"$value" "$INDEX_FILE" | jq -sc '.' 2>/dev/null

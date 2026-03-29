@@ -17,6 +17,11 @@ VERSION="${1:-$(jq -r .version "$PLUGIN_ROOT/.claude-plugin/plugin.json")}"
 PLUGIN_NAME="signum"
 MARKETPLACE="emporium"
 
+if [[ -z "$VERSION" || "$VERSION" == "null" || "$VERSION" =~ [/\\] || "$VERSION" == *..* || "$VERSION" == "." ]]; then
+  echo "ERROR: invalid version: $VERSION" >&2
+  exit 1
+fi
+
 echo "Updating $PLUGIN_NAME to v$VERSION..."
 echo ""
 
@@ -66,27 +71,29 @@ for settings_file in \
   "$HOME/.claude-profiles"/*/config/settings.json; do
   [ -f "$settings_file" ] || continue
   # Find signum entries NOT from our target marketplace
-  ORPHANS=$(python3 -c "
+  ORPHANS=$(python3 - "$settings_file" "$PLUGIN_NAME" "$MARKETPLACE" <<'PYEOF' 2>/dev/null || true
 import json, sys
-with open('$settings_file') as f:
+with open(sys.argv[1]) as f:
     s = json.load(f)
 plugins = s.get('enabledPlugins', {})
-orphans = [k for k in plugins if k.startswith('$PLUGIN_NAME@') and k != '$PLUGIN_NAME@$MARKETPLACE']
+target = sys.argv[2] + '@' + sys.argv[3]
+orphans = [k for k in plugins if k.startswith(sys.argv[2] + '@') and k != target]
 for o in orphans: print(o)
-" 2>/dev/null || true)
+PYEOF
+)
 
   if [ -n "$ORPHANS" ]; then
     for orphan in $ORPHANS; do
       echo "  Removing orphan: $orphan from $settings_file"
-      python3 -c "
-import json
-with open('$settings_file') as f:
+      python3 - "$settings_file" "$orphan" <<'PYEOF' 2>/dev/null || true
+import json, sys
+with open(sys.argv[1]) as f:
     s = json.load(f)
-s.get('enabledPlugins', {}).pop('$orphan', None)
-with open('$settings_file', 'w') as f:
+s.get('enabledPlugins', {}).pop(sys.argv[2], None)
+with open(sys.argv[1], 'w') as f:
     json.dump(s, f, indent=2)
     f.write('\n')
-" 2>/dev/null || true
+PYEOF
     done
   fi
 done
@@ -187,14 +194,16 @@ for settings_file in \
   "$HOME/.claude/settings.json" \
   "$HOME/.claude-profiles"/*/config/settings.json; do
   [ -f "$settings_file" ] || continue
-  ORPHAN_COUNT=$(python3 -c "
-import json
-with open('$settings_file') as f:
+  ORPHAN_COUNT=$(python3 - "$settings_file" "$PLUGIN_NAME" "$MARKETPLACE" <<'PYEOF' 2>/dev/null || echo 0
+import json, sys
+with open(sys.argv[1]) as f:
     s = json.load(f)
 plugins = s.get('enabledPlugins', {})
-orphans = [k for k in plugins if k.startswith('$PLUGIN_NAME@') and k != '$PLUGIN_NAME@$MARKETPLACE']
+target = sys.argv[2] + '@' + sys.argv[3]
+orphans = [k for k in plugins if k.startswith(sys.argv[2] + '@') and k != target]
 print(len(orphans))
-" 2>/dev/null || echo 0)
+PYEOF
+)
   if [ "$ORPHAN_COUNT" -gt 0 ]; then
     echo "  WARN: $ORPHAN_COUNT orphan entries in $settings_file"
     ERRORS=$((ERRORS + 1))

@@ -74,6 +74,7 @@ while IFS= read -r sf; do
   esac
   RESOLVED_PATH="$ROOT/$sf"
   if [ -f "$RESOLVED_PATH" ]; then
+    printf '%s\0' "$sf" >> "$TMPFILE"
     cat "$RESOLVED_PATH" >> "$TMPFILE"
   else
     MISSING_FILES_ARR=$(echo "$MISSING_FILES_ARR" | jq --arg f "$sf" '. + [$f]')
@@ -114,8 +115,11 @@ fi
 # Compute SHA-256 of concatenated content
 if command -v sha256sum > /dev/null 2>&1; then
   CURRENT_HASH=$(sha256sum "$TMPFILE" | awk '{print $1}')
-else
+elif command -v shasum > /dev/null 2>&1; then
   CURRENT_HASH=$(shasum -a 256 "$TMPFILE" | awk '{print $1}')
+else
+  echo '{"check":"staleness","status":"error","summary":"No sha256 tool found (need sha256sum or shasum)","current_hash":"","stored_hash":"","missing_files":[],"findings":[]}' >&2
+  exit 1
 fi
 
 if [ "$CURRENT_HASH" = "$STORED_HASH" ]; then
