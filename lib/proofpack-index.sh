@@ -142,7 +142,7 @@ proofpack_index_query() {
   case "$mode" in
     --since)
       local cutoff
-      cutoff=$(date -v-${value} +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "${value} ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+      cutoff=$(date -u -v-${value} +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "${value} ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
       jq -sc --arg cutoff "$cutoff" '[.[] | select(.createdAt >= $cutoff)]' "$INDEX_FILE" 2>/dev/null
       ;;
     --last)
