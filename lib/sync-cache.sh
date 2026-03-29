@@ -6,6 +6,10 @@
 set -euo pipefail
 
 PLUGIN_VERSION=$(jq -r '.version' .claude-plugin/plugin.json)
+if [[ -z "$PLUGIN_VERSION" || "$PLUGIN_VERSION" == "null" ]]; then
+  echo "ERROR: could not read version from .claude-plugin/plugin.json" >&2
+  exit 1
+fi
 CACHE_BASE="${HOME}/.claude-profiles/work/config/plugins/cache/emporium/signum"
 CACHE_DIR="${CACHE_BASE}/${PLUGIN_VERSION}"
 
