@@ -85,7 +85,7 @@ auto_block = sum(1 for e in entries if e.get('decision') == 'AUTO_BLOCK')
 human_review = sum(1 for e in entries if e.get('decision') == 'HUMAN_REVIEW')
 promotes = sum(1 for e in entries if e.get('releaseVerdict') == 'PROMOTE')
 
-confidences = [e.get('confidence', 0) for e in entries if e.get('confidence')]
+confidences = [e.get('confidence', 0) for e in entries if isinstance(e.get('confidence'), (int, float))]
 avg_confidence = sum(confidences) / len(confidences) if confidences else 0
 
 reviews = [e.get('reviewCoverage', 0) for e in entries if isinstance(e.get('reviewCoverage'), (int, float))]
