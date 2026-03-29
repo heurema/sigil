@@ -29,7 +29,7 @@ collect_proofpacks() {
 
   # From index file (if exists)
   if [ -f "$INDEX_FILE" ]; then
-    jq -c "select(.createdAt >= \"$cutoff\")" "$INDEX_FILE" 2>/dev/null
+    jq -c --arg cutoff "$cutoff" 'select(.createdAt >= $cutoff)' "$INDEX_FILE" 2>/dev/null
   fi
 
   # From archive dirs (fallback)
@@ -91,17 +91,18 @@ json.dump({
 # Collect current and previous period
 CURRENT_DATA=$(collect_proofpacks "$DAYS_CURRENT")
 TOTAL_DAYS=$((DAYS_CURRENT + DAYS_PREVIOUS))
-PREVIOUS_DATA=$(collect_proofpacks "$TOTAL_DAYS" | python3 -c "
+PREVIOUS_DATA=$(collect_proofpacks "$TOTAL_DAYS" | python3 - "$DAYS_CURRENT" <<'PYEOF'
 import json, sys
 from datetime import datetime, timedelta, timezone
-cutoff = datetime.now(timezone.utc) - timedelta(days=$DAYS_CURRENT)
+cutoff = datetime.now(timezone.utc) - timedelta(days=int(sys.argv[1]))
 cutoff_str = cutoff.strftime('%Y-%m-%dT%H:%M:%SZ')
 for line in sys.stdin:
     if line.strip():
         e = json.loads(line)
         if e.get('createdAt', '') < cutoff_str:
             print(line.strip())
-")
+PYEOF
+)
 
 CURRENT_METRICS=$(echo "$CURRENT_DATA" | compute_metrics)
 PREVIOUS_METRICS=$(echo "$PREVIOUS_DATA" | compute_metrics)
@@ -115,11 +116,11 @@ if [ "$CURRENT_COUNT" -eq 0 ] && [ "$PREVIOUS_COUNT" -eq 0 ]; then
 fi
 
 # Compare and detect regressions
-REPORT=$(python3 -c "
+REPORT=$(printf '%s\n%s' "$CURRENT_METRICS" "$PREVIOUS_METRICS" | python3 - "$DAYS_CURRENT" "$DAYS_PREVIOUS" <<'PYEOF'
 import json, sys
 
-current = json.loads('$CURRENT_METRICS')
-previous = json.loads('$PREVIOUS_METRICS')
+current = json.loads(sys.stdin.readline())
+previous = json.loads(sys.stdin.readline())
 regressions = []
 improvements = []
 
@@ -146,17 +147,20 @@ compare('avg_confidence', 'Average confidence', True)
 compare('promote_rate', 'PROMOTE rate', True)
 
 status = 'regression' if regressions else ('improved' if improvements else 'stable')
+days_current = int(sys.argv[1])
+days_previous = int(sys.argv[2])
 
 report = {
     'status': status,
-    'period': {'current_days': $DAYS_CURRENT, 'previous_days': $DAYS_PREVIOUS},
+    'period': {'current_days': days_current, 'previous_days': days_previous},
     'current': current,
     'previous': previous,
     'regressions': regressions,
     'improvements': improvements
 }
 print(json.dumps(report, indent=2))
-")
+PYEOF
+)
 
 echo "$REPORT" > "$REPORT_FILE"
 
