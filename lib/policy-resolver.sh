@@ -23,14 +23,14 @@ resolve_model() {
 
   [ -f "$POLICY_FILE" ] || return 0
 
-  python3 -c "
+  python3 - "$role" "$risk" "$POLICY_FILE" <<'PYEOF'
 import re, sys
 
-role = '$role'
-risk = '$risk'
+role = sys.argv[1]
+risk = sys.argv[2]
 key = role + '_model'
 
-with open('$POLICY_FILE') as f:
+with open(sys.argv[3]) as f:
     text = f.read()
 
 # Parse defaults
@@ -79,7 +79,7 @@ for block in rule_blocks:
                     model = sv
 
 print(model)
-" 2>/dev/null
+PYEOF
 }
 
 # Resolve budget parameter
@@ -90,11 +90,11 @@ resolve_budget() {
 
   [ -f "$POLICY_FILE" ] || return 0
 
-  python3 -c "
+  python3 - "$param" "$POLICY_FILE" <<'PYEOF'
 import sys
 
-param = '$param'
-with open('$POLICY_FILE') as f:
+param = sys.argv[1]
+with open(sys.argv[2]) as f:
     text = f.read()
 
 in_budget = False
@@ -110,5 +110,5 @@ for line in text.split('\n'):
         if k == param:
             print(v)
             sys.exit(0)
-" 2>/dev/null
+PYEOF
 }
