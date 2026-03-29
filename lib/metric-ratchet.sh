@@ -66,7 +66,15 @@ compute_metrics() {
   python3 -c "
 import json, sys
 
-entries = [json.loads(line) for line in sys.stdin if line.strip()]
+all_entries = [json.loads(line) for line in sys.stdin if line.strip()]
+seen = set()
+entries = []
+for e in all_entries:
+    rid = e.get('runId', '')
+    if rid and rid in seen:
+        continue
+    seen.add(rid)
+    entries.append(e)
 if not entries:
     json.dump({'count': 0}, sys.stdout)
     sys.exit(0)
