@@ -17,6 +17,7 @@ review_cadence: monthly
 | Workstream | Source Doc | Status | Notes |
 | --- | --- | --- | --- |
 | Harness legibility / anti-drift | `docs/plans/2026-03-15-large-project-support-roadmap.md` | active | Current focus: parity checks, harness bootstrap, anti-entropy follow-up |
+| Root anti-entropy / RECONCILE design | `docs/plans/2026-04-10-root-anti-entropy-reconcile-design.md` | active | Current recommendation: report-only anti-entropy first, no root Phase 5 mutation |
 | Thin CLI extraction | `docs/thin-cli-extraction-plan.md` | active | Tracks deterministic-core extraction to Rust / `signum-core` |
 | Iterative audit behavior | `docs/plans/2026-03-15-iterative-audit-design.md` | active | Design reference for review/fix loop behavior |
 
@@ -28,7 +29,7 @@ review_cadence: monthly
 
 ## Next Planned Steps
 - Decide which docs should remain hand-maintained versus eventually derived/generated.
-- Define the first anti-entropy / `RECONCILE` maintenance mode for root pipeline or keep it overlay-only with explicit policy.
+- Implement the first report-only anti-entropy artifact without changing the canonical root phase model.
 - Extend thin-cli planning from extraction inventory to a stable protocol/event model for `signum-core`.
 - Decide whether `README.md` and `CHANGELOG.md` need an immediate sync pass for `init --harness`.
 

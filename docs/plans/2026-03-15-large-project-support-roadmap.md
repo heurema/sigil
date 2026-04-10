@@ -146,10 +146,11 @@ Remaining follow-up:
 
 ## Current P0 Documentation / Parity Debt
 
-- [ ] Add explicit doc/parity checks so roadmap/docs cannot silently drift from root `commands/signum.md`
-- [ ] Resolve the `RECONCILE` root-vs-overlay divergence (`platforms/claude-code/commands/signum.md` has it; root `commands/signum.md` does not)
+- [x] Add explicit doc/parity checks so roadmap/docs cannot silently drift from root `commands/signum.md`
+- [x] Add harness-doc bootstrap beyond `project.intent.md` / `project.glossary.json`
+- [x] Convert the `RECONCILE` root-vs-overlay divergence into an explicit documented overlay deviation (`docs/overlay-deviations.json`)
 - [ ] Decide which docs should be generated/derived instead of maintained manually
-- [ ] Add harness-doc bootstrap beyond `project.intent.md` / `project.glossary.json`
+- [ ] Decide the canonical root anti-entropy / RECONCILE model (see `docs/plans/2026-04-10-root-anti-entropy-reconcile-design.md`)
 
 ## Beyond MVP
 
