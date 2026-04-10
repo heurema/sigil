@@ -10,7 +10,7 @@
 **Write contracts before writing code.**
 
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-5b21b6?style=flat-square)]()
-[![Version](https://img.shields.io/badge/Version-4.18.0-5b21b6?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-4.18.1-5b21b6?style=flat-square)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > Your AI agent writes code. Signum makes sure it writes the *right* code.

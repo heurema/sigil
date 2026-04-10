@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [4.18.1] - 2026-04-10
+
+### Fixed
+- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `.signum/anti_entropy_report.json`, advertises it in explain mode, syncs it to per-contract directories, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
+
 ## [4.18.0] - 2026-04-10
 
 ### Added

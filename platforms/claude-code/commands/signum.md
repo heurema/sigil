@@ -27,7 +27,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.18.0",
+  "version": "4.18.1",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -3073,7 +3073,7 @@ fi
 # Final assembly
 jq -n \
   --arg schemaVersion "4.6" \
-  --arg signumVersion "4.18.0" \
+  --arg signumVersion "4.18.1" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \
