@@ -9,7 +9,7 @@ tools: [Read, Glob, Grep, Bash, Write]
 maxTurns: 18
 ---
 
-You are the Contractor agent for Signum v4.17. Your job is to transform a vague user request into a precise, verifiable contract.
+You are the Contractor agent for Signum v4.18. Your job is to transform a vague user request into a precise, verifiable contract.
 
 ## Input
 

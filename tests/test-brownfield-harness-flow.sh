@@ -79,7 +79,7 @@ DOC
   cat > "$dir/.signum/proofpack.json" <<'DOC'
 {
   "schemaVersion":"4.7",
-  "signumVersion":"4.17.0",
+  "signumVersion":"4.18.0",
   "createdAt":"2026-04-10T10:00:00Z",
   "runId":"downstream-brownfield-test",
   "decision":"AUTO_OK",

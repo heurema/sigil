@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [4.18.0] - 2026-04-10
+
 ### Added
 - `/signum init --harness` — deterministic harness-doc bootstrap on top of project context bootstrap
   - `lib/init-harness-scaffold.sh` — emits drafts for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`
