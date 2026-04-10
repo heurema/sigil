@@ -21,14 +21,14 @@
 
 ## What it does
 
-AI can generate a function in seconds; telling you whether it is correct takes longer, because "correct" isn't defined until someone writes it down. Signum is a contract-first development pipeline for Claude Code that defines correctness before a line is written, then verifies against it deterministically — not by asking another model if the code looks right, but by running acceptance criteria the implementing agent never fully saw. Unlike generic code review, Signum produces a tamper-evident `proofpack.json` artifact that CI can gate on.
+AI can generate a function in seconds; telling you whether it is correct takes longer, because "correct" isn't defined until someone writes it down. Signum is a contract-first development pipeline for Claude Code that defines correctness before a line is written, then verifies against it deterministically — not by asking another model if the code looks right, but by running acceptance criteria the implementing agent never fully saw. Unlike generic code review, Signum produces a tamper-evident `proofpack.json` artifact that CI can gate on, plus an advisory `anti_entropy_report.json` for follow-up hygiene work.
 
 | Phase | What happens |
 |-------|-------------|
 | **CONTRACT** | Spec graded A–F. Codex + Gemini validate for gaps. |
 | **EXECUTE** | Engineer builds against a redacted contract. |
 | **AUDIT** | Deterministic checks + 3-model parallel review + iterative fix loop. |
-| **PACK** | Self-contained `proofpack.json` for CI gating. |
+| **PACK** | Self-contained `proofpack.json` for CI gating + advisory `anti_entropy_report.json`. |
 
 ## Install
 
@@ -57,7 +57,7 @@ claude plugin install .
 /signum "your task description"
 ```
 
-Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json`.
+Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.
 
 For an existing repo, bootstrap project context first:
 
@@ -121,6 +121,8 @@ This generates `project.intent.md`, `project.glossary.json`, and repo-level harn
 **Module lifecycle tracking** — A `modules.yaml` manifest at the project root declares module status: `active`, `experimental`, `deprecated`, or `removed`. Deprecated modules carry `remove_after` deadlines and `replaced_by` pointers. The contractor reads this before generating contracts — cleanup tasks auto-detect removal candidates and generate structured `removals` and `cleanupObligations` entries.
 
 **Cleanup contracts** — Contract schema v3.8 adds first-class support for code removal. `removals` entries specify files/directories to delete with `preventReintroduction` flags. `cleanupObligations` use K8s Finalizer semantics — blocking obligations (e.g., "remove all imports of deleted module") must be fulfilled before `AUTO_OK`. The DSL supports `file_not_exists` assertions and `grep` for reference-checking verify blocks. Evidence of successful removals is captured in `proofpack.json`.
+
+**Advisory anti-entropy report** — PACK also writes `.signum/anti_entropy_report.json`: a non-blocking follow-up report that can surface unresolved cleanup evidence, overdue `modules.yaml` lifecycle drift, and optional imported metric regressions. It never changes the pipeline decision.
 
 ## Architecture
 
@@ -204,7 +206,7 @@ Without this file, signum uses each CLI's default model. See `forge doctor` to v
 
 ## Privacy
 
-All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Artifacts stored in `.signum/` (auto-added to `.gitignore`).
+All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Artifacts stored in `.signum/` (auto-added to `.gitignore`), including the advisory `anti_entropy_report.json`.
 
 ## Why Signum
 

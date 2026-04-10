@@ -29,7 +29,7 @@ Signum runs 4 phases automatically:
 1. **CONTRACT** — Generates a verifiable spec from your request
 2. **EXECUTE** — Implements code against the spec (with repair loop)
 3. **AUDIT** — Reviews with up to 3 independent AI models
-4. **PACK** — Bundles proof artifacts into `proofpack.json`
+4. **PACK** — Bundles proof artifacts into `proofpack.json` and writes advisory `anti_entropy_report.json`
 
 You approve the contract once. Everything else is autonomous.
 
@@ -46,6 +46,9 @@ Decisions:
 - **AUTO_BLOCK** — Issues found. Check `.signum/audit_summary.json`.
 - **HUMAN_REVIEW** — Inconclusive. Review flagged findings manually.
 
+Optional follow-up:
+- `jq '.status, .summary' .signum/anti_entropy_report.json` — advisory cleanup / anti-drift findings
+
 ## 4. Understand the Phases
 
 | Phase | What happens | Duration |
@@ -61,6 +64,7 @@ Key artifacts in `.signum/`:
 - `mechanic_report.json` — Lint/typecheck/test results vs baseline
 - `audit_summary.json` — Consensus decision with reasoning
 - `proofpack.json` — Self-contained evidence bundle
+- `anti_entropy_report.json` — Advisory follow-up findings (non-blocking)
 
 ## 5. Configure External Providers (Optional)
 
@@ -185,6 +189,7 @@ EOF
 3. Run: `/signum "describe your first task"`
 4. Review the contract when prompted (5-item checklist)
 5. Check `.signum/proofpack.json` for the result
+6. Optionally check `.signum/anti_entropy_report.json` for follow-up hygiene work
 
 `.signum/` is auto-added to `.gitignore`. No cleanup needed.
 
