@@ -1,0 +1,66 @@
+{
+  "caseId": "02-medium-risk-graceful-degradation",
+  "description": "Medium-risk graceful degradation with genuinely missing external CLIs may still remain AUTO_OK.",
+  "riskLevel": "medium",
+  "flags": {},
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "description": "placeholder"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "auditSummary": {
+      "verdict": "AUTO_OK",
+      "confidence": 83,
+      "reducedAuditCoverage": true,
+      "regressions": [],
+      "criticalFindings": [],
+      "notes": [
+        "Reduced audit coverage: codex/gemini CLIs missing, single-model graceful degradation path."
+      ],
+      "externalAuditCoverage": {
+        "codex": "missing",
+        "gemini": "missing"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run",
+        "source": "eval-harness-v1"
+      },
+      "contractSummary": {
+        "acceptanceCriteria": 1,
+        "requiredInputsProvided": true
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {
+        "codex": {
+          "status": "simulated"
+        }
+      },
+      "externalAuditCoverage": {
+        "codex": "missing",
+        "gemini": "missing"
+      },
+      "finalVerdict": "AUTO_OK",
+      "policyFlags": {
+        "policySensitive": false
+      }
+    }
+  }
+}

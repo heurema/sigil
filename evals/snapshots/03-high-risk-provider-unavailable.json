@@ -1,0 +1,21 @@
+{
+  "caseId": "03-high-risk-provider-unavailable",
+  "checkCounts": {
+    "failed": 0,
+    "passed": 22,
+    "total": 22
+  },
+  "contractReady": true,
+  "degradedProviders": [
+    "codex",
+    "gemini"
+  ],
+  "description": "High-risk case with multiple degraded reviewers must remain gated.",
+  "failedCheckDetails": [],
+  "failedChecks": [],
+  "invariantStatus": "ok",
+  "observedVerdict": "HUMAN_REVIEW",
+  "policySensitive": false,
+  "reducedAuditCoverage": true,
+  "riskLevel": "high"
+}

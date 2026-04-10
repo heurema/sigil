@@ -1,0 +1,21 @@
+{
+  "caseId": "02-medium-risk-graceful-degradation",
+  "checkCounts": {
+    "failed": 0,
+    "passed": 21,
+    "total": 21
+  },
+  "contractReady": true,
+  "degradedProviders": [
+    "codex",
+    "gemini"
+  ],
+  "description": "Medium-risk graceful degradation with genuinely missing external CLIs may still remain AUTO_OK.",
+  "failedCheckDetails": [],
+  "failedChecks": [],
+  "invariantStatus": "ok",
+  "observedVerdict": "AUTO_OK",
+  "policySensitive": false,
+  "reducedAuditCoverage": true,
+  "riskLevel": "medium"
+}

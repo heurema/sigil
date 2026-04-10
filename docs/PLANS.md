@@ -12,6 +12,11 @@ review_cadence: monthly
 - Root command files remain canonical for shipped behavior; plan docs must not be treated as behavior truth when they disagree with `commands/signum.md`.
 - When a capability ships, update the roadmap status in the same change or immediately after. Do not leave “not started” on already shipped behavior.
 
+## Idea Intake Rule
+- Before adopting a new Signum idea from adjacent tools, research, or competitor repos, first compare it against the current approaches and stated directions of relevant providers (`Anthropic`, `OpenAI`, `Google`, and others when relevant).
+- Prefer provider-aligned ideas over clever local additions when the tradeoff is unclear.
+- Until that comparison exists, treat the idea as exploratory only — not committed roadmap work.
+
 ## Active Workstreams
 
 | Workstream | Source Doc | Status | Notes |
@@ -28,6 +33,7 @@ review_cadence: monthly
 - `init --harness` MVP now exists to bootstrap repo-level harness docs in addition to project intent/glossary.
 
 ## Next Planned Steps
+- Add an evaluation harness first; this is the current lowest-risk provider-aligned follow-up for prompt/orchestration work.
 - Decide which docs should remain hand-maintained versus eventually derived/generated.
 - Implement the first report-only anti-entropy artifact without changing the canonical root phase model.
 - Extend thin-cli planning from extraction inventory to a stable protocol/event model for `signum-core`.

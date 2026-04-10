@@ -1,5 +1,7 @@
 .DS_Store
 .dev/
 .signum/
+__pycache__/
+*.pyc
 node_modules/
 .punk/

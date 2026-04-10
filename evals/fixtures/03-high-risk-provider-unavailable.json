@@ -1,0 +1,66 @@
+{
+  "caseId": "03-high-risk-provider-unavailable",
+  "description": "High-risk case with multiple degraded reviewers must remain gated.",
+  "riskLevel": "high",
+  "flags": {},
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "description": "placeholder"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "auditSummary": {
+      "verdict": "HUMAN_REVIEW",
+      "confidence": 72,
+      "reducedAuditCoverage": true,
+      "regressions": [],
+      "criticalFindings": [],
+      "notes": [
+        "Reduced audit coverage: codex missing, gemini network_error"
+      ],
+      "externalAuditCoverage": {
+        "codex": "missing",
+        "gemini": "network_error"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run",
+        "source": "eval-harness-v1"
+      },
+      "contractSummary": {
+        "acceptanceCriteria": 1,
+        "requiredInputsProvided": true
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {
+        "codex": {
+          "status": "simulated"
+        }
+      },
+      "externalAuditCoverage": {
+        "codex": "missing",
+        "gemini": "network_error"
+      },
+      "finalVerdict": "HUMAN_REVIEW",
+      "policyFlags": {
+        "policySensitive": false
+      }
+    }
+  }
+}

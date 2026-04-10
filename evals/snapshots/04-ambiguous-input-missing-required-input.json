@@ -1,0 +1,18 @@
+{
+  "caseId": "04-ambiguous-input-missing-required-input",
+  "checkCounts": {
+    "failed": 0,
+    "passed": 22,
+    "total": 22
+  },
+  "contractReady": false,
+  "degradedProviders": [],
+  "description": "Contract gaps force HUMAN_REVIEW even when artifacts are otherwise well formed.",
+  "failedCheckDetails": [],
+  "failedChecks": [],
+  "invariantStatus": "ok",
+  "observedVerdict": "HUMAN_REVIEW",
+  "policySensitive": false,
+  "reducedAuditCoverage": false,
+  "riskLevel": "medium"
+}

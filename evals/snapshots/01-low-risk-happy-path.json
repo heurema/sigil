@@ -1,0 +1,18 @@
+{
+  "caseId": "01-low-risk-happy-path",
+  "checkCounts": {
+    "failed": 0,
+    "passed": 22,
+    "total": 22
+  },
+  "contractReady": true,
+  "degradedProviders": [],
+  "description": "Low-risk clean case with full coverage and an AUTO_OK verdict.",
+  "failedCheckDetails": [],
+  "failedChecks": [],
+  "invariantStatus": "ok",
+  "observedVerdict": "AUTO_OK",
+  "policySensitive": false,
+  "reducedAuditCoverage": false,
+  "riskLevel": "low"
+}

@@ -74,6 +74,16 @@ This generates `project.intent.md`, `project.glossary.json`, and repo-level harn
 | `/signum <task>` | Run the full CONTRACT → EXECUTE → AUDIT → PACK pipeline |
 | `/signum init [--force] [--harness] [--project-root <path>]` | Bootstrap `project.intent.md` / `project.glossary.json`; `--harness` also scaffolds repo-level harness docs |
 
+## Maintenance checks
+
+For prompt/orchestration-sensitive changes, run the offline eval harness:
+
+```bash
+python3 evals/run.py
+```
+
+It is fixture-driven and snapshot-based by design. It does not call live providers and it does not extend the runtime pipeline.
+
 ## Features
 
 **Spec quality gate** — Before implementation starts, your spec is scored across seven dimensions: Testability, Negative coverage, Clarity, Scope boundedness, Completeness, Boundary cases, NL Consistency. Grade D (below 60) is a hard stop with specific feedback on what's missing. The gate runs on the specification, not the code.

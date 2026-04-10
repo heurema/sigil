@@ -1,0 +1,18 @@
+{
+  "caseId": "05-policy-sensitive-human-review",
+  "checkCounts": {
+    "failed": 0,
+    "passed": 22,
+    "total": 22
+  },
+  "contractReady": true,
+  "degradedProviders": [],
+  "description": "Policy-sensitive work should stay gated even with full reviewer coverage.",
+  "failedCheckDetails": [],
+  "failedChecks": [],
+  "invariantStatus": "ok",
+  "observedVerdict": "HUMAN_REVIEW",
+  "policySensitive": true,
+  "reducedAuditCoverage": false,
+  "riskLevel": "medium"
+}

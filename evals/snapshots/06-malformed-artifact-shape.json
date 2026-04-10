@@ -1,0 +1,82 @@
+{
+  "caseId": "06-malformed-artifact-shape",
+  "checkCounts": {
+    "failed": 10,
+    "passed": 12,
+    "total": 22
+  },
+  "contractReady": false,
+  "degradedProviders": [
+    "codex"
+  ],
+  "description": "Malformed artifacts demonstrate the exact invariant failures the harness should pin in snapshots.",
+  "failedCheckDetails": [
+    {
+      "detail": "requiredInputsProvided must be boolean",
+      "id": "contract.required_inputs_shape",
+      "status": "fail"
+    },
+    {
+      "detail": "openQuestions must be a list of strings",
+      "id": "contract.open_questions_shape",
+      "status": "fail"
+    },
+    {
+      "detail": "acceptanceCriteria must be a non-empty list",
+      "id": "contract.acceptance_criteria_shape",
+      "status": "fail"
+    },
+    {
+      "detail": "confidence must be an integer",
+      "id": "audit.confidence_shape",
+      "status": "fail"
+    },
+    {
+      "detail": "regressions must be a list",
+      "id": "audit.regressions_shape",
+      "status": "fail"
+    },
+    {
+      "detail": "all provider coverage states must be recognized",
+      "id": "audit.coverage_states",
+      "status": "fail"
+    },
+    {
+      "detail": "reducedAuditCoverage must be true when any provider is degraded",
+      "id": "audit.reduced_coverage_flag",
+      "status": "fail"
+    },
+    {
+      "detail": "contract gaps must not claim AUTO_OK",
+      "id": "audit.contract_gap_verdict",
+      "status": "fail"
+    },
+    {
+      "detail": "proofpack must expose all required summary sections",
+      "id": "proofpack.required_sections",
+      "status": "fail"
+    },
+    {
+      "detail": "proofpack finalVerdict must match audit verdict",
+      "id": "proofpack.final_verdict_match",
+      "status": "fail"
+    }
+  ],
+  "failedChecks": [
+    "contract.required_inputs_shape",
+    "contract.open_questions_shape",
+    "contract.acceptance_criteria_shape",
+    "audit.confidence_shape",
+    "audit.regressions_shape",
+    "audit.coverage_states",
+    "audit.reduced_coverage_flag",
+    "audit.contract_gap_verdict",
+    "proofpack.required_sections",
+    "proofpack.final_verdict_match"
+  ],
+  "invariantStatus": "violated",
+  "observedVerdict": "AUTO_OK",
+  "policySensitive": false,
+  "reducedAuditCoverage": false,
+  "riskLevel": "low"
+}

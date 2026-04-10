@@ -1,0 +1,68 @@
+{
+  "caseId": "04-ambiguous-input-missing-required-input",
+  "description": "Contract gaps force HUMAN_REVIEW even when artifacts are otherwise well formed.",
+  "riskLevel": "medium",
+  "flags": {},
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "description": "placeholder"
+        }
+      ],
+      "openQuestions": [
+        "Need the target proofpack field inventory from the owner."
+      ],
+      "requiredInputsProvided": false
+    },
+    "auditSummary": {
+      "verdict": "HUMAN_REVIEW",
+      "confidence": 64,
+      "reducedAuditCoverage": false,
+      "regressions": [],
+      "criticalFindings": [],
+      "notes": [
+        "Contract is incomplete; manual clarification required."
+      ],
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "ready"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run",
+        "source": "eval-harness-v1"
+      },
+      "contractSummary": {
+        "acceptanceCriteria": 1,
+        "requiredInputsProvided": true
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {
+        "codex": {
+          "status": "simulated"
+        }
+      },
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "ready"
+      },
+      "finalVerdict": "HUMAN_REVIEW",
+      "policyFlags": {
+        "policySensitive": false
+      }
+    }
+  }
+}
