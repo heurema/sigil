@@ -153,6 +153,15 @@ All artifacts are written to `.signum/` (auto-added to `.gitignore`):
 | `repair_brief.json` | AUDIT | Current repair brief for engineer (v4.6+) |
 | `flaky_tests.json` | AUDIT | Flaky test tracker (v4.6+, run-local) |
 
+## Offline eval harness (v1)
+
+Signum also ships a maintainer-facing offline eval harness under `evals/`. It is intentionally not a runtime phase.
+
+- `python3 evals/run.py` evaluates 6 representative pseudo-run fixtures.
+- The grader is deterministic and snapshot-based.
+- The scope is contract/audit/proofpack semantics for prompt/orchestration work.
+- No live provider calls, no LLM judge, no trajectory evaluation.
+
 ## Project Context Bootstrap: /signum init
 
 Before running the main pipeline on an unfamiliar project, use `/signum init` to generate project context files that the Contractor agent reads automatically. Use `--harness` when you also want repo-level harness docs scaffolded.

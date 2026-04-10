@@ -1,0 +1,66 @@
+{
+  "caseId": "01-low-risk-happy-path",
+  "description": "Low-risk clean case with full coverage and an AUTO_OK verdict.",
+  "riskLevel": "low",
+  "flags": {},
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "description": "placeholder"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "auditSummary": {
+      "verdict": "AUTO_OK",
+      "confidence": 93,
+      "reducedAuditCoverage": false,
+      "regressions": [],
+      "criticalFindings": [],
+      "notes": [
+        "Deterministic checks and review summaries are aligned."
+      ],
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "ready"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run",
+        "source": "eval-harness-v1"
+      },
+      "contractSummary": {
+        "acceptanceCriteria": 1,
+        "requiredInputsProvided": true
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {
+        "codex": {
+          "status": "simulated"
+        }
+      },
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "ready"
+      },
+      "finalVerdict": "AUTO_OK",
+      "policyFlags": {
+        "policySensitive": false
+      }
+    }
+  }
+}

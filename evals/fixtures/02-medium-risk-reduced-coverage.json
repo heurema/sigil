@@ -1,0 +1,66 @@
+{
+  "caseId": "02-medium-risk-reduced-coverage",
+  "description": "Medium-risk case degrades one reviewer and must stay below AUTO_OK.",
+  "riskLevel": "medium",
+  "flags": {},
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "description": "placeholder"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "auditSummary": {
+      "verdict": "HUMAN_REVIEW",
+      "confidence": 81,
+      "reducedAuditCoverage": true,
+      "regressions": [],
+      "criticalFindings": [],
+      "notes": [
+        "Reduced audit coverage: gemini timeout"
+      ],
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "timeout"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run",
+        "source": "eval-harness-v1"
+      },
+      "contractSummary": {
+        "acceptanceCriteria": 1,
+        "requiredInputsProvided": true
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {
+        "codex": {
+          "status": "simulated"
+        }
+      },
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "timeout"
+      },
+      "finalVerdict": "HUMAN_REVIEW",
+      "policyFlags": {
+        "policySensitive": false
+      }
+    }
+  }
+}

@@ -12,6 +12,7 @@ review_cadence: quarterly
 - Canonical behavior changes in `commands/signum.md` or `commands/init.md` must update the matching derived docs in the same bounded diff.
 - Root-vs-overlay behavior differences must either be removed or documented in `docs/overlay-deviations.json`.
 - Docs-only changes that affect operator understanding should pass doc parity checks.
+- Prompt/orchestration-sensitive changes should run `python3 evals/run.py`; if behavior changes intentionally, update the matching fixtures/snapshots in the same diff.
 
 ## Repo-Specific Quality Dimensions
 
@@ -40,6 +41,7 @@ review_cadence: quarterly
 | `lib/*.sh` deterministic behavior | matching `tests/test-*.sh` + direct script sanity run |
 | `commands/*.md` behavior change | docs sync + relevant deterministic tests |
 | init/bootstrap change | `tests/test-init.sh` and/or `tests/test-init-harness-scaffold.sh` |
+| prompt/orchestration change | `python3 evals/run.py` + `bash tests/test-eval-harness.sh` |
 | canonical/overlay doc change | `tests/test-doc-parity.sh` + `lib/doc-parity-check.sh` |
 | schema change | schema consumers + docs/reference sync |
 

@@ -1,0 +1,68 @@
+{
+  "caseId": "05-policy-sensitive-human-review",
+  "description": "Policy-sensitive work should stay gated even with full reviewer coverage.",
+  "riskLevel": "medium",
+  "flags": {
+    "policySensitive": true
+  },
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1",
+          "description": "placeholder"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "auditSummary": {
+      "verdict": "HUMAN_REVIEW",
+      "confidence": 79,
+      "reducedAuditCoverage": false,
+      "regressions": [],
+      "criticalFindings": [],
+      "notes": [
+        "Policy-sensitive task kept gated for manual approval."
+      ],
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "ready"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run",
+        "source": "eval-harness-v1"
+      },
+      "contractSummary": {
+        "acceptanceCriteria": 1,
+        "requiredInputsProvided": true
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {
+        "codex": {
+          "status": "simulated"
+        }
+      },
+      "externalAuditCoverage": {
+        "codex": "ready",
+        "gemini": "ready"
+      },
+      "finalVerdict": "HUMAN_REVIEW",
+      "policyFlags": {
+        "policySensitive": true
+      }
+    }
+  }
+}

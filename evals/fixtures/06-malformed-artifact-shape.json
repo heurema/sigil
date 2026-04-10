@@ -1,0 +1,47 @@
+{
+  "caseId": "06-malformed-artifact-shape",
+  "description": "Malformed artifacts demonstrate the exact invariant failures the harness should pin in snapshots.",
+  "riskLevel": "low",
+  "flags": {},
+  "artifacts": {
+    "contract": {
+      "schemaVersion": "1.0",
+      "goal": "fixture goal",
+      "acceptanceCriteria": [],
+      "openQuestions": "Need clarification",
+      "requiredInputsProvided": "yes"
+    },
+    "auditSummary": {
+      "verdict": "AUTO_OK",
+      "confidence": "high",
+      "reducedAuditCoverage": false,
+      "regressions": "none",
+      "criticalFindings": [],
+      "notes": [
+        "Malformed shapes should be caught."
+      ],
+      "externalAuditCoverage": {
+        "codex": "broken"
+      }
+    },
+    "proofpack": {
+      "runMetadata": {
+        "runId": "fixture-run"
+      },
+      "baselineSummary": {
+        "status": "captured"
+      },
+      "implementationSummary": {
+        "status": "simulated"
+      },
+      "auditSummary": {
+        "status": "simulated"
+      },
+      "reviewSummaries": {},
+      "externalAuditCoverage": {
+        "codex": "broken"
+      },
+      "finalVerdict": "AUTO_BLOCK"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "caseId": "02-medium-risk-reduced-coverage",
+  "checkCounts": {
+    "failed": 0,
+    "passed": 21,
+    "total": 21
+  },
+  "contractReady": true,
+  "degradedProviders": [
+    "gemini"
+  ],
+  "description": "Medium-risk case degrades one reviewer and must stay below AUTO_OK.",
+  "failedCheckDetails": [],
+  "failedChecks": [],
+  "invariantStatus": "ok",
+  "observedVerdict": "HUMAN_REVIEW",
+  "policySensitive": false,
+  "reducedAuditCoverage": true,
+  "riskLevel": "medium"
+}
