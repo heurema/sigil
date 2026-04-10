@@ -124,6 +124,7 @@ All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
 | `reviews/gemini.json` | Audit | Gemini CLI performance review (or unavailable marker) |
 | `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
 | `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
+| `anti_entropy_report.json` | Pack | Advisory anti-entropy follow-up findings; report-only, does not change pipeline decision |
 
 ### contract.json fields
 

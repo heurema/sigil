@@ -7,10 +7,15 @@
   - `lib/init-harness-scaffold.sh` — emits drafts for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`
   - `tests/test-init-harness-scaffold.sh` — validation for scaffold structure, content, and existing-file detection
   - Brownfield-safe behavior: if `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves them and scaffolds only missing harness docs unless `--force` is also provided
+- Anti-entropy Stage 1 report-only flow
+  - `lib/anti-entropy-report.sh` — aggregates follow-up findings from cleanup evidence, `modules.yaml`, doc parity reports, and metric-ratchet reports
+  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that always writes `.signum/anti_entropy_report.json` and never changes pipeline decision
+  - `tests/test-anti-entropy-report.sh` and `tests/test-pack-anti-entropy.sh` — coverage for report generation and fallback artifact behavior
 
 ### Changed
 - `commands/init.md` — documents `--harness` mode for root Signum init flow
 - `platforms/claude-code/commands/init.md` — documents `--harness` mode for Claude overlay init flow; disallows `--actualize` + `--harness` in the MVP
+- `commands/signum.md` — root PACK now emits advisory `.signum/anti_entropy_report.json` after proofpack assembly and archives/cleans it with the rest of the working set
 
 ### Documentation
 - `docs/reference.md` — canonical source policy now states root `commands/signum.md` is the source of truth and platform variants are overlays

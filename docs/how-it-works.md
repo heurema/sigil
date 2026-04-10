@@ -147,6 +147,7 @@ All artifacts are written to `.signum/` (auto-added to `.gitignore`):
 | `reviews/*.json` | AUDIT | Per-provider findings (specialized templates) |
 | `audit_summary.json` | AUDIT | Verdict with confidence scores |
 | `proofpack.json` | PACK | Final CI-gate artifact |
+| `anti_entropy_report.json` | PACK | Advisory follow-up findings (report-only, non-blocking) |
 | `iterations/NN/` | AUDIT | Per-iteration snapshots (v4.6+, only when iterative) |
 | `audit_iteration_log.json` | AUDIT | Summary of all iterations (v4.6+) |
 | `repair_brief.json` | AUDIT | Current repair brief for engineer (v4.6+) |

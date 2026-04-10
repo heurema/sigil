@@ -51,7 +51,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
     },
     "PACK": {
       "description": "Bundle all artifacts into signed proofpack",
-      "steps": ["collect metadata", "embed artifacts with SHA-256 envelopes", "write proofpack.json"],
+      "steps": ["collect metadata", "embed artifacts with SHA-256 envelopes", "write proofpack.json", "emit advisory anti-entropy report"],
       "duration": "~5s",
       "approvals": 0
     }
@@ -62,7 +62,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
     "medium": {"reviews": "Claude + externals", "holdouts": "≥2", "cost": "~$0.50", "duration": "3-5 min"},
     "high": {"reviews": "Full 3-model panel", "holdouts": "≥5", "cost": "~$1.00", "duration": "5-10 min"}
   },
-  "artifacts": [".signum/contract.json", ".signum/combined.patch", ".signum/proofpack.json", ".signum/audit_summary.json"]
+  "artifacts": [".signum/contract.json", ".signum/combined.patch", ".signum/proofpack.json", ".signum/audit_summary.json", ".signum/anti_entropy_report.json"]
 }
 ```
 
@@ -3176,6 +3176,15 @@ if [ -f lib/proofpack-index.sh ]; then
   proofpack_index_append .signum/proofpack.json && echo "Proofpack indexed (chain hash linked)" || true
 fi
 
+# Advisory anti-entropy artifact (non-blocking, report-only)
+if [ -f lib/pack-anti-entropy.sh ]; then
+  bash lib/pack-anti-entropy.sh \
+    --project-root . \
+    --contract .signum/contract.json \
+    --proofpack .signum/proofpack.json \
+    --output .signum/anti_entropy_report.json || true
+fi
+
 echo "Proofpack written: $RUN_ID (schema v4.8)"
 ```
 
@@ -3193,6 +3202,7 @@ if [ -f lib/contract-dir.sh ]; then
     DIR=$(contract_dir "$CONTRACT_ID")
     cp .signum/contract.json "${DIR}" 2>/dev/null || true
     cp .signum/proofpack.json "${DIR}" 2>/dev/null || true
+    cp .signum/anti_entropy_report.json "${DIR}" 2>/dev/null || true
     echo "Contract $CONTRACT_ID → completed"
   fi
 fi
@@ -3213,6 +3223,9 @@ echo ""
 echo "Decision:   $(jq -r .decision .signum/proofpack.json)"
 echo "Confidence: $(jq -r '.confidence.overall' .signum/proofpack.json)%"
 echo "Run ID:     $(jq -r .runId   .signum/proofpack.json)"
+if [ -f .signum/anti_entropy_report.json ]; then
+  echo "Anti-entropy: $(jq -r '.status + \" — \" + .summary' .signum/anti_entropy_report.json 2>/dev/null || echo 'unknown')"
+fi
 ```
 
 Then display the appropriate next steps based on the decision:
@@ -3248,6 +3261,7 @@ finalize_run() {
   cp .signum/proofpack.json "$ARCHIVE_TMP/" 2>/dev/null
   cp .signum/approval.json "$ARCHIVE_TMP/" 2>/dev/null
   cp .signum/audit_summary.json "$ARCHIVE_TMP/" 2>/dev/null
+  cp .signum/anti_entropy_report.json "$ARCHIVE_TMP/" 2>/dev/null || true
   cp .signum/receipts/execute.json "$ARCHIVE_TMP/" 2>/dev/null || true
 
   # Step 3: Verify required files exist in temp
@@ -3294,6 +3308,7 @@ finalize_run() {
        .signum/execute_log.json .signum/combined.patch .signum/iteration_delta.patch \
        .signum/baseline.json .signum/mechanic_report.json .signum/holdout_report.json \
        .signum/audit_summary.json .signum/proofpack.json .signum/approval.json \
+       .signum/anti_entropy_report.json \
        .signum/policy_violations.json .signum/policy_scan.json \
        .signum/spec_quality.json .signum/spec_validation.json \
        .signum/repo_contract_baseline.json .signum/repo_contract_violations.json \
@@ -3322,6 +3337,7 @@ cp .signum/contract.json "$ARCHIVE_TMP/" 2>/dev/null
 cp .signum/proofpack.json "$ARCHIVE_TMP/" 2>/dev/null
 cp .signum/approval.json "$ARCHIVE_TMP/" 2>/dev/null
 cp .signum/audit_summary.json "$ARCHIVE_TMP/" 2>/dev/null
+cp .signum/anti_entropy_report.json "$ARCHIVE_TMP/" 2>/dev/null || true
 cp .signum/receipts/execute.json "$ARCHIVE_TMP/" 2>/dev/null || true
 if [ ! -f "$ARCHIVE_TMP/contract.json" ] || [ ! -f "$ARCHIVE_TMP/proofpack.json" ]; then
   echo "ERROR: archive incomplete — keeping working set intact"
@@ -3340,6 +3356,7 @@ rm -f .signum/contract.json .signum/contract-engineer.json .signum/contract-poli
      .signum/execute_log.json .signum/combined.patch .signum/iteration_delta.patch \
      .signum/baseline.json .signum/mechanic_report.json .signum/holdout_report.json \
      .signum/audit_summary.json .signum/proofpack.json .signum/approval.json \
+     .signum/anti_entropy_report.json \
      .signum/policy_violations.json .signum/policy_scan.json \
      .signum/spec_quality.json .signum/spec_validation.json \
      .signum/repo_contract_baseline.json .signum/repo_contract_violations.json \
@@ -3362,6 +3379,7 @@ rm -f .signum/contract.json .signum/contract-engineer.json .signum/contract-poli
      .signum/execute_log.json .signum/combined.patch .signum/iteration_delta.patch \
      .signum/baseline.json .signum/mechanic_report.json .signum/holdout_report.json \
      .signum/audit_summary.json .signum/proofpack.json .signum/approval.json \
+     .signum/anti_entropy_report.json \
      .signum/policy_violations.json .signum/policy_scan.json \
      .signum/spec_quality.json .signum/spec_validation.json \
      .signum/repo_contract_baseline.json .signum/repo_contract_violations.json \
