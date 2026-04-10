@@ -4,6 +4,10 @@ Date: 2026-03-15
 Status: planning
 Source: `/delve` research + 3 Codex sub-reports
 
+> **2026-04-10 maintenance update**
+>
+> This roadmap originally captured missing capabilities. Phases 1-5 below are now **shipped in core Signum** and should no longer be read as "not started". Root `commands/signum.md` is the canonical source of pipeline behavior. This roadmap now tracks remaining follow-up work, remaining gaps, and unresolved architecture questions.
+
 ## Context
 
 Research across 7 production SDD systems, 15+ papers, and internal Signum analysis
@@ -20,116 +24,133 @@ Supporting Codex reports: `docs/research/2026-03-15-signum-*.md`, `docs/research
 ### Phase 1: Project Intent Layer
 - **Effort:** LOW
 - **Leverage:** HIGH
-- **Status:** not started
+- **Status:** shipped in core
 
 Tasks:
-- [ ] Define `project.intent.md` template (goal, non-goals, glossary, success criteria, personas)
-- [ ] Add `contextInheritance` block to contract schema v3.3:
+- [x] Define `project.intent.md` template (goal, non-goals, glossary, success criteria, personas)
+- [x] Add `contextInheritance` block to contract schema v3.3+:
   - `projectRef: string` — path to project.intent.md
-- [ ] Update contractor agent to load `project.intent.md` before generating contract
-- [ ] Add `intent_diff_check` as WARN-level sub-check in spec quality gate
+- [x] Update contractor agent to load `project.intent.md` before generating contract
+- [x] Add `intent_diff_check` as WARN-level sub-check in spec quality gate
   - Compares contract goal against project intent, surfaces divergence
-- [ ] Document the new field in README / reference.md
+- [x] Document the new field in README / reference.md
 
-Design questions to resolve:
-- Exact template structure for `project.intent.md`
-- Where to store: repo root vs `.signum/`
-- How contractor loads it (always vs on-demand)
+Resolved:
+- `project.intent.md` lives at repo root
+- contractor loads it automatically when present
+
+Remaining follow-up:
+- Add harness-doc bootstrap beyond `project.intent.md` / `project.glossary.json`
 
 ### Phase 2: Glossary Enforcement
 - **Effort:** MEDIUM
 - **Leverage:** HIGH
-- **Status:** not started
+- **Status:** shipped in core
 
 Tasks:
-- [ ] Add glossary section to `project.intent.md` OR standalone `project.glossary.json`
+- [x] Add glossary section to `project.intent.md` OR standalone `project.glossary.json`
   - Canonical terms + alias table (forbidden synonyms)
-- [ ] Add `glossaryVersion` field to contract schema
-- [ ] Implement `glossary_check` in spec quality gate:
+- [x] Add `glossaryVersion` field to contract schema
+- [x] Implement `glossary_check` in spec quality gate:
   - Lexical match for forbidden synonyms in goal/inScope/ACs
   - WARN on undefined critical domain terms
-- [ ] Implement `terminology_consistency_check`:
+- [x] Implement `terminology_consistency_check`:
   - Across active contracts in `.signum/contracts/index.json`
   - WARN on synonym proliferation
 
-Design questions to resolve:
-- Format: markdown section vs standalone JSON
-- Scope: global repo vs per bounded-context
-- Blocking policy: WARN vs BLOCK for undefined terms
+Resolved:
+- standalone `project.glossary.json`
+- WARN-only enforcement in core
+
+Remaining follow-up:
+- Decide whether bounded-context glossaries are needed later
 
 ### Phase 3: Cross-Contract Coherence
 - **Effort:** MEDIUM
 - **Leverage:** HIGH
-- **Status:** not started
+- **Status:** shipped in core
 
 Tasks:
-- [ ] Implement `cross_contract_overlap_check`:
+- [x] Implement `cross_contract_overlap_check`:
   - Compare new contract inScope against active contracts
   - WARN on overlapping scope
-- [ ] Implement `assumption_contradiction_check`:
+- [x] Implement `assumption_contradiction_check`:
   - Compare assumptions[] across related contracts
   - WARN on conflicting assumptions
-- [ ] Implement `adr_relevance_check`:
+- [x] Implement `adr_relevance_check`:
   - Match touched paths against ADR file globs
   - WARN if adrRefs is empty but relevant ADRs exist
-- [ ] Extend contract schema with dependency semantics:
+- [x] Extend contract schema with dependency semantics:
   - `dependsOnContractIds: string[]` — ordering dependency
   - `supersedesContractIds: string[]` — obsolescence tracking
   - `supersededByContractId: string` — reverse pointer
   - `interfacesTouched: string[]` — named interfaces this contract modifies
-- [ ] Enhance `.signum/contracts/index.json` for graph queries
+- [x] Enhance `.signum/contracts/index.json` for graph queries
 
-Design questions to resolve:
-- How to detect "relevant ADRs" without Archgate (file glob matching?)
-- How fine-grained should overlap detection be (file-level vs interface-level)
-- Should dependency edges be auto-detected or user-declared
+Resolved:
+- file/path-based ADR relevance is sufficient for core
+- dependency semantics are user-declared, not inferred
+
+Remaining follow-up:
+- improve graph queries and cross-contract UX
 
 ### Phase 4: Upstream Staleness Detection
 - **Effort:** HIGH
 - **Leverage:** HIGH
-- **Status:** not started
+- **Status:** shipped in core
 
 Tasks:
-- [ ] Add `contextSnapshotHash` to contract schema:
+- [x] Add `contextSnapshotHash` to contract schema:
   - SHA-256 hash over all inherited upstream artifacts at creation time
-- [ ] Add `staleIfChanged: string[]`:
+- [x] Add `staleIfChanged: string[]`:
   - Upstream artifact refs that trigger staleness when modified
-- [ ] Add `stalenessStatus: "fresh" | "warning" | "stale"`
-- [ ] Implement `upstream_staleness_check`:
+- [x] Add `stalenessStatus: "fresh" | "warning" | "stale"`
+- [x] Implement `upstream_staleness_check`:
   - Recompute hash, compare against stored contextSnapshotHash
   - BLOCK if stale (configurable: BLOCK vs WARN)
-- [ ] Contractor sets these fields automatically from contextInheritance refs
+- [x] Contractor sets these fields automatically from contextInheritance refs
 
-Design questions to resolve:
-- What constitutes a "change" — any byte change vs semantic change
-- BLOCK vs WARN policy for staleness
-- How to handle cascading staleness (contract A depends on B, B becomes stale)
+Resolved:
+- byte-level hashing is the current core mechanism
+- `warn` is the default policy; `block` is supported
+
+Remaining follow-up:
+- cascading staleness and semantic invalidation remain open
 
 ### Phase 5: Within-Task Refinement Loop
 - **Effort:** MEDIUM
 - **Leverage:** MEDIUM
-- **Status:** not started
+- **Status:** shipped in core
 
 Tasks:
-- [ ] Implement explicit multi-pass critique in CONTRACT stage:
+- [x] Implement explicit multi-pass critique in CONTRACT stage:
   - Pass 1: `ambiguity review` — structural + LLM-based
   - Pass 2: `missing-input review` — required context gaps
   - Pass 3: `contradiction review` — internal consistency
   - Pass 4: `goal reconstruction / coverage review` — Clover extension
-- [ ] Typed findings (not freeform commentary):
+- [x] Typed findings (not freeform commentary):
   - `ambiguityCandidates: [{text, location, severity}]`
   - `contradictionsFound: [{claim_a, claim_b, type}]`
   - `clarificationDecisions: [{question, decision, rationale}]`
   - `assumptionProvenance: [{id, text, source, confidence}]`
-- [ ] Cap auto-revision at 1-2 rounds, then escalate to user
-- [ ] Add `readinessForPlanning` computed field (go/no-go summary)
+- [x] Cap auto-revision at 1-2 rounds, then escalate to user
+- [x] Add `readinessForPlanning` computed field (go/no-go summary)
 
-Design questions to resolve:
-- How many critique passes before contractor latency becomes unacceptable
-- Should critique agents be separate subagents or inline in contractor
-- How to prevent over-critique on simple tasks
+Resolved:
+- critique runs inline in contractor for medium/high risk
+
+Remaining follow-up:
+- tune latency and over-critique thresholds from real runs
 
 ---
+
+## Current P0 Documentation / Parity Debt
+
+- [x] Add explicit doc/parity checks so roadmap/docs cannot silently drift from root `commands/signum.md`
+- [x] Add harness-doc bootstrap beyond `project.intent.md` / `project.glossary.json`
+- [x] Convert the `RECONCILE` root-vs-overlay divergence into an explicit documented overlay deviation (`docs/overlay-deviations.json`)
+- [ ] Decide which docs should be generated/derived instead of maintained manually
+- [ ] Decide the canonical root anti-entropy / RECONCILE model (see `docs/plans/2026-04-10-root-anti-entropy-reconcile-design.md`)
 
 ## Beyond MVP
 

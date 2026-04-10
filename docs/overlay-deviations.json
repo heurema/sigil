@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "overlays": {
+    "platforms/claude-code/commands/signum.md": {
+      "allowedExtraPhases": [
+        {
+          "name": "RECONCILE",
+          "reason": "Claude Code platform variant adds a post-PACK reconciliation step for cleanupObligations after AUTO_OK. Root commands/signum.md remains the canonical core pipeline until RECONCILE is promoted or removed."
+        }
+      ]
+    }
+  }
+}

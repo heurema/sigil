@@ -1,5 +1,37 @@
 # Changelog
 
+## [Unreleased]
+
+## [4.18.1] - 2026-04-10
+
+### Fixed
+- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `.signum/anti_entropy_report.json`, advertises it in explain mode, syncs it to per-contract directories, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
+
+## [4.18.0] - 2026-04-10
+
+### Added
+- `/signum init --harness` — deterministic harness-doc bootstrap on top of project context bootstrap
+  - `lib/init-harness-scaffold.sh` — emits drafts for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`
+  - `tests/test-init-harness-scaffold.sh` — validation for scaffold structure, content, and existing-file detection
+  - Brownfield-safe behavior: if `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves them and scaffolds only missing harness docs unless `--force` is also provided
+- Anti-entropy Stage 1 report-only flow
+  - `lib/anti-entropy-report.sh` — aggregates follow-up findings from cleanup evidence, `modules.yaml`, doc parity reports, and metric-ratchet reports
+  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that always writes `.signum/anti_entropy_report.json` and never changes pipeline decision
+  - `tests/test-anti-entropy-report.sh` and `tests/test-pack-anti-entropy.sh` — coverage for report generation and fallback artifact behavior
+
+### Changed
+- `commands/init.md` — documents `--harness` mode for root Signum init flow
+- `platforms/claude-code/commands/init.md` — documents `--harness` mode for Claude overlay init flow; disallows `--actualize` + `--harness` in the MVP
+- `commands/signum.md` — root PACK now emits advisory `.signum/anti_entropy_report.json` after proofpack assembly and archives/cleans it with the rest of the working set
+
+### Documentation
+- `docs/reference.md` — canonical source policy now states root `commands/signum.md` is the source of truth and platform variants are overlays
+- `docs/overlay-deviations.json` — machine-readable allowlist for intentional overlay differences (currently `RECONCILE` in Claude Code overlay)
+- `lib/doc-parity-check.sh` + `tests/test-doc-parity.sh` + `.github/workflows/doc-parity.yml` — warn-only doc/parity validation
+- `docs/plans/2026-03-15-large-project-support-roadmap.md` — roadmap statuses corrected for shipped Phase 1-5 capabilities; remaining debt now tracked separately
+- `docs/how-it-works.md` and `README.md` — public docs synced to `init --harness`
+- Added repo-level harness docs for Signum itself: `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, `docs/QUALITY_SCORE.md`
+
 ## [4.17.0] - 2026-03-27
 
 ### Added

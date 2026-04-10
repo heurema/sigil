@@ -21,14 +21,14 @@
 
 ## What it does
 
-AI can generate a function in seconds; telling you whether it is correct takes longer, because "correct" isn't defined until someone writes it down. Signum is a contract-first development pipeline for Claude Code that defines correctness before a line is written, then verifies against it deterministically — not by asking another model if the code looks right, but by running acceptance criteria the implementing agent never fully saw. Unlike generic code review, Signum produces a tamper-evident `proofpack.json` artifact that CI can gate on.
+AI can generate a function in seconds; telling you whether it is correct takes longer, because "correct" isn't defined until someone writes it down. Signum is a contract-first development pipeline for Claude Code that defines correctness before a line is written, then verifies against it deterministically — not by asking another model if the code looks right, but by running acceptance criteria the implementing agent never fully saw. Unlike generic code review, Signum produces a tamper-evident `proofpack.json` artifact that CI can gate on, plus an advisory `anti_entropy_report.json` for follow-up hygiene work.
 
 | Phase | What happens |
 |-------|-------------|
 | **CONTRACT** | Spec graded A–F. Codex + Gemini validate for gaps. |
 | **EXECUTE** | Engineer builds against a redacted contract. |
 | **AUDIT** | Deterministic checks + 3-model parallel review + iterative fix loop. |
-| **PACK** | Self-contained `proofpack.json` for CI gating. |
+| **PACK** | Self-contained `proofpack.json` for CI gating + advisory `anti_entropy_report.json`. |
 
 ## Install
 
@@ -57,13 +57,22 @@ claude plugin install .
 /signum "your task description"
 ```
 
-Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json`.
+Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.
+
+For an existing repo, bootstrap project context first:
+
+```bash
+/signum init --harness
+```
+
+This generates `project.intent.md`, `project.glossary.json`, and repo-level harness docs such as `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. In brownfield repos, existing context files are preserved unless you also pass `--force`.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `/signum <task>` | Run the full CONTRACT → EXECUTE → AUDIT → PACK pipeline |
+| `/signum init [--force] [--harness] [--project-root <path>]` | Bootstrap `project.intent.md` / `project.glossary.json`; `--harness` also scaffolds repo-level harness docs |
 
 ## Features
 
@@ -71,9 +80,13 @@ Signum grades your spec, shows the contract for approval, implements with an aut
 
 **Holdout scenarios** — The Contractor generates hidden acceptance criteria the Engineer never sees. When implementation is complete, holdouts run against the result — blind testing for cases the agent couldn't optimize for. Verification uses a typed DSL with `http`, `exec` (whitelisted binaries only), and `expect` primitives — no shell execution, no `eval`. Minimum counts enforced by risk level: 0 for low, 2 for medium, 5 for high.
 
-**Project intent alignment** — If the target project has a `project.intent.md` at its root, the contractor reads it before generating contracts. Non-goals and glossary terms flow into contract scope and terminology. For medium/high-risk tasks, missing project intent triggers a blocking question. An LLM-based alignment check warns when the contract diverges from project goals.
+**Project intent alignment** — If the target project has a `project.intent.md` at its root, the contractor reads it before generating contracts. Non-goals and glossary terms flow into contract scope and terminology. For medium/high-risk tasks, missing project intent triggers a blocking question. An LLM-based alignment check warns when the contract diverges from project goals. `/signum init` bootstraps this file from an existing codebase.
 
 **Glossary enforcement** — A `project.glossary.json` at the project root defines canonical terms and forbidden synonyms. `glossary_check` scans contracts for alias usage, `terminology_consistency_check` detects synonym proliferation across active contracts. Both are WARN-only.
+
+**Harness bootstrap** — `/signum init --harness` adds deterministic repo-level scaffolding for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. These files make repo conventions, architecture, planning, and review policy explicit without changing Signum runtime behavior.
+
+**Brownfield validation pattern** — When extending harness bootstrap or advisory anti-entropy behavior, prefer a downstream-style temporary repo test that preserves existing `project.intent.md` / `project.glossary.json`, materializes scaffold docs, and checks the resulting `.signum/anti_entropy_report.json`. `tests/test-brownfield-harness-flow.sh` is the reference pattern.
 
 **Cross-contract coherence** — `overlap_check` detects inScope file overlap between active contracts. `assumption_check` flags contradictions in assumptions across related contracts. `adr_check` warns when relevant ADRs exist but aren't referenced. Contract lineage is tracked via `parentContractId`, `relatedContractIds`, and `interfacesTouched`.
 
@@ -110,6 +123,8 @@ Signum grades your spec, shows the contract for approval, implements with an aut
 **Module lifecycle tracking** — A `modules.yaml` manifest at the project root declares module status: `active`, `experimental`, `deprecated`, or `removed`. Deprecated modules carry `remove_after` deadlines and `replaced_by` pointers. The contractor reads this before generating contracts — cleanup tasks auto-detect removal candidates and generate structured `removals` and `cleanupObligations` entries.
 
 **Cleanup contracts** — Contract schema v3.8 adds first-class support for code removal. `removals` entries specify files/directories to delete with `preventReintroduction` flags. `cleanupObligations` use K8s Finalizer semantics — blocking obligations (e.g., "remove all imports of deleted module") must be fulfilled before `AUTO_OK`. The DSL supports `file_not_exists` assertions and `grep` for reference-checking verify blocks. Evidence of successful removals is captured in `proofpack.json`.
+
+**Advisory anti-entropy report** — PACK also writes `.signum/anti_entropy_report.json`: a non-blocking follow-up report that can surface unresolved cleanup evidence, overdue `modules.yaml` lifecycle drift, and optional imported metric regressions. It never changes the pipeline decision.
 
 ## Architecture
 
@@ -193,7 +208,7 @@ Without this file, signum uses each CLI's default model. See `forge doctor` to v
 
 ## Privacy
 
-All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Artifacts stored in `.signum/` (auto-added to `.gitignore`).
+All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Artifacts stored in `.signum/` (auto-added to `.gitignore`), including the advisory `anti_entropy_report.json`.
 
 ## Why Signum
 

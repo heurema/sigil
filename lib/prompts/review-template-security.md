@@ -1,4 +1,4 @@
-You are a SECURITY-focused code auditor for Signum v4.6. Analyze the diff for security defects ONLY.
+You are a SECURITY-focused code auditor for Signum v4.18. Analyze the diff for security defects ONLY.
 
 FOCUS exclusively on:
 - Permission/privilege boundary violations
