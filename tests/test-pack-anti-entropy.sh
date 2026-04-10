@@ -100,6 +100,29 @@ assert_equals "metric ratchet source imported" "$(jq -r '.sources | index("metri
 assert_equals "metric regression finding present" "$(jq -r '[.findings[] | select(.category=="metric_regression")] | length' "$METRICCASE/.signum/anti_entropy_report.json")" "1"
 
 echo ""
+echo "=== Explicit doc parity import ==="
+DOCCASE="$WORK/doc-parity"
+setup_project "$DOCCASE"
+cat > "$DOCCASE/doc-parity.json" <<'EOF'
+{
+  "status": "warn",
+  "findings": [
+    {
+      "code": "canonical_source_missing",
+      "file": "docs/reference.md",
+      "message": "Canonical source policy missing",
+      "details": "Root command policy section not found"
+    }
+  ]
+}
+EOF
+assert_pass "packer exits 0 with explicit doc parity JSON" "$PACKER" --project-root "$DOCCASE" --doc-parity-json "$DOCCASE/doc-parity.json" --as-of 2026-04-10
+assert_equals "doc parity case report status warn" "$(jq -r '.status' "$DOCCASE/.signum/anti_entropy_report.json")" "warn"
+assert_equals "doc parity source imported" "$(jq -r '.sources | index("doc_parity") != null' "$DOCCASE/.signum/anti_entropy_report.json")" "true"
+assert_equals "docs sync finding present" "$(jq -r '[.findings[] | select(.category=="docs_sync")] | length' "$DOCCASE/.signum/anti_entropy_report.json")" "1"
+assert_equals "docs sync target file propagated" "$(jq -r '.findings[] | select(.category=="docs_sync") | .target' "$DOCCASE/.signum/anti_entropy_report.json")" "docs/reference.md"
+
+echo ""
 echo "=== Results ==="
 echo "Passed: $passed"
 echo "Failed: $failed"
