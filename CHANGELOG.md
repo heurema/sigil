@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [4.19.0] - 2026-04-10
+
+### Added
+- Offline eval harness v1 for prompt/orchestration-sensitive changes
+  - `evals/checks.py` — deterministic invariant grader for contract/audit/proofpack semantics
+  - `evals/run.py` — snapshot runner for 6 representative fixtures with `--update-snapshots` support
+  - `evals/fixtures/*.json` + `evals/snapshots/*.json` — committed eval corpus and reviewed golden outputs
+  - `tests/test-eval-harness.sh` — shell coverage for the green path and broken-snapshot regression detection
+
+### Documentation
+- `README.md`, `docs/how-it-works.md`, and `docs/QUALITY_SCORE.md` — maintainer guidance for the new offline eval harness
+- `docs/PLANS.md` — provider-alignment intake rule plus eval-harness-first planning note
+
 ## [4.18.1] - 2026-04-10
 
 ### Fixed
