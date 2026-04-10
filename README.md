@@ -86,6 +86,8 @@ This generates `project.intent.md`, `project.glossary.json`, and repo-level harn
 
 **Harness bootstrap** — `/signum init --harness` adds deterministic repo-level scaffolding for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. These files make repo conventions, architecture, planning, and review policy explicit without changing Signum runtime behavior.
 
+**Brownfield validation pattern** — When extending harness bootstrap or advisory anti-entropy behavior, prefer a downstream-style temporary repo test that preserves existing `project.intent.md` / `project.glossary.json`, materializes scaffold docs, and checks the resulting `.signum/anti_entropy_report.json`. `tests/test-brownfield-harness-flow.sh` is the reference pattern.
+
 **Cross-contract coherence** — `overlap_check` detects inScope file overlap between active contracts. `assumption_check` flags contradictions in assumptions across related contracts. `adr_check` warns when relevant ADRs exist but aren't referenced. Contract lineage is tracked via `parentContractId`, `relatedContractIds`, and `interfacesTouched`.
 
 **Upstream staleness detection** — Contractor computes SHA-256 over upstream artifacts (`project.intent.md`, `project.glossary.json`) at contract creation. `staleness_check` recomputes the hash at execution time. Configurable policy: `warn` (default) or `block`.
