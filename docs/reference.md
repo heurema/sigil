@@ -1,5 +1,21 @@
 # Signum Reference
 
+## Canonical Sources
+
+Signum has multiple documentation surfaces, but they do not have equal authority.
+
+- **Canonical pipeline behavior:** root `commands/signum.md`
+- **Platform-specific overlays:** `platforms/*/commands/signum.md`
+- **Derived docs:** `README.md`, `docs/how-it-works.md`, `docs/reference.md`, roadmap docs
+
+If a derived doc disagrees with root `commands/signum.md`, treat the command file as the source of truth. Platform overlays may add surface-specific behavior, but they should be read as explicit deviations from the root pipeline rather than independent definitions of core Signum behavior.
+
+### Known overlay deviations
+
+- `platforms/claude-code/commands/signum.md` currently adds **Phase 5: RECONCILE** after PACK.
+- This is an **overlay-only deviation**, not canonical core pipeline behavior.
+- Treat it as valid only while it remains listed in `docs/overlay-deviations.json`.
+
 ## Usage
 
 ```
@@ -113,7 +129,7 @@ All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schemaVersion` | `"3.0"`–`"3.7"` | Schema version |
+| `schemaVersion` | `"3.0"`–`"3.8"` | Schema version |
 | `glossaryVersion` | string | Version from `project.glossary.json` at contract creation time (optional, omitted when file absent) |
 | `goal` | string | What to build (min 10 chars) |
 | `inScope` | string[] | Items in scope (min 1) |

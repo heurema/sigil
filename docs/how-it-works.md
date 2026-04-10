@@ -154,10 +154,10 @@ All artifacts are written to `.signum/` (auto-added to `.gitignore`):
 
 ## Project Context Bootstrap: /signum init
 
-Before running the main pipeline on an unfamiliar project, use `/signum init` to generate project context files that the Contractor agent reads automatically.
+Before running the main pipeline on an unfamiliar project, use `/signum init` to generate project context files that the Contractor agent reads automatically. Use `--harness` when you also want repo-level harness docs scaffolded.
 
 ```
-/signum init [--force] [--project-root <path>]
+/signum init [--force] [--harness] [--project-root <path>]
 ```
 
 ### Pipeline
@@ -184,16 +184,36 @@ SCAN → SYNTHESIZE → PRESENT → VERIFY
 
 **VERIFY**: reports `Glossary has N terms, M aliases` and `Intent covers: N capabilities, N non-goals`.
 
+When `--harness` is enabled, Signum also runs `lib/init-harness-scaffold.sh` and scaffolds deterministic drafts for repo-level docs. In brownfield repos where both `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves those files and only creates missing harness docs unless `--force` is also provided.
+
 ### Generated Files
 
 | File | Description |
 |------|-------------|
 | `project.intent.md` | Goal, Core Capabilities, Non-Goals, Success Criteria, Personas |
 | `project.glossary.json` | `canonicalTerms` array + `aliases` object |
+| `AGENTS.md` | Agent-facing repo map, entry points, and repo-specific rules (`--harness`) |
+| `ARCHITECTURE.md` | System overview, components, critical flows, and risks (`--harness`) |
+| `docs/PLANS.md` | Active plan index and anti-drift planning rules (`--harness`) |
+| `docs/RELIABILITY.md` | Critical journeys, service levels, and recovery notes (`--harness`) |
+| `docs/SECURITY.md` | Trust boundaries, sensitive data, and security review triggers (`--harness`) |
+| `docs/QUALITY_SCORE.md` | Repo-specific quality bars, evidence, and waiver policy (`--harness`) |
 
 ### --force Flag
 
 Default: refuses if files exist. `--force` overwrites (use for updates). Existing glossary terms are always preserved on merge — only additions are made.
+
+### --harness Flag
+
+Adds deterministic scaffold docs with freshness metadata:
+- `AGENTS.md`
+- `ARCHITECTURE.md`
+- `docs/PLANS.md`
+- `docs/RELIABILITY.md`
+- `docs/SECURITY.md`
+- `docs/QUALITY_SCORE.md`
+
+Default write policy for these files is `skip-existing-unless-force`.
 
 ### Low-Confidence Handling
 

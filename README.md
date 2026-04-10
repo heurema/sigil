@@ -59,11 +59,20 @@ claude plugin install .
 
 Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json`.
 
+For an existing repo, bootstrap project context first:
+
+```bash
+/signum init --harness
+```
+
+This generates `project.intent.md`, `project.glossary.json`, and repo-level harness docs such as `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. In brownfield repos, existing context files are preserved unless you also pass `--force`.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `/signum <task>` | Run the full CONTRACT → EXECUTE → AUDIT → PACK pipeline |
+| `/signum init [--force] [--harness] [--project-root <path>]` | Bootstrap `project.intent.md` / `project.glossary.json`; `--harness` also scaffolds repo-level harness docs |
 
 ## Features
 
@@ -71,9 +80,11 @@ Signum grades your spec, shows the contract for approval, implements with an aut
 
 **Holdout scenarios** — The Contractor generates hidden acceptance criteria the Engineer never sees. When implementation is complete, holdouts run against the result — blind testing for cases the agent couldn't optimize for. Verification uses a typed DSL with `http`, `exec` (whitelisted binaries only), and `expect` primitives — no shell execution, no `eval`. Minimum counts enforced by risk level: 0 for low, 2 for medium, 5 for high.
 
-**Project intent alignment** — If the target project has a `project.intent.md` at its root, the contractor reads it before generating contracts. Non-goals and glossary terms flow into contract scope and terminology. For medium/high-risk tasks, missing project intent triggers a blocking question. An LLM-based alignment check warns when the contract diverges from project goals.
+**Project intent alignment** — If the target project has a `project.intent.md` at its root, the contractor reads it before generating contracts. Non-goals and glossary terms flow into contract scope and terminology. For medium/high-risk tasks, missing project intent triggers a blocking question. An LLM-based alignment check warns when the contract diverges from project goals. `/signum init` bootstraps this file from an existing codebase.
 
 **Glossary enforcement** — A `project.glossary.json` at the project root defines canonical terms and forbidden synonyms. `glossary_check` scans contracts for alias usage, `terminology_consistency_check` detects synonym proliferation across active contracts. Both are WARN-only.
+
+**Harness bootstrap** — `/signum init --harness` adds deterministic repo-level scaffolding for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. These files make repo conventions, architecture, planning, and review policy explicit without changing Signum runtime behavior.
 
 **Cross-contract coherence** — `overlap_check` detects inScope file overlap between active contracts. `assumption_check` flags contradictions in assumptions across related contracts. `adr_check` warns when relevant ADRs exist but aren't referenced. Contract lineage is tracked via `parentContractId`, `relatedContractIds`, and `interfacesTouched`.
 

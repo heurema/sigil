@@ -1,9 +1,9 @@
 ---
 name: init
-description: Bootstrap project context (project.intent.md and project.glossary.json) from an existing codebase using deterministic scan + LLM synthesis + interactive editing. Use --actualize to update existing intent against current code state.
+description: Bootstrap project context (project.intent.md and project.glossary.json) from an existing codebase using deterministic scan + LLM synthesis + interactive editing. Use --actualize to update existing intent against current code state. Use --harness to scaffold additional repo-level harness docs.
 arguments:
   - name: flags
-    description: "Optional: --force to overwrite existing files, --actualize to update existing intent with section-by-section diff, --project-root <path> to specify target directory"
+    description: "Optional: --force to overwrite existing files, --actualize to update existing intent with section-by-section diff, --harness to scaffold repo-level harness docs, --project-root <path> to specify target directory"
     required: false
 ---
 
@@ -26,13 +26,15 @@ SCAN → SYNTHESIZE → PRESENT → VERIFY
 Parse `$ARGUMENTS`:
 - If `--force` is present, set FORCE_MODE=true (overwrite existing files without prompting)
 - If `--actualize` is present, set ACTUALIZE_MODE=true (update existing intent with section diff)
+- If `--harness` is present, set HARNESS_MODE=true (scaffold repo-level harness docs)
 - If `--project-root <path>` is present, use that path. Otherwise use current directory.
 - If both `--force` and `--actualize` are present: error "Cannot combine --force and --actualize. Use --actualize for section-by-section updates." and stop.
+- If both `--actualize` and `--harness` are present: error "Cannot combine --actualize and --harness in one run. Actualize intent first, then run /signum init --harness." and stop.
 - Any other argument: print usage and stop.
 
 **Usage:**
 ```
-/signum init [--force] [--actualize] [--project-root <path>]
+/signum init [--force] [--actualize] [--harness] [--project-root <path>]
 ```
 
 ---
@@ -47,6 +49,13 @@ ls project.intent.md 2>/dev/null && echo "INTENT_EXISTS=true" || echo "INTENT_EX
 ls project.glossary.json 2>/dev/null && echo "GLOSSARY_EXISTS=true" || echo "GLOSSARY_EXISTS=false"
 ```
 
+If `HARNESS_MODE=true`, also run:
+```bash
+bash lib/init-harness-scaffold.sh --project-root "${PROJECT_ROOT:-.}" 2>/dev/null
+```
+
+Save this JSON as HARNESS_SCAFFOLD. It contains the additional harness-doc drafts plus `.missingCount` / `.existingCount`.
+
 **If ACTUALIZE_MODE=true:**
 - If `project.intent.md` does NOT exist: print error and STOP:
   ```
@@ -56,7 +65,15 @@ ls project.glossary.json 2>/dev/null && echo "GLOSSARY_EXISTS=true" || echo "GLO
 - Do NOT prompt about overwrite — actualize uses section-by-section confirmation.
 
 **If FORCE_MODE=false AND ACTUALIZE_MODE=false:**
-- If `project.intent.md` OR `project.glossary.json` already exists: print message and STOP:
+- If `HARNESS_MODE=true` AND **both** `project.intent.md` and `project.glossary.json` already exist:
+  - Preserve the existing context files (do NOT regenerate them)
+  - Scaffold only the harness docs whose `exists=false`
+  - If `HARNESS_SCAFFOLD.missingCount == 0`, print:
+    ```
+    Harness docs already exist. No files written.
+    ```
+    and stop.
+- Else if `project.intent.md` OR `project.glossary.json` already exists: print message and STOP:
   ```
   project.intent.md already exists.
 
@@ -86,11 +103,17 @@ SCAN complete. Found signals:
   - Public entrypoints: [N found]
   - Existing glossary: [yes/no]
   - Existing intent: [yes/no]
+  - Harness docs missing: [N]   (only when --harness)
+  - Harness docs already present: [N]   (only when --harness)
 ```
 
 ---
 
 ## Step 2: SYNTHESIZE (LLM)
+
+If `HARNESS_MODE=true`, harness docs come from `lib/init-harness-scaffold.sh` (deterministic; do NOT ask the synthesizer to invent them).
+
+If existing `project.intent.md` **and** `project.glossary.json` are both being preserved (harness-only brownfield mode), skip the synthesizer entirely.
 
 Before passing SCAN_SIGNALS to the synthesizer, inject the mode:
 
@@ -118,6 +141,8 @@ Pass SCAN_SIGNALS to the init-synthesizer agent. The synthesizer will:
 ## Step 3: PRESENT
 
 ### Full mode (default)
+
+If brownfield preserve mode is active (`--harness` with existing intent + glossary), skip this section and use the harness-only presentation below.
 
 Show the generated drafts to the user with a separator:
 
@@ -154,6 +179,54 @@ Wait for user confirmation before writing any file.
 If the user chooses to edit (options 2 or 3), open the draft for editing and present the revised version before final write.
 
 On cancel (option 5): print "Cancelled. No files written." and stop.
+
+### Harness mode (`--harness`, non-actualize only)
+
+If brownfield preserve mode is active, show only the missing harness-doc drafts:
+
+```
+════════════════════════════════════════
+DRAFT: AGENTS.md
+════════════════════════════════════════
+[content when exists=false]
+
+...repeat for ARCHITECTURE.md, docs/PLANS.md, docs/RELIABILITY.md, docs/SECURITY.md, docs/QUALITY_SCORE.md when missing...
+
+════════════════════════════════════════
+```
+
+Then ask:
+```
+Review the harness drafts above.
+
+Options:
+  [1] Accept and write missing harness docs
+  [2] Cancel (write nothing)
+
+Enter choice (1-2):
+```
+
+If full init + harness mode is active (fresh bootstrap with extra docs), show:
+- the normal `project.intent.md` draft
+- the normal `project.glossary.json` draft
+- then each harness-doc draft from HARNESS_SCAFFOLD
+
+Then ask:
+```
+Review the drafts above.
+
+Options:
+  [1] Accept and write all drafts
+  [2] Edit intent first, then write selected files
+  [3] Edit glossary first, then write selected files
+  [4] Accept context files only, skip harness docs
+  [5] Accept harness docs only, skip context files
+  [6] Cancel (write nothing)
+
+Enter choice (1-6):
+```
+
+Harness-doc drafts are deterministic templates. Do not ask the synthesizer to rewrite them unless the user explicitly asks for edits.
 
 ### Actualize mode
 
@@ -254,6 +327,7 @@ After user confirms, write the files using the Write tool (NOT shell heredoc —
 For `project.intent.md`:
 - First check: `[ -L project.intent.md ]` — if symlink, refuse and print: "ERROR: project.intent.md is a symlink. Refusing to overwrite for safety."
 - **Full mode:** Use the Write tool to write the full synthesized content.
+- Skip entirely when brownfield preserve mode is active or when the user chose "harness docs only"
 - **Actualize mode:** Reconstruct the file by merging:
   - ACCEPTED sections: use proposed content from synthesizer (with fresh evidence comments)
   - KEPT/SKIPPED sections: use content from existing project.intent.md verbatim (including any existing comments)
@@ -263,7 +337,15 @@ For `project.intent.md`:
 
 For `project.glossary.json`:
 - First check: `[ -L project.glossary.json ]` — if symlink, refuse and print: "ERROR: project.glossary.json is a symlink. Refusing to overwrite for safety."
+- Skip entirely when brownfield preserve mode is active or when the user chose "harness docs only"
 - Use the **Write** tool to write the synthesized/merged JSON to `project.glossary.json`
+
+For harness docs from HARNESS_SCAFFOLD (`AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, `docs/QUALITY_SCORE.md`):
+- Create parent directories first (at minimum `mkdir -p docs`)
+- For each selected file:
+  - If `[ -L <path> ]`, refuse and print: `"ERROR: <path> is a symlink. Refusing to overwrite for safety."`
+  - If the file already exists AND `--force` was NOT provided, skip and print: `"Skipped existing: <path>"`
+  - Otherwise use the **Write** tool to write the deterministic draft from HARNESS_SCAFFOLD
 
 **Security notes:**
 - NEVER use shell heredoc (`cat << EOF`) to write LLM-generated content — delimiter injection risk
@@ -274,6 +356,12 @@ Print confirmation:
 ```
 Written: project.intent.md
 Written: project.glossary.json
+Written: AGENTS.md
+Written: ARCHITECTURE.md
+Written: docs/PLANS.md
+Written: docs/RELIABILITY.md
+Written: docs/SECURITY.md
+Written: docs/QUALITY_SCORE.md
 ```
 
 ---
@@ -297,6 +385,19 @@ print(f'{terms} terms, {aliases} aliases')
 
 echo "Glossary has ${GLOSSARY_TERMS}"
 echo "Intent covers: ${INTENT_GOALS} goal section, ${INTENT_CAPS} bullet points, ${INTENT_NG} non-goals section"
+HARNESS_PRESENT=$(python3 -c "
+from pathlib import Path
+targets = [
+  Path('AGENTS.md'),
+  Path('ARCHITECTURE.md'),
+  Path('docs/PLANS.md'),
+  Path('docs/RELIABILITY.md'),
+  Path('docs/SECURITY.md'),
+  Path('docs/QUALITY_SCORE.md'),
+]
+print(sum(1 for p in targets if p.exists()))
+" 2>/dev/null || echo 0)
+echo \"Harness docs present: ${HARNESS_PRESENT}/6\"
 ```
 
 Print VERIFY summary:
@@ -304,11 +405,13 @@ Print VERIFY summary:
 VERIFY complete:
   Glossary has N terms, M aliases
   Intent covers: 1 goal, N capabilities, N non-goals
+  Harness docs present: N/6
 
 Next steps:
   1. Review project.intent.md — edit sections marked TODO
-  2. Commit both files to your repository
-  3. Contractor will now use project context automatically
+  2. Review AGENTS.md / ARCHITECTURE.md / docs/*.md — replace TODOs with repo-specific facts
+  3. Commit the generated files to your repository
+  4. Contractor will now use project context automatically
 ```
 
 ---
@@ -320,6 +423,7 @@ Next steps:
 - If jq/python3 unavailable: skip verification step, still write files
 - If project has no signals at all (no README, no manifest, no git): warn and emit minimal template with TODO markers throughout
 - If actualize with no existing intent: error and stop (must run init first)
+- If `lib/init-harness-scaffold.sh` fails in `--harness` mode: print error and stop (do not synthesize partial state)
 
 ---
 
@@ -328,6 +432,8 @@ Next steps:
 - Files are written to project root (not `.signum/`)
 - `--force` overwrites without prompting — use for full regeneration
 - `--actualize` compares existing intent against current code signals — use for updates
+- `--harness` scaffolds `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`
+- `--harness` cannot be combined with `--actualize` in this MVP
 - The synthesizer never writes files — this command writes after user confirms
 - Evidence comments (`<!-- evidence: ... -->`) are HTML comments, invisible in rendered markdown
 - Low-confidence sections have TODO markers to guide manual editing
