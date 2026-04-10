@@ -51,7 +51,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
     },
     "PACK": {
       "description": "Bundle all artifacts into signed proofpack",
-      "steps": ["collect metadata", "embed artifacts with SHA-256 envelopes", "write proofpack.json"],
+      "steps": ["collect metadata", "embed artifacts with SHA-256 envelopes", "write proofpack.json", "emit advisory anti-entropy report"],
       "duration": "~5s",
       "approvals": 0
     }
@@ -62,7 +62,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
     "medium": {"reviews": "Claude + externals", "holdouts": "≥2", "cost": "~$0.50", "duration": "3-5 min"},
     "high": {"reviews": "Full 3-model panel", "holdouts": "≥5", "cost": "~$1.00", "duration": "5-10 min"}
   },
-  "artifacts": [".signum/contract.json", ".signum/combined.patch", ".signum/proofpack.json", ".signum/audit_summary.json"]
+  "artifacts": [".signum/contract.json", ".signum/combined.patch", ".signum/proofpack.json", ".signum/audit_summary.json", ".signum/anti_entropy_report.json"]
 }
 ```
 
@@ -3133,6 +3133,15 @@ jq -n \
 # Cleanup temp files
 rm -f "$REDACTED_CONTRACT"
 
+# Advisory anti-entropy artifact (non-blocking, report-only)
+if [ -f lib/pack-anti-entropy.sh ]; then
+  bash lib/pack-anti-entropy.sh \
+    --project-root . \
+    --contract .signum/contract.json \
+    --proofpack .signum/proofpack.json \
+    --output .signum/anti_entropy_report.json || true
+fi
+
 echo "Proofpack written: $RUN_ID (schema v4.6)"
 ```
 
@@ -3150,6 +3159,7 @@ if [ -f lib/contract-dir.sh ]; then
     DIR=$(contract_dir "$CONTRACT_ID")
     cp .signum/contract.json "${DIR}" 2>/dev/null || true
     cp .signum/proofpack.json "${DIR}" 2>/dev/null || true
+    cp .signum/anti_entropy_report.json "${DIR}" 2>/dev/null || true
     echo "Contract $CONTRACT_ID → completed"
   fi
 fi
@@ -3285,6 +3295,9 @@ echo ""
 echo "Decision:   $(jq -r .decision .signum/proofpack.json)"
 echo "Confidence: $(jq -r '.confidence.overall' .signum/proofpack.json)%"
 echo "Run ID:     $(jq -r .runId   .signum/proofpack.json)"
+if [ -f .signum/anti_entropy_report.json ]; then
+  echo "Anti-entropy: $(jq -r ' .status + " — " + .summary' .signum/anti_entropy_report.json 2>/dev/null || echo 'unknown')"
+fi
 if [ -f .signum/reconcile_report.json ]; then
   echo "Reconcile: $(jq '.resolved' .signum/reconcile_report.json)/$(jq '.obligations_total' .signum/reconcile_report.json) obligations resolved"
 fi
