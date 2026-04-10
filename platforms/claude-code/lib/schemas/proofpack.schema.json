@@ -27,7 +27,7 @@
     }
   },
   "properties": {
-    "schemaVersion": { "type": "string", "enum": ["4.0", "4.1", "4.2", "4.3", "4.4", "4.5", "4.6"] },
+    "schemaVersion": { "type": "string", "enum": ["4.0", "4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.7", "4.8"] },
     "signumVersion": { "type": "string" },
     "createdAt": { "type": "string", "format": "date-time" },
     "runId": { "type": "string", "pattern": "^signum-" },
