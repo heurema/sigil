@@ -77,6 +77,29 @@ assert_pass "fallback report artifact written" test -f "$FAILCASE/.signum/anti_e
 assert_equals "fallback report status error" "$(jq -r '.status' "$FAILCASE/.signum/anti_entropy_report.json")" "error"
 
 echo ""
+echo "=== Auto-import metric ratchet ==="
+METRICCASE="$WORK/metric"
+setup_project "$METRICCASE"
+mkdir -p "$METRICCASE/.signum/metrics"
+cat > "$METRICCASE/.signum/metrics/ratchet-report.json" <<'EOF'
+{
+  "status": "regression",
+  "regressions": [
+    {
+      "metric": "AUTO_OK rate",
+      "previous": 90,
+      "current": 60,
+      "delta": -30
+    }
+  ]
+}
+EOF
+assert_pass "packer exits 0 with auto-discovered metrics" "$PACKER" --project-root "$METRICCASE" --as-of 2026-04-10
+assert_equals "metric case report status warn" "$(jq -r '.status' "$METRICCASE/.signum/anti_entropy_report.json")" "warn"
+assert_equals "metric ratchet source imported" "$(jq -r '.sources | index("metric_ratchet") != null' "$METRICCASE/.signum/anti_entropy_report.json")" "true"
+assert_equals "metric regression finding present" "$(jq -r '[.findings[] | select(.category=="metric_regression")] | length' "$METRICCASE/.signum/anti_entropy_report.json")" "1"
+
+echo ""
 echo "=== Results ==="
 echo "Passed: $passed"
 echo "Failed: $failed"

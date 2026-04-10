@@ -5,6 +5,8 @@
 # Usage:
 #   pack-anti-entropy.sh [--project-root <path>] [--contract <path>] [--proofpack <path>] \
 #     [--doc-parity-json <path>] [--metric-ratchet-json <path>] [--output <path>] [--as-of YYYY-MM-DD]
+# If --metric-ratchet-json is omitted, the wrapper auto-imports
+# .signum/metrics/ratchet-report.json when present.
 
 set -euo pipefail
 
@@ -38,6 +40,10 @@ PROJECT_ROOT_ABS="$(cd "$PROJECT_ROOT" && pwd)"
 
 if [[ "$OUTPUT_PATH" != /* ]]; then
   OUTPUT_PATH="$PROJECT_ROOT_ABS/$OUTPUT_PATH"
+fi
+
+if [ -z "$METRIC_RATCHET_JSON" ] && [ -f "$PROJECT_ROOT_ABS/.signum/metrics/ratchet-report.json" ]; then
+  METRIC_RATCHET_JSON="$PROJECT_ROOT_ABS/.signum/metrics/ratchet-report.json"
 fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
