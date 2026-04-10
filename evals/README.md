@@ -30,10 +30,14 @@ This directory contains the first offline eval harness for Signum prompt/orchest
 python3 evals/run.py
 ```
 
+When called without explicit directory flags, the runner resolves `fixtures/` and `snapshots/` relative to `evals/run.py`, not the current shell directory.
+
 Expected v1 success shape:
 - `.status == "ok"`
 - `.fixtureCount == 6`
 - `.failed == 0`
+
+No fixtures is a hard error.
 
 ## Update snapshots intentionally
 ```bash

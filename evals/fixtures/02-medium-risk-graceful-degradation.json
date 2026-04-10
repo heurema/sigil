@@ -1,6 +1,6 @@
 {
-  "caseId": "02-medium-risk-reduced-coverage",
-  "description": "Medium-risk case degrades one reviewer and must stay below AUTO_OK.",
+  "caseId": "02-medium-risk-graceful-degradation",
+  "description": "Medium-risk graceful degradation with genuinely missing external CLIs may still remain AUTO_OK.",
   "riskLevel": "medium",
   "flags": {},
   "artifacts": {
@@ -17,17 +17,17 @@
       "requiredInputsProvided": true
     },
     "auditSummary": {
-      "verdict": "HUMAN_REVIEW",
-      "confidence": 81,
+      "verdict": "AUTO_OK",
+      "confidence": 83,
       "reducedAuditCoverage": true,
       "regressions": [],
       "criticalFindings": [],
       "notes": [
-        "Reduced audit coverage: gemini timeout"
+        "Reduced audit coverage: codex/gemini CLIs missing, single-model graceful degradation path."
       ],
       "externalAuditCoverage": {
-        "codex": "ready",
-        "gemini": "timeout"
+        "codex": "missing",
+        "gemini": "missing"
       }
     },
     "proofpack": {
@@ -54,10 +54,10 @@
         }
       },
       "externalAuditCoverage": {
-        "codex": "ready",
-        "gemini": "timeout"
+        "codex": "missing",
+        "gemini": "missing"
       },
-      "finalVerdict": "HUMAN_REVIEW",
+      "finalVerdict": "AUTO_OK",
       "policyFlags": {
         "policySensitive": false
       }

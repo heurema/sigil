@@ -2,8 +2,8 @@
   "caseId": "04-ambiguous-input-missing-required-input",
   "checkCounts": {
     "failed": 0,
-    "passed": 21,
-    "total": 21
+    "passed": 22,
+    "total": 22
   },
   "contractReady": false,
   "degradedProviders": [],

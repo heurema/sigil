@@ -2,8 +2,8 @@
   "caseId": "01-low-risk-happy-path",
   "checkCounts": {
     "failed": 0,
-    "passed": 21,
-    "total": 21
+    "passed": 22,
+    "total": 22
   },
   "contractReady": true,
   "degradedProviders": [],

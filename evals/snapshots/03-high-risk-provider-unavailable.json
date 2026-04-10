@@ -2,8 +2,8 @@
   "caseId": "03-high-risk-provider-unavailable",
   "checkCounts": {
     "failed": 0,
-    "passed": 21,
-    "total": 21
+    "passed": 22,
+    "total": 22
   },
   "contractReady": true,
   "degradedProviders": [

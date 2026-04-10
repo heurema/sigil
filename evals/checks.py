@@ -16,6 +16,7 @@ ALLOWED_COVERAGE_STATES = {
     "server_error",
     "runtime_error",
 }
+EXTERNAL_REVIEW_PROVIDERS = ("codex", "gemini")
 
 
 def canonical_json(data: Any) -> str:
@@ -32,6 +33,17 @@ def _check(ok: bool, check_id: str, detail: str) -> Dict[str, str]:
 
 def _is_string_list(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _required_external_providers(risk_level: Any) -> set[str]:
+    if risk_level in {"medium", "high"}:
+        return set(EXTERNAL_REVIEW_PROVIDERS)
+    return set()
+
+
+def _is_missing_only_degradation(coverage: Dict[str, str]) -> bool:
+    degraded_states = [state for state in coverage.values() if state != "ready"]
+    return bool(degraded_states) and all(state == "missing" for state in degraded_states)
 
 
 def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
@@ -77,17 +89,23 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
         regressions = audit.get("regressions") if isinstance(audit.get("regressions"), list) else []
         critical_findings = audit.get("criticalFindings") if isinstance(audit.get("criticalFindings"), list) else []
         coverage = audit.get("externalAuditCoverage") if isinstance(audit.get("externalAuditCoverage"), dict) else {}
+        required_providers = _required_external_providers(risk_level)
+        missing_coverage_keys = sorted(required_providers - set(coverage))
+        checks.append(_check(not missing_coverage_keys, "audit.coverage_keys", f"{risk_level}-risk cases must record coverage for both codex and gemini"))
         invalid_states = {provider: state for provider, state in coverage.items() if state not in ALLOWED_COVERAGE_STATES}
         checks.append(_check(not invalid_states, "audit.coverage_states", "all provider coverage states must be recognized"))
         reduced_coverage = audit.get("reducedAuditCoverage") is True
         degraded = sorted(provider for provider, state in coverage.items() if state != "ready")
+        missing_only_degradation = _is_missing_only_degradation(coverage)
         checks.append(_check((not degraded) or reduced_coverage, "audit.reduced_coverage_flag", "reducedAuditCoverage must be true when any provider is degraded"))
-        if contract_ready and not contract_open_questions and not regressions and not critical_findings and not (reduced_coverage and risk_level in {"medium", "high"}) and not flags.get("policySensitive"):
+        if contract_ready and not contract_open_questions and not regressions and not critical_findings and not reduced_coverage and not flags.get("policySensitive"):
             checks.append(_check(verdict == "AUTO_OK", "audit.clean_case_verdict", "clean low-friction cases should land on AUTO_OK"))
         if regressions or critical_findings:
             checks.append(_check(verdict == "AUTO_BLOCK", "audit.block_on_regression", "regressions or critical findings must block"))
-        if reduced_coverage and risk_level in {"medium", "high"}:
-            checks.append(_check(verdict != "AUTO_OK", "audit.medium_high_reduced_coverage", "medium/high risk cases with reduced coverage must not claim AUTO_OK"))
+        if reduced_coverage and risk_level == "high":
+            checks.append(_check(verdict != "AUTO_OK", "audit.high_risk_reduced_coverage", "high-risk cases with reduced coverage must not claim AUTO_OK"))
+        if reduced_coverage and risk_level == "medium" and not missing_only_degradation:
+            checks.append(_check(verdict != "AUTO_OK", "audit.medium_non_missing_reduced_coverage", "medium-risk AUTO_OK is allowed only for graceful degradation caused by missing external CLIs"))
         if (not contract_ready) or contract_open_questions:
             checks.append(_check(verdict != "AUTO_OK", "audit.contract_gap_verdict", "contract gaps must not claim AUTO_OK"))
         if flags.get("policySensitive"):

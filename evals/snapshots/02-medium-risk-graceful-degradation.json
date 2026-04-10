@@ -1,5 +1,5 @@
 {
-  "caseId": "02-medium-risk-reduced-coverage",
+  "caseId": "02-medium-risk-graceful-degradation",
   "checkCounts": {
     "failed": 0,
     "passed": 21,
@@ -7,13 +7,14 @@
   },
   "contractReady": true,
   "degradedProviders": [
+    "codex",
     "gemini"
   ],
-  "description": "Medium-risk case degrades one reviewer and must stay below AUTO_OK.",
+  "description": "Medium-risk graceful degradation with genuinely missing external CLIs may still remain AUTO_OK.",
   "failedCheckDetails": [],
   "failedChecks": [],
   "invariantStatus": "ok",
-  "observedVerdict": "HUMAN_REVIEW",
+  "observedVerdict": "AUTO_OK",
   "policySensitive": false,
   "reducedAuditCoverage": true,
   "riskLevel": "medium"

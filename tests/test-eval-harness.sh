@@ -50,6 +50,171 @@ assert_equals "no harness failures" "$(echo "$SUCCESS_OUTPUT" | jq -r '.failed')
 assert_equals "malformed case stays pinned" "$(echo "$SUCCESS_OUTPUT" | jq -r '.results[] | select(.caseId=="06-malformed-artifact-shape") | .invariantStatus')" "violated"
 
 echo ""
+echo "=== Absolute runner path ==="
+pushd "$WORK" >/dev/null
+ABS_OUTPUT="$(python3 "$RUNNER")"
+popd >/dev/null
+assert_equals "absolute path runner status ok" "$(echo "$ABS_OUTPUT" | jq -r '.status')" "ok"
+assert_equals "absolute path runner fixture count is 6" "$(echo "$ABS_OUTPUT" | jq -r '.fixtureCount')" "6"
+
+echo ""
+echo "=== Empty fixture directory ==="
+mkdir -p "$WORK/empty-fixtures" "$WORK/empty-snapshots"
+set +e
+EMPTY_OUTPUT="$(python3 "$RUNNER" --fixtures-dir "$WORK/empty-fixtures" --snapshots-dir "$WORK/empty-snapshots" 2>&1)"
+EMPTY_RC=$?
+set -e
+assert_equals "empty fixture dir exits non-zero" "$EMPTY_RC" "1"
+assert_equals "empty fixture dir status error" "$(echo "$EMPTY_OUTPUT" | jq -r '.status')" "error"
+assert_equals "empty fixture dir failure code" "$(echo "$EMPTY_OUTPUT" | jq -r '.results[0].failedChecks[0]')" "runner.no_fixtures"
+
+echo ""
+echo "=== Coverage semantics ==="
+MEDIUM_MISSING_OUTPUT="$(python3 - "$SCRIPT_DIR/../evals/checks.py" <<'PY'
+import importlib.util
+import json
+import sys
+
+spec = importlib.util.spec_from_file_location("eval_checks", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+fixture = {
+    "caseId": "medium-missing-auto-ok",
+    "riskLevel": "medium",
+    "flags": {},
+    "artifacts": {
+        "contract": {
+            "schemaVersion": "1.0",
+            "goal": "fixture goal",
+            "acceptanceCriteria": [{"id": "AC-1", "description": "placeholder"}],
+            "openQuestions": [],
+            "requiredInputsProvided": True,
+        },
+        "auditSummary": {
+            "verdict": "AUTO_OK",
+            "confidence": 88,
+            "reducedAuditCoverage": True,
+            "regressions": [],
+            "criticalFindings": [],
+            "notes": ["Both external CLIs are genuinely missing."],
+            "externalAuditCoverage": {"codex": "missing", "gemini": "missing"},
+        },
+        "proofpack": {
+            "runMetadata": {"runId": "fixture-run"},
+            "contractSummary": {"acceptanceCriteria": 1},
+            "baselineSummary": {"status": "captured"},
+            "implementationSummary": {"status": "simulated"},
+            "auditSummary": {"status": "simulated"},
+            "reviewSummaries": {},
+            "externalAuditCoverage": {"codex": "missing", "gemini": "missing"},
+            "finalVerdict": "AUTO_OK",
+        },
+    },
+}
+print(json.dumps(module.evaluate_fixture(fixture)))
+PY
+)"
+assert_equals "medium missing degradation stays valid" "$(echo "$MEDIUM_MISSING_OUTPUT" | jq -r '.invariantStatus')" "ok"
+assert_equals "medium missing degradation has zero failed checks" "$(echo "$MEDIUM_MISSING_OUTPUT" | jq -r '.checkCounts.failed')" "0"
+
+MEDIUM_TIMEOUT_OUTPUT="$(python3 - "$SCRIPT_DIR/../evals/checks.py" <<'PY'
+import importlib.util
+import json
+import sys
+
+spec = importlib.util.spec_from_file_location("eval_checks", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+fixture = {
+    "caseId": "medium-timeout-auto-ok",
+    "riskLevel": "medium",
+    "flags": {},
+    "artifacts": {
+        "contract": {
+            "schemaVersion": "1.0",
+            "goal": "fixture goal",
+            "acceptanceCriteria": [{"id": "AC-1", "description": "placeholder"}],
+            "openQuestions": [],
+            "requiredInputsProvided": True,
+        },
+        "auditSummary": {
+            "verdict": "AUTO_OK",
+            "confidence": 88,
+            "reducedAuditCoverage": True,
+            "regressions": [],
+            "criticalFindings": [],
+            "notes": ["Gemini timed out."],
+            "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"},
+        },
+        "proofpack": {
+            "runMetadata": {"runId": "fixture-run"},
+            "contractSummary": {"acceptanceCriteria": 1},
+            "baselineSummary": {"status": "captured"},
+            "implementationSummary": {"status": "simulated"},
+            "auditSummary": {"status": "simulated"},
+            "reviewSummaries": {},
+            "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"},
+            "finalVerdict": "AUTO_OK",
+        },
+    },
+}
+print(json.dumps(module.evaluate_fixture(fixture)))
+PY
+)"
+assert_equals "medium timeout AUTO_OK is rejected" "$(echo "$MEDIUM_TIMEOUT_OUTPUT" | jq -r '.invariantStatus')" "violated"
+assert_equals "medium timeout failure code is pinned" "$(echo "$MEDIUM_TIMEOUT_OUTPUT" | jq -r '.failedChecks | index("audit.medium_non_missing_reduced_coverage") != null')" "true"
+
+HIGH_MISSING_KEY_OUTPUT="$(python3 - "$SCRIPT_DIR/../evals/checks.py" <<'PY'
+import importlib.util
+import json
+import sys
+
+spec = importlib.util.spec_from_file_location("eval_checks", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+fixture = {
+    "caseId": "high-missing-gemini-key",
+    "riskLevel": "high",
+    "flags": {},
+    "artifacts": {
+        "contract": {
+            "schemaVersion": "1.0",
+            "goal": "fixture goal",
+            "acceptanceCriteria": [{"id": "AC-1", "description": "placeholder"}],
+            "openQuestions": [],
+            "requiredInputsProvided": True,
+        },
+        "auditSummary": {
+            "verdict": "AUTO_OK",
+            "confidence": 88,
+            "reducedAuditCoverage": False,
+            "regressions": [],
+            "criticalFindings": [],
+            "notes": ["Coverage key is missing."],
+            "externalAuditCoverage": {"codex": "ready"},
+        },
+        "proofpack": {
+            "runMetadata": {"runId": "fixture-run"},
+            "contractSummary": {"acceptanceCriteria": 1},
+            "baselineSummary": {"status": "captured"},
+            "implementationSummary": {"status": "simulated"},
+            "auditSummary": {"status": "simulated"},
+            "reviewSummaries": {},
+            "externalAuditCoverage": {"codex": "ready"},
+            "finalVerdict": "AUTO_OK",
+        },
+    },
+}
+print(json.dumps(module.evaluate_fixture(fixture)))
+PY
+)"
+assert_equals "high risk missing coverage key is rejected" "$(echo "$HIGH_MISSING_KEY_OUTPUT" | jq -r '.invariantStatus')" "violated"
+assert_equals "high risk missing coverage key failure is pinned" "$(echo "$HIGH_MISSING_KEY_OUTPUT" | jq -r '.failedChecks | index("audit.coverage_keys") != null')" "true"
+
+echo ""
 echo "=== Broken snapshot path ==="
 cp -R "$SCRIPT_DIR/../evals" "$WORK/evals"
 python3 - "$WORK/evals/snapshots/01-low-risk-happy-path.json" <<'PY'

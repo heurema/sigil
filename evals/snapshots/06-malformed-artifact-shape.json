@@ -2,8 +2,8 @@
   "caseId": "06-malformed-artifact-shape",
   "checkCounts": {
     "failed": 10,
-    "passed": 11,
-    "total": 21
+    "passed": 12,
+    "total": 22
   },
   "contractReady": false,
   "degradedProviders": [
