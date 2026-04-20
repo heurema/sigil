@@ -27,7 +27,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.19.0",
+  "version": "4.19.1",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -104,9 +104,12 @@ cp "${DIR}approval.json" "$ARCHIVE_DIR" 2>/dev/null || true
 # Copy audit summary if present
 cp "${DIR}audit_summary.json" "$ARCHIVE_DIR" 2>/dev/null || true
 cp "${DIR}anti_entropy_report.json" "$ARCHIVE_DIR" 2>/dev/null || true
+cp "${DIR}execution_context.json" "$ARCHIVE_DIR" 2>/dev/null || true
 
-# Copy receipt chain artifacts (execute receipt is audit evidence)
-cp "${DIR}receipts/execute.json" "$ARCHIVE_DIR" 2>/dev/null || true
+# Copy receipt-chain artifacts needed for replay/verification
+cp -R "${DIR}receipts" "$ARCHIVE_DIR" 2>/dev/null || true
+cp -R "${DIR}runs" "$ARCHIVE_DIR" 2>/dev/null || true
+cp -R "${DIR}snapshots" "$ARCHIVE_DIR" 2>/dev/null || true
 
 # Purge intermediate artifacts (reviews, baseline, holdout, execute_log, prompts)
 rm -rf "${DIR}reviews/" 2>/dev/null || true
@@ -135,7 +138,7 @@ jq --arg id "$CONTRACT_ID" --arg ts "$ARCHIVED_AT" \
   && mv .signum/contracts/index.json.tmp .signum/contracts/index.json
 
 echo "Archived: $CONTRACT_ID → $ARCHIVE_DIR"
-echo "Kept: contract.json, proofpack.json, approval.json, audit_summary.json, anti_entropy_report.json"
+echo "Kept: contract.json, proofpack.json, approval.json, audit_summary.json, anti_entropy_report.json, execution_context.json, receipts/, runs/, snapshots/"
 echo "Purged: intermediates (reviews, baseline, patches, prompts)"
 ```
 
@@ -3072,7 +3075,7 @@ fi
 # Final assembly
 jq -n \
   --arg schemaVersion "4.6" \
-  --arg signumVersion "4.19.0" \
+  --arg signumVersion "4.19.1" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \
@@ -3154,6 +3157,10 @@ if [ -f lib/contract-dir.sh ]; then
   CONTRACT_ID=$(jq -r '.contractId // empty' .signum/contract.json)
   if [ -n "$CONTRACT_ID" ]; then
     update_contract_status "$CONTRACT_ID" "completed"
+    RUN_ID=$(jq -r '.run_id // empty' .signum/execution_context.json 2>/dev/null || true)
+    if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+      RUN_ID=$(jq -r '.run_id // empty' .signum/receipts/execute.json 2>/dev/null || true)
+    fi
     # Sync durable artifacts for this completed contract.
     sync_contract_artifacts "$CONTRACT_ID" \
       "contract.json" \
@@ -3161,7 +3168,12 @@ if [ -f lib/contract-dir.sh ]; then
       "anti_entropy_report.json" \
       "audit_summary.json" \
       "approval.json" \
-      "receipts/execute.json"
+      "execution_context.json" \
+      "receipts" \
+      "snapshots"
+    if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+      sync_contract_artifacts "$CONTRACT_ID" "runs/${RUN_ID}"
+    fi
     echo "Contract $CONTRACT_ID → completed"
   fi
 fi

@@ -61,7 +61,7 @@ Signum grades your spec, shows the contract for approval, implements with an aut
 
 Storage model:
 - `.signum/` is the live working set for the current run
-- `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history
+- `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history, including receipt-chain evidence
 - the per-contract directory is not a second active workspace
 
 For an existing repo, bootstrap project context first:

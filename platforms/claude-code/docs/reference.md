@@ -114,7 +114,11 @@ Durable per-contract snapshots typically mirror:
 - `proofpack.json`
 - `audit_summary.json`
 - `approval.json`
-- `receipts/execute.json`
+- `anti_entropy_report.json`
+- `execution_context.json`
+- `receipts/`
+- `runs/<runId>/`
+- `snapshots/`
 
 ### contract.json fields
 

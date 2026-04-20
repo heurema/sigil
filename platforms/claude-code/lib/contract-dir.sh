@@ -65,8 +65,13 @@ sync_contract_artifacts() {
       continue
     fi
     dst="${dir}${rel}"
-    mkdir -p "$(dirname "$dst")"
-    cp -R "$src" "$dst"
+    if [[ -d "$src" ]]; then
+      mkdir -p "$dst"
+      cp -R "$src"/. "$dst"/
+    else
+      mkdir -p "$(dirname "$dst")"
+      cp -R "$src" "$dst"
+    fi
     copied=$((copied + 1))
   done
 

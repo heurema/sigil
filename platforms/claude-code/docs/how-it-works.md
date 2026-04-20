@@ -155,9 +155,13 @@ Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`
 Durable per-contract snapshots typically mirror:
 - `contract.json`
 - `proofpack.json`
+- `anti_entropy_report.json`
 - `audit_summary.json`
 - `approval.json`
-- `receipts/execute.json`
+- `execution_context.json`
+- `receipts/`
+- `runs/<runId>/`
+- `snapshots/`
 
 ## Cost Estimates
 
