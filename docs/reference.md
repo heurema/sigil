@@ -109,7 +109,7 @@ Assembles `.signum/proofpack.json` — self-contained evidence bundle with embed
 
 ## Artifacts
 
-All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
+Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`). Durable per-contract snapshots are mirrored under `.signum/contracts/<contractId>/` for history/archive flows. The per-contract directory is not the active workspace for an in-flight run.
 
 | File | Phase | Contents |
 |------|-------|----------|
@@ -125,6 +125,14 @@ All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
 | `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
 | `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
 | `anti_entropy_report.json` | Pack | Advisory anti-entropy follow-up findings; report-only, does not change pipeline decision |
+
+Durable per-contract snapshots typically mirror:
+- `contract.json`
+- `proofpack.json`
+- `anti_entropy_report.json`
+- `audit_summary.json`
+- `approval.json`
+- `receipts/execute.json`
 
 ### contract.json fields
 

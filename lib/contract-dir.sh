@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # contract-dir.sh — per-contract directory management for Signum
-# Functions: contract_dir, init_contract_dir, register_contract,
-#            update_contract_status, get_active_contract, current_contract_dir
+# Functions: contract_dir, init_contract_dir, sync_contract_artifacts,
+#            register_contract, update_contract_status,
+#            get_active_contract, current_contract_dir
 #
 # Requires: jq, bash 4.0+, standard POSIX utils
 
@@ -22,7 +23,7 @@ contract_dir() {
 }
 
 # init_contract_dir <contractId>
-# Creates the directory structure for a contract, including a reviews/ subdirectory.
+# Creates the directory structure for a contract's durable snapshot/history.
 init_contract_dir() {
   local contract_id="${1:-}"
   if [[ -z "$contract_id" ]]; then
@@ -31,8 +32,45 @@ init_contract_dir() {
   fi
   local dir
   dir=$(contract_dir "$contract_id")
-  mkdir -p "${dir}reviews"
+  mkdir -p "${dir}"
   echo "Initialized contract directory: ${dir}"
+}
+
+# sync_contract_artifacts <contractId> <path...>
+# Copies selected working-set artifacts from .signum/ into the contract's
+# durable directory, preserving relative subpaths.
+sync_contract_artifacts() {
+  local contract_id="${1:-}"
+  shift || true
+  if [[ -z "$contract_id" ]]; then
+    echo "sync_contract_artifacts: contractId required" >&2
+    return 1
+  fi
+  if [[ "$#" -eq 0 ]]; then
+    echo "sync_contract_artifacts: at least one artifact path required" >&2
+    return 1
+  fi
+
+  local dir
+  dir=$(contract_dir "$contract_id")
+  mkdir -p "$dir"
+
+  local rel src dst copied=0
+  for rel in "$@"; do
+    if [[ -z "$rel" ]]; then
+      continue
+    fi
+    src=".signum/${rel}"
+    if [[ ! -e "$src" ]]; then
+      continue
+    fi
+    dst="${dir}${rel}"
+    mkdir -p "$(dirname "$dst")"
+    cp -R "$src" "$dst"
+    copied=$((copied + 1))
+  done
+
+  echo "Synced ${copied} artifact(s) to ${dir}"
 }
 
 # _ensure_index

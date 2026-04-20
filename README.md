@@ -59,6 +59,11 @@ claude plugin install .
 
 Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.
 
+Storage model:
+- `.signum/` is the live working set for the current run
+- `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history
+- the per-contract directory is not a second active workspace
+
 For an existing repo, bootstrap project context first:
 
 ```bash
