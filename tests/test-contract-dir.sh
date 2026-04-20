@@ -78,12 +78,52 @@ echo ""
 echo "=== init_contract_dir ==="
 
 assert_ok "creates directory" init_contract_dir "sig-test-001"
-[ -d ".signum/contracts/sig-test-001/reviews" ]
-assert_eq "reviews subdir exists" "true" \
+[ -d ".signum/contracts/sig-test-001" ]
+assert_eq "contract dir exists" "true" \
+  "$([ -d .signum/contracts/sig-test-001 ] && echo true || echo false)"
+assert_eq "reviews subdir is not pre-created" "false" \
   "$([ -d .signum/contracts/sig-test-001/reviews ] && echo true || echo false)"
 
 assert_fail "fails without id" "contractId required" \
   init_contract_dir ""
+
+echo ""
+echo "=== sync_contract_artifacts ==="
+
+mkdir -p ".signum/reviews"
+printf '{"goal":"test"}\n' > ".signum/contract.json"
+printf '{"decision":"AUTO_OK"}\n' > ".signum/proofpack.json"
+printf '{"verdict":"APPROVE"}\n' > ".signum/reviews/claude.json"
+mkdir -p ".signum/receipts" ".signum/runs/run-01" ".signum/snapshots"
+printf '{"status":"PASS"}\n' > ".signum/receipts/execute.json"
+printf '{"attempt":1}\n' > ".signum/runs/run-01/execute-01.json"
+printf '{"tree_hash":"sha256:test"}\n' > ".signum/snapshots/pre-execute.json"
+
+assert_ok "syncs selected working-set artifacts" \
+  sync_contract_artifacts "sig-test-001" "contract.json" "proofpack.json" "reviews/claude.json" "receipts" "runs/run-01" "snapshots"
+assert_eq "contract snapshot copied" "true" \
+  "$([ -f .signum/contracts/sig-test-001/contract.json ] && echo true || echo false)"
+assert_eq "proofpack snapshot copied" "true" \
+  "$([ -f .signum/contracts/sig-test-001/proofpack.json ] && echo true || echo false)"
+assert_eq "nested review snapshot copied" "true" \
+  "$([ -f .signum/contracts/sig-test-001/reviews/claude.json ] && echo true || echo false)"
+assert_eq "receipts dir copied" "true" \
+  "$([ -f .signum/contracts/sig-test-001/receipts/execute.json ] && echo true || echo false)"
+assert_eq "runs dir copied" "true" \
+  "$([ -f .signum/contracts/sig-test-001/runs/run-01/execute-01.json ] && echo true || echo false)"
+assert_eq "snapshots dir copied" "true" \
+  "$([ -f .signum/contracts/sig-test-001/snapshots/pre-execute.json ] && echo true || echo false)"
+
+printf '{"status":"PASS","attempt":2}\n' > ".signum/receipts/execute.json"
+assert_ok "re-sync updates dirs without nesting" \
+  sync_contract_artifacts "sig-test-001" "receipts"
+assert_eq "re-sync does not create nested receipts dir" "false" \
+  "$([ -d .signum/contracts/sig-test-001/receipts/receipts ] && echo true || echo false)"
+
+assert_fail "sync fails without id" "contractId required" \
+  sync_contract_artifacts ""
+assert_fail "sync fails without paths" "artifact path required" \
+  sync_contract_artifacts "sig-test-001"
 
 echo ""
 echo "=== register_contract ==="

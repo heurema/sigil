@@ -43,7 +43,7 @@ EOF
   cat > "$dir/.signum/proofpack.json" <<'EOF'
 {
   "schemaVersion":"4.7",
-  "signumVersion":"4.19.0",
+  "signumVersion":"4.19.1",
   "createdAt":"2026-04-10T10:00:00Z",
   "runId":"signum-test",
   "decision":"AUTO_OK",

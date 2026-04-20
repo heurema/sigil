@@ -27,7 +27,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.19.0",
+  "version": "4.19.1",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -96,16 +96,20 @@ fi
 ARCHIVE_DIR=".signum/archive/${CONTRACT_ID}/"
 mkdir -p "$ARCHIVE_DIR"
 
-# Copy essential artifacts (contract + proofpack)
+# Copy durable artifacts from the per-contract snapshot/history
 cp "${DIR}contract.json" "$ARCHIVE_DIR" 2>/dev/null || true
 cp "${DIR}proofpack.json" "$ARCHIVE_DIR" 2>/dev/null || true
 cp "${DIR}approval.json" "$ARCHIVE_DIR" 2>/dev/null || true
 
 # Copy audit summary if present
 cp "${DIR}audit_summary.json" "$ARCHIVE_DIR" 2>/dev/null || true
+cp "${DIR}anti_entropy_report.json" "$ARCHIVE_DIR" 2>/dev/null || true
+cp "${DIR}execution_context.json" "$ARCHIVE_DIR" 2>/dev/null || true
 
-# Copy receipt chain artifacts (execute receipt is audit evidence)
-cp "${DIR}receipts/execute.json" "$ARCHIVE_DIR" 2>/dev/null || true
+# Copy receipt-chain artifacts needed for replay/verification
+cp -R "${DIR}receipts" "$ARCHIVE_DIR" 2>/dev/null || true
+cp -R "${DIR}runs" "$ARCHIVE_DIR" 2>/dev/null || true
+cp -R "${DIR}snapshots" "$ARCHIVE_DIR" 2>/dev/null || true
 
 # Purge intermediate artifacts (reviews, baseline, holdout, execute_log, prompts)
 rm -rf "${DIR}reviews/" 2>/dev/null || true
@@ -134,7 +138,7 @@ jq --arg id "$CONTRACT_ID" --arg ts "$ARCHIVED_AT" \
   && mv .signum/contracts/index.json.tmp .signum/contracts/index.json
 
 echo "Archived: $CONTRACT_ID → $ARCHIVE_DIR"
-echo "Kept: contract.json, proofpack.json, approval.json, audit_summary.json"
+echo "Kept: contract.json, proofpack.json, approval.json, audit_summary.json, anti_entropy_report.json, execution_context.json, receipts/, runs/, snapshots/"
 echo "Purged: intermediates (reviews, baseline, patches, prompts)"
 ```
 
@@ -419,9 +423,9 @@ You MUST call the Write tool before finishing.
 
 If the file is STILL missing or INVALID after retry, stop and report: "Contractor agent failed to produce a valid contract.json after 2 attempts (haiku + sonnet). Check agent output for errors."
 
-### Step 1.2.5: Initialize per-contract directory
+### Step 1.2.5: Initialize per-contract durable directory
 
-After contractor creates contract.json, extract the contractId and set up an isolated directory for this contract's artifacts.
+After contractor creates `contract.json`, extract the `contractId` and set up a per-contract durable directory. This directory is **not** the live workspace for the current run. The live working set remains under `.signum/`; the per-contract directory is a mirrored snapshot/history surface for this contract.
 
 Use the Bash tool:
 
@@ -437,13 +441,11 @@ if [ -z "$CONTRACT_ID" ] || [ "$CONTRACT_ID" = "null" ]; then
 fi
 echo "contractId: $CONTRACT_ID"
 
-# Create per-contract directory with reviews/ subdirectory
+# Create per-contract durable directory
 init_contract_dir "$CONTRACT_ID"
 
-# Copy contract.json to per-contract directory (original stays in .signum/ as working copy)
-CDIR=$(contract_dir "$CONTRACT_ID")
-cp .signum/contract.json "${CDIR}contract.json"
-echo "Archived contract.json to ${CDIR}contract.json"
+# Mirror the initial contract snapshot
+sync_contract_artifacts "$CONTRACT_ID" "contract.json"
 
 # Register contract in index.json
 register_contract "$CONTRACT_ID" "draft"
@@ -3073,7 +3075,7 @@ fi
 # Final assembly
 jq -n \
   --arg schemaVersion "4.6" \
-  --arg signumVersion "4.19.0" \
+  --arg signumVersion "4.19.1" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \
@@ -3155,11 +3157,23 @@ if [ -f lib/contract-dir.sh ]; then
   CONTRACT_ID=$(jq -r '.contractId // empty' .signum/contract.json)
   if [ -n "$CONTRACT_ID" ]; then
     update_contract_status "$CONTRACT_ID" "completed"
-    # Sync updated contract.json + proofpack to per-contract directory
-    DIR=$(contract_dir "$CONTRACT_ID")
-    cp .signum/contract.json "${DIR}" 2>/dev/null || true
-    cp .signum/proofpack.json "${DIR}" 2>/dev/null || true
-    cp .signum/anti_entropy_report.json "${DIR}" 2>/dev/null || true
+    RUN_ID=$(jq -r '.run_id // empty' .signum/execution_context.json 2>/dev/null || true)
+    if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+      RUN_ID=$(jq -r '.run_id // empty' .signum/receipts/execute.json 2>/dev/null || true)
+    fi
+    # Sync durable artifacts for this completed contract.
+    sync_contract_artifacts "$CONTRACT_ID" \
+      "contract.json" \
+      "proofpack.json" \
+      "anti_entropy_report.json" \
+      "audit_summary.json" \
+      "approval.json" \
+      "execution_context.json" \
+      "receipts" \
+      "snapshots"
+    if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+      sync_contract_artifacts "$CONTRACT_ID" "runs/${RUN_ID}"
+    fi
     echo "Contract $CONTRACT_ID → completed"
   fi
 fi

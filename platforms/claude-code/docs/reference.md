@@ -93,7 +93,7 @@ Assembles `.signum/proofpack.json` — self-contained evidence bundle with embed
 
 ## Artifacts
 
-All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
+Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`). Durable per-contract snapshots are mirrored under `.signum/contracts/<contractId>/` for history/archive flows. The per-contract directory is not the active workspace for an in-flight run.
 
 | File | Phase | Contents |
 |------|-------|----------|
@@ -108,6 +108,17 @@ All artifacts are stored in `.signum/` (auto-added to `.gitignore`):
 | `reviews/gemini.json` | Audit | Gemini CLI performance review (or unavailable marker) |
 | `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
 | `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
+
+Durable per-contract snapshots typically mirror:
+- `contract.json`
+- `proofpack.json`
+- `audit_summary.json`
+- `approval.json`
+- `anti_entropy_report.json`
+- `execution_context.json`
+- `receipts/`
+- `runs/<runId>/`
+- `snapshots/`
 
 ### contract.json fields
 

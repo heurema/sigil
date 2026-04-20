@@ -134,7 +134,7 @@ If the CLI returns malformed output or a non-zero exit code, the provider is mar
 
 ## Artifacts
 
-All artifacts are written to `.signum/` (auto-added to `.gitignore`):
+Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`). Signum also mirrors durable per-contract snapshots into `.signum/contracts/<contractId>/` for history/archive flows. That per-contract directory is not the active workspace while a run is in flight.
 
 | File | Phase | Description |
 |------|-------|-------------|
@@ -151,6 +151,17 @@ All artifacts are written to `.signum/` (auto-added to `.gitignore`):
 | `audit_iteration_log.json` | AUDIT | Summary of all iterations (v4.6+) |
 | `repair_brief.json` | AUDIT | Current repair brief for engineer (v4.6+) |
 | `flaky_tests.json` | AUDIT | Flaky test tracker (v4.6+, run-local) |
+
+Durable per-contract snapshots typically mirror:
+- `contract.json`
+- `proofpack.json`
+- `anti_entropy_report.json`
+- `audit_summary.json`
+- `approval.json`
+- `execution_context.json`
+- `receipts/`
+- `runs/<runId>/`
+- `snapshots/`
 
 ## Cost Estimates
 

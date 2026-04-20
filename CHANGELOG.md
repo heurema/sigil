@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [4.19.1] - 2026-04-20
+
+### Fixed
+- Durable contract/archive evidence now preserves the full execute receipt chain for replay and verification
+  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now mirror/archive `execution_context.json`, `receipts/`, `runs/`, and `snapshots/` instead of only `receipts/execute.json`
+  - `lib/contract-dir.sh` and `platforms/claude-code/lib/contract-dir.sh` now sync directories idempotently, avoiding nested `receipts/receipts`-style copies on repeated syncs
+  - `tests/test-contract-dir.sh` and `platforms/claude-code/tests/test-contract-dir.sh` now cover directory evidence sync and re-sync behavior
+
 ## [4.19.0] - 2026-04-10
 
 ### Added
