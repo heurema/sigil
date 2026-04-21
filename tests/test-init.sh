@@ -138,6 +138,12 @@ TestProject is an evidence-driven testing pipeline.
 The pipeline runs: SCAN → ANALYZE → REPORT
 EOF
 
+  cat > "$dir/ARCHITECTURE.md" << 'EOF'
+# TestProject Architecture
+
+Authoritative architecture note for init scanner coverage.
+EOF
+
   mkdir -p "$dir/docs/adr"
   cat > "$dir/docs/adr/001-rejected-feature.md" << 'EOF'
 # ADR 001: Legacy XML Support
@@ -225,6 +231,7 @@ assert_contains "CLAUDE.md captured" "$CLAUDE_SIG" "Build"
 
 AUTH_DOCS=$(echo "$SCAN_OUTPUT" | jq -r '.signals.authoritative_docs')
 assert_contains "docs/how-it-works.md captured" "$AUTH_DOCS" "evidence-driven"
+assert_contains "ARCHITECTURE.md captured" "$AUTH_DOCS" "Authoritative architecture note"
 
 ADR_SIG=$(echo "$SCAN_OUTPUT" | jq -r '.signals.adr_signals')
 assert_contains "rejected ADR captured" "$ADR_SIG" "Rejected"

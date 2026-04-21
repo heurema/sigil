@@ -7,13 +7,14 @@ Get from zero to a verified code change in 3 minutes.
 Signum is a Claude Code plugin. Install it:
 
 ```bash
-claude plugin add heurema/signum
+claude plugin marketplace add heurema/emporium
+claude plugin install signum@emporium
 ```
 
 Verify:
 
 ```bash
-claude /signum explain
+claude "/signum explain"
 ```
 
 ## 2. Run Your First Pipeline

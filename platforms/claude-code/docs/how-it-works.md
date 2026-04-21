@@ -166,6 +166,91 @@ Durable per-contract snapshots typically mirror:
 - `runs/<runId>/`
 - `snapshots/`
 
+## Offline eval harness (v1)
+
+Signum also ships a maintainer-facing offline eval harness under `evals/`. It is intentionally not a runtime phase.
+
+- `python3 evals/run.py` evaluates 6 representative pseudo-run fixtures.
+- The grader is deterministic and snapshot-based.
+- The scope is contract/audit/proofpack semantics for prompt/orchestration work.
+- No live provider calls, no LLM judge, no trajectory evaluation.
+
+## Project Context Bootstrap: /signum:init
+
+Before running the main pipeline on an unfamiliar project, use `/signum:init` to generate project context files that the Contractor agent reads automatically. Use `--harness` when you also want repo-level harness docs scaffolded.
+
+```
+/signum:init [--force] [--harness] [--project-root <path>]
+```
+
+For Claude Code plugin usage, `/signum:init` is the canonical form. `--harness` requires Signum `>= v4.18.0`.
+
+### Pipeline
+
+```
+SCAN → SYNTHESIZE → PRESENT → VERIFY
+```
+
+**SCAN** (deterministic, ~5s): Signum resolves the plugin-owned `init-scanner.sh` helper first, then falls back to repo-local `lib/init-scanner.sh` when run inside the Signum source tree. The scanner reads known-location files using Claude's native tools. Signal hierarchy (ranked, not averaged):
+1. `docs/how-it-works.md`, `docs/architecture.md` — authoritative (Goal, Capabilities)
+2. `CLAUDE.md`, `AGENTS.md` — explicit conventions and exclusions (Non-Goals)
+3. `README.md` first 150 lines — fallback goal description
+4. `package.json` / `pyproject.toml` / `Cargo.toml` — tech stack, description (last resort)
+5. `.github/workflows/`, `Makefile`, `justfile` — CI targets (Success Criteria)
+6. `bin/`, `commands/`, `skills/`, `console_scripts` — public entrypoints (Capabilities, Personas)
+7. `git log --dirstat=files --since="6 months ago"` — activity-weighted capabilities
+8. `docs/adr/*.md` (Rejected/Deprecated status) — Non-Goals only (explicit signals)
+
+**Ignore set**: `.git`, `.signum/`, `node_modules/`, `dist/`, `build/`, `.venv/`, `__pycache__/`, `coverage/`, `tests/fixtures/`
+
+**SYNTHESIZE** (LLM, `agents/init-synthesizer.md`): applies precedence, emits `project.intent.md` with per-section evidence comments (`<!-- evidence: ... -->`) and confidence annotations (`<!-- confidence: high|medium|low -->`). Non-Goals are extracted ONLY from explicit negative signals — never inferred from absence.
+
+**PRESENT**: shows drafts for interactive review before writing.
+
+**VERIFY**: reports `Glossary has N terms, M aliases` and `Intent covers: N capabilities, N non-goals`.
+
+When `--harness` is enabled, Signum also resolves the plugin-owned `init-harness-scaffold.sh` helper first, then falls back to repo-local `lib/init-harness-scaffold.sh` when run inside the Signum source tree. It scaffolds deterministic drafts for repo-level docs. In brownfield repos where both `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves those files and only creates missing harness docs unless `--force` is also provided.
+
+### Generated Files
+
+| File | Description |
+|------|-------------|
+| `project.intent.md` | Goal, Core Capabilities, Non-Goals, Success Criteria, Personas |
+| `project.glossary.json` | `canonicalTerms` array + `aliases` object |
+| `AGENTS.md` | Agent-facing repo map, entry points, and repo-specific rules (`--harness`) |
+| `ARCHITECTURE.md` | System overview, components, critical flows, and risks (`--harness`) |
+| `docs/PLANS.md` | Active plan index and anti-drift planning rules (`--harness`) |
+| `docs/RELIABILITY.md` | Critical journeys, service levels, and recovery notes (`--harness`) |
+| `docs/SECURITY.md` | Trust boundaries, sensitive data, and security review triggers (`--harness`) |
+| `docs/QUALITY_SCORE.md` | Repo-specific quality bars, evidence, and waiver policy (`--harness`) |
+
+### --force Flag
+
+Default: refuses if files exist. `--force` overwrites (use for updates). Existing glossary terms are always preserved on merge — only additions are made.
+
+### --harness Flag
+
+Adds deterministic scaffold docs with freshness metadata:
+- `AGENTS.md`
+- `ARCHITECTURE.md`
+- `docs/PLANS.md`
+- `docs/RELIABILITY.md`
+- `docs/SECURITY.md`
+- `docs/QUALITY_SCORE.md`
+
+Default write policy for these files is `skip-existing-unless-force`.
+
+### Low-Confidence Handling
+
+When a section has sparse or contradictory signals, the synthesizer emits TODO markers instead of fabricating content:
+
+```markdown
+## Non-Goals
+<!-- evidence: none found -->
+<!-- confidence: low -->
+- TODO: No explicit non-goals detected. Review and add manually.
+```
+
 ## Cost Estimates
 
 Approximate per-run costs at standard API rates:

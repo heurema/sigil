@@ -9,6 +9,8 @@
 
 **Write contracts before writing code.**
 
+> **Experimental software:** Signum is an active experiment. It may be incomplete, unstable, or wrong. We do not guarantee correctness or fitness for production use. Use it at your own risk and verify results independently.
+
 [![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-5b21b6?style=flat-square)]()
 [![Version](https://img.shields.io/github/v/tag/heurema/signum?label=version&style=flat-square&color=5b21b6)](https://github.com/heurema/signum)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

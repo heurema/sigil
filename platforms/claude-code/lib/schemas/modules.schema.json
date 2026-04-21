@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["version", "modules"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Schema version"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "name", "status"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Relative path from project root (directory or file)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable module name"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "experimental", "deprecated", "removed"],
+            "description": "Lifecycle status of the module"
+          },
+          "owner": {
+            "type": "string",
+            "description": "Module owner (e.g. @vi)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of the module's purpose"
+          },
+          "replaced_by": {
+            "type": "string",
+            "description": "Path to the replacement module (for deprecated/removed)"
+          },
+          "deprecated_since": {
+            "type": "string",
+            "format": "date",
+            "description": "Date when the module was deprecated (YYYY-MM-DD)"
+          },
+          "remove_after": {
+            "type": "string",
+            "format": "date",
+            "description": "Date after which the module should be removed (YYYY-MM-DD)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for deprecation or removal"
+          }
+        },
+        "additionalProperties": false,
+        "if": {
+          "properties": { "status": { "const": "deprecated" } }
+        },
+        "then": {
+          "required": ["deprecated_since", "reason"]
+        }
+      },
+      "minItems": 1
+    }
+  },
+  "additionalProperties": false
+}

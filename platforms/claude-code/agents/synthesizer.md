@@ -37,18 +37,21 @@ Read these files:
    - ANY reviewer verdict is "REJECT"
    - ANY reviewer found a CRITICAL severity finding
    - Policy scan (`policy_scan.json`) has `summaryCounts.critical` > 0 (CRITICAL policy finding present)
+   - Any blocking `cleanupObligation` verify failed (v3.8)
+   - Any `removal` with `preventReintroduction: true` has its path still existing (v3.8)
    - Execute receipt (`.signum/contracts/<contractId>/receipts/execute.json`) is missing
-   - Execute receipt status is not `PASS`
-   - Any visible AC from `.signum/contracts/<contractId>/contract-engineer.json` has no matching entry in `execute.json` `.ac_evidence`
-   - Any visible AC has `verify_exit_code != 0`
-   - Any visible AC has `verify_format != "dsl"`
-   - Any visible AC is marked `vacuous: true` on medium/high risk
+   - Execute receipt `status` is not `PASS`
+   - Any visible AC from `.signum/contracts/<contractId>/contract-engineer.json` has no matching entry in execute receipt `.ac_evidence`
+   - Any visible AC has `verify_exit_code != 0` in the receipt
+   - Any visible AC has `verify_format != "dsl"` in the receipt (legacy string verify — not trustworthy)
+   - Any visible AC is marked `vacuous: true` in the receipt on medium/high risk contracts
    - Execute receipt reports out-of-scope changes or missing inScope paths
 
 2. **AUTO_OK** if ALL of:
    - Mechanic report has no regressions (`hasRegressions: false`)
-   - All available reviewers verdict is "APPROVE"
+   - All available reviewers verdict is "APPROVE" or "APPROVE_WITH_CONCERNS"
    - No MAJOR or CRITICAL findings from any reviewer
+   - If any reviewer has APPROVE_WITH_CONCERNS: all concerns have severity <= MINOR
    - Review count gate (risk-proportional):
      - `low` risk: at least 1 reviewer successfully parsed (parseOk: true)
      - `medium` risk: at least 2 reviewers parsed, OR at least 1 parsed if all unavailable reviewers have `available: false` (CLI not installed, not a runtime/auth failure)
@@ -56,7 +59,7 @@ Read these files:
    - Holdout report has no failures AND no errors (if holdout_report.json exists, `failed` must be 0 AND `errors` must be 0)
 
 3. **HUMAN_REVIEW** if:
-   - None of the above apply (disagreements, CONDITIONAL verdicts, MAJOR findings, parse failures, holdout failures or errors)
+   - None of the above apply (disagreements, CONDITIONAL verdicts, MAJOR findings, APPROVE_WITH_CONCERNS with MAJOR concerns, parse failures, holdout failures or errors)
 
 Pre-existing failures (checks that failed in baseline AND still fail) no longer auto-block.
 
@@ -74,6 +77,7 @@ list each failed/errored holdout ID, description, and error message from the `re
 
 - If a review file doesn't exist or is not valid JSON: mark as `unavailable`
 - If parseOk is false (raw text instead of JSON): mark as `parse_error`
+- If `failure_reason` is present: record it in audit_summary for diagnostics. Values: `timeout`, `rate_limit`, `auth_expired`, `provider_overloaded`, `adapter_crash`, `unknown`. `error_type` is `transient` (retry-worthy) or `permanent` (skip).
 - With 0 available reviews: decision is `HUMAN_REVIEW` (cannot auto-approve without evidence)
 - With 1 available review:
   - If contract `riskLevel` is `low`: full decision logic applies (single Claude review is sufficient)
@@ -95,6 +99,7 @@ After determining the decision, compute confidence metrics:
   - If total holdouts == 0: 75 (neutral — no evidence, no penalty)
 - `review_alignment`:
   - 3/3 APPROVE = 100
+  - mix of APPROVE and APPROVE_WITH_CONCERNS (0 CONDITIONAL/REJECT) = 90
   - 2/3 APPROVE + 1 CONDITIONAL = 70
   - 2/3 APPROVE + 1 REJECT = 40
   - 1/3 APPROVE = 20
@@ -103,7 +108,53 @@ After determining the decision, compute confidence metrics:
 
 Round all values to integers.
 
+### Evidence Coverage
+
+After confidence scoring, compute evidence coverage from contract + reviews:
+
+1. **AC coverage**: Count acceptance criteria verified from `execute_log.json`.
+   - Normalize AC IDs: lowercase, strip hyphens (e.g., `ac-1` and `AC1` both become `ac1`)
+   - `verified` = number of ACs where the latest attempt has all steps passed
+   - `total` = number of ACs in contract
+
+2. **File coverage**: Count inScope files actually reviewed.
+   - Collect `reviewedFiles[]` arrays from all available reviews (claude, codex, gemini)
+   - Union all reviewed files into a set
+   - `reviewed` = count of `inScope` files present in that set
+   - `total` = count of `inScope` files in contract
+   - If a review lacks `reviewedFiles[]` (legacy format), count all files from its findings instead
+
+3. **Score**: `(verified / total * 60) + (reviewed / total * 40)`. If any `total` is 0, treat that component as 0 and output `"zeroState": true`.
+
+Evidence coverage does NOT block the `decision` (AUTO_OK/AUTO_BLOCK/HUMAN_REVIEW). It feeds into `releaseVerdict` below.
+
+### Release Verdict
+
+After decision and evidence coverage, compute `releaseVerdict` — a downstream release recommendation:
+
+- `AUTO_OK` + evidenceCoverage.score >= 70 → **PROMOTE**
+- `AUTO_OK` + evidenceCoverage.score < 70 → **HOLD** (approved but weak evidence)
+- `HUMAN_REVIEW` → **HOLD**
+- `AUTO_BLOCK` → **REJECT**
+
+`releaseVerdict` lives alongside `decision`, never replaces it. `decision` is the audit outcome, `releaseVerdict` is the release policy recommendation.
+
 ## Output
+
+### Removal and Obligation Verification (v3.8)
+
+When the contract has `removals` or `cleanupObligations` arrays, add these sections to audit_summary.json:
+
+**removalVerification**: For each removal entry, verify:
+- The path no longer exists on disk
+- If `preventReintroduction` is true, grep the codebase for imports/references to the removed path
+- Record: `{ "id": "RM01", "path": "...", "removed": true|false, "orphanReferences": 0 }`
+
+**obligationVerification**: For each cleanup obligation, verify:
+- Run the obligation's `verify` steps
+- Record: `{ "id": "CO01", "action": "...", "fulfilled": true|false, "blocking": true|false }`
+
+If any blocking obligation is unfulfilled, set decision to AUTO_BLOCK with reasoning.
 
 Write `.signum/contracts/<contractId>/audit_summary.json`:
 
@@ -111,14 +162,15 @@ Write `.signum/contracts/<contractId>/audit_summary.json`:
 {
   "mechanic": "pass",
   "reviews": {
-    "claude": { "verdict": "...", "findings": [], "parseOk": true, "available": true },
-    "codex": { "verdict": "...", "findings": [], "parseOk": true, "available": true },
-    "gemini": { "verdict": "...", "findings": [], "parseOk": false, "available": true }
+    "claude": { "verdict": "...", "findings": [], "concerns": [], "parseOk": true, "available": true },
+    "codex": { "verdict": "...", "findings": [], "concerns": [], "parseOk": true, "available": true, "failure_reason": null, "error_type": null },
+    "gemini": { "verdict": "...", "findings": [], "concerns": [], "parseOk": false, "available": true, "failure_reason": null, "error_type": null }
   },
   "availableReviews": 2,
   "holdout": { "total": 2, "passed": 2, "failed": 0, "errors": 0 },
   "consensus": "2/3 approve, 1 parse error",
   "decision": "HUMAN_REVIEW",
+  "releaseVerdict": "HOLD",
   "reasoning": "Only 2 of 3 reviews parsed successfully, cannot auto-approve",
   "confidence": {
     "execution_health": 95,
@@ -126,9 +178,25 @@ Write `.signum/contracts/<contractId>/audit_summary.json`:
     "behavioral_evidence": 75,
     "review_alignment": 70,
     "overall": 82
+  },
+  "evidenceCoverage": {
+    "acceptanceCriteria": { "total": 5, "verified": 4 },
+    "inScopeFiles": { "total": 8, "reviewed": 6 },
+    "score": 78
   }
 }
 ```
+
+## Execute Receipt Coverage Gate
+
+For every visible acceptance criterion in `.signum/contracts/<contractId>/contract-engineer.json`, verify that `.signum/contracts/<contractId>/receipts/execute.json` `.ac_evidence` contains an entry with the same AC id.
+
+- If any visible AC is missing evidence → AUTO_BLOCK
+- If any AC evidence has `verify_exit_code != 0` → AUTO_BLOCK
+- If the receipt itself is absent or has `status != "PASS"` → AUTO_BLOCK
+- If any AC evidence is `vacuous: true` on medium/high risk → AUTO_BLOCK
+
+This gate **overrides** reviewer approval. Strong reviews without AC evidence are insufficient — the pipeline requires independent deterministic proof that each AC was satisfied.
 
 ## Finding Deduplication
 
@@ -138,8 +206,12 @@ When multiple reviewers flag the same issue, consolidate instead of listing dupl
 2. **Same category → merge:** if two findings share the same category (e.g., both "security" or both "correctness"), merge into one entry. Add `"confirmedBy": ["claude", "codex"]` and boost severity by one level (e.g., MINOR → MAJOR) since cross-model agreement increases confidence
 3. **Different category → keep separate:** if one reviewer says "security" and another says "performance" for the same location, keep both findings (they represent different concerns)
 4. **No location → no merge:** findings without file/line info are never merged
+5. **Support level:** after deduplication, add `"supportLevel"` to each finding based on `confirmedBy.length / availableReviews`:
+   - ratio = 1.0 → `"HIGH"` (all available reviewers found it)
+   - ratio >= 0.5 → `"MEDIUM"` (majority of available reviewers)
+   - ratio < 0.5 → `"LOW"` (minority — suggest manual review)
 
-In the output, deduplicated findings appear in the `reviews` section with the `confirmedBy` array. The `consensus` field should note dedup count (e.g., "2 findings merged across models").
+In the output, deduplicated findings appear in the `reviews` section with the `confirmedBy` array and `supportLevel`. The `consensus` field should note dedup count (e.g., "2 findings merged across models").
 
 ## Iterative AUDIT Support
 
@@ -181,14 +253,6 @@ Cross-iteration comparison uses these canonical deduplicated findings, not raw r
 ### Early stop signal
 
 The **orchestrator** owns the early stop counter, not the synthesizer. The synthesizer only reports `recommendEarlyStop: true` when `iterationScore` did not improve. The orchestrator tracks consecutive non-improving iterations and decides when to stop.
-
-## Execute Receipt Coverage Gate
-
-For every visible acceptance criterion, verify that `.signum/contracts/<contractId>/receipts/execute.json` `.ac_evidence` contains an entry with the same AC id.
-If any visible AC is missing evidence, AUTO_BLOCK.
-If any AC evidence has `verify_exit_code != 0`, AUTO_BLOCK.
-If the receipt itself is absent or has `status != "PASS"`, AUTO_BLOCK.
-This gate overrides reviewer approval. Strong reviews without AC evidence are insufficient.
 
 ## Rules
 

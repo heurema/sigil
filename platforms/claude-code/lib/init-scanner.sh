@@ -52,11 +52,11 @@ safe_head() {
 
 # ---------------------------------------------------------------------------
 # Phase 1: Authoritative docs (precedence rank 1)
-# docs/how-it-works.md, docs/architecture.md, docs/reference.md
+# docs/how-it-works.md, ARCHITECTURE.md, legacy docs/architecture.md, docs/reference.md
 # Also deep-scan docs/ subdirectories: docs/research/, docs/plans/, docs/adr/
 # ---------------------------------------------------------------------------
 AUTHORITATIVE_DOCS=""
-for candidate in docs/how-it-works.md docs/architecture.md docs/reference.md docs/design.md; do
+for candidate in docs/how-it-works.md ARCHITECTURE.md docs/architecture.md docs/reference.md docs/design.md; do
   if [ -f "$candidate" ]; then
     content=$(safe_head "$candidate" 300)
     AUTHORITATIVE_DOCS="${AUTHORITATIVE_DOCS}

@@ -2,25 +2,14 @@
 
 ## [Unreleased]
 
-## [4.20.0] - 2026-04-21
-
-### Changed
-- Canonical contract-dir artifact root is now consistently reflected across runtime helpers, docs, prompts, overlay surfaces, and CI/template flows
-  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now treat `.signum/contracts/<contractId>/` as the canonical active artifact root throughout CONTRACT, EXECUTE, AUDIT, PACK, archive/finalize flows, and registry-first resume handling
-  - `lib/contract-dir.sh`, `lib/signum-ci.sh`, `lib/snapshot-tree.sh`, `lib/contract-injection-scan.sh`, `lib/proofpack-index.sh`, verifier helpers, anti-entropy helpers, and their overlay twins now prefer canonical contract-dir resolution before legacy root fallback
-  - core docs, quickstarts, architecture notes, skill docs, plan/research docs, and agent prompts now describe root `.signum/` as registry/state plus compatibility surface rather than the primary live artifact location
-  - new regression coverage locks down canonical path behavior and the remaining intentional compatibility mentions
-
-## [4.19.2] - 2026-04-21
-
 ### Fixed
-- Clarified the Claude Code init command surface so docs and prompts now use `/signum:init` as the canonical plugin invocation
-  - `README.md` and `docs/how-it-works.md` now document `/signum:init` instead of `/signum init`
-  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now redirect accidental `init ...` usage to `/signum:init`
-  - `commands/init.md` and `platforms/claude-code/commands/init.md` now note that `--harness` requires Signum `>= v4.18.0`
-- Made init bootstrap helper resolution work in downstream repos
-  - `commands/init.md` and `platforms/claude-code/commands/init.md` now resolve `init-scanner.sh` and `init-harness-scaffold.sh` from `CLAUDE_PLUGIN_ROOT/lib/` first, with repo-local `lib/` fallback
-  - `tests/test-init-command-surface.sh` covers canonical command usage, redirect guard, version note, and helper path resolution
+- `/signum init` now treats root `ARCHITECTURE.md` as an authoritative input alongside legacy `docs/architecture.md`, so harness-generated architecture docs are actually read back by the scanner
+- Claude overlay PACK parity test now follows the current `sync_contract_artifacts` implementation instead of the removed direct `cp` command
+- Claude overlay runtime assets now include the helper scripts, schemas, agents, and review prompts that its packaged commands reference, instead of pointing at missing or stale copies
+
+### Documentation
+- `README.md` now clearly marks Signum as experimental / use-at-your-own-risk
+- `QUICKSTART.md`, `docs/how-it-works.md`, and `docs/reference.md` were re-aligned with current behavior and mirrored into the Claude overlay docs
 
 ## [4.19.1] - 2026-04-20
 
@@ -46,7 +35,7 @@
 ## [4.18.1] - 2026-04-10
 
 ### Fixed
-- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `anti_entropy_report.json` under the active contract artifact root, advertises it in explain mode, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
+- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `anti_entropy_report.json` under the active contract artifact root, advertises it in explain mode, syncs it to per-contract directories, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
 
 ## [4.18.0] - 2026-04-10
 
@@ -57,7 +46,7 @@
   - Brownfield-safe behavior: if `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves them and scaffolds only missing harness docs unless `--force` is also provided
 - Anti-entropy Stage 1 report-only flow
   - `lib/anti-entropy-report.sh` — aggregates follow-up findings from cleanup evidence, `modules.yaml`, doc parity reports, and metric-ratchet reports
-  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that writes `anti_entropy_report.json` next to the active contract artifacts and never changes pipeline decision
+  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that always writes `anti_entropy_report.json` under the active contract artifact root and never changes pipeline decision
   - `tests/test-anti-entropy-report.sh` and `tests/test-pack-anti-entropy.sh` — coverage for report generation and fallback artifact behavior
 
 ### Changed
@@ -125,7 +114,7 @@
 ### Changed
 - **Policy scanner** — `TODO:`, `FIXME:`, `HACK:`, `XXX:` upgraded from MINOR to CRITICAL `incomplete_implementation`. Added `panic("not implemented")`, `raise NotImplementedError`, `throw new Error("TODO")` patterns. Non-code files (markdown, json, yaml, docs, examples, tests) excluded from incomplete_implementation rules.
 - **Contractor prompt** — `verify.type: "manual"` forbidden. All ACs must use typed DSL with `steps`. Non-vacuous evidence required (must assert observable state via `expect.*` or predicates like `test`, `grep`, `jq -e`).
-- **Engineer prompt** — receipt-chain paths (`receipts/`, `runs/`, `snapshots/`) under the active contract artifact root are verifier-owned and forbidden for engineer writes.
+- **Engineer prompt** — receipt-chain paths (`receipts/`, `runs/`, `snapshots/`) under the active contract artifact root are declared verifier-owned, forbidden for engineer writes.
 - **Archive mode** — preserves execute receipt before purging receipt chain intermediates.
 - **`allowNewFilesUnder` scope strictness** — only permits file additions, not modifications or deletions of existing files under those paths.
 

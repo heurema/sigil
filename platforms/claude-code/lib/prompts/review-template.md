@@ -19,6 +19,7 @@ Your response MUST contain ONLY a JSON object between these markers:
 ###SIGNUM_REVIEW_START###
 {
   "verdict": "APPROVE" | "REJECT" | "CONDITIONAL",
+  "reviewedFiles": ["path/to/file1", "path/to/file2"],
   "findings": [
     {
       "file": "path/to/file",
@@ -43,4 +44,5 @@ RULES:
 - evidence MUST quote exact code from the diff (strip +/- prefixes)
 - Every finding MUST have file + line number
 - If diff is empty or trivial, return {"verdict": "APPROVE", "findings": [], "summary": "No issues found"}
-- If you cannot parse inputs, return {"verdict": "CONDITIONAL", "findings": [], "summary": "Could not parse review inputs"}
+- reviewedFiles MUST list every file from the diff you actually analyzed (including clean files with no findings)
+- If you cannot parse inputs, return {"verdict": "CONDITIONAL", "reviewedFiles": [], "findings": [], "summary": "Could not parse review inputs"}

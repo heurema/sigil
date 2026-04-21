@@ -34,6 +34,14 @@ You receive:
    - Note any deprecated/removed modules and their `replaced_by`, `remove_after` fields
    - Use this information in step 3.7 (cleanup detection) and step 3.7.5 (removal extraction)
    - If not found: continue without module lifecycle context
+1.75. **Read session context** (before scan, optional):
+   - Check if `.signum/session.json` exists
+   - If exists: read it, note previous run outcomes (typed entries: success/failure/scope_violation/model_disagreement)
+   - Use these signals to improve contract quality:
+     - If previous runs had scope_violation: be more explicit about `outOfScope`
+     - If previous runs had model_disagreement: add more holdout scenarios for contested areas
+     - If previous runs had failure on specific files: note potential fragility in `assumptions`
+   - If not found: continue without session context (first run on this project)
 1.8. **Read jj-supersede signals** (before scan, optional):
    - Check if `PROJECT_ROOT/.jj/` exists (jj-managed repository)
    - If not a jj repo: skip entirely

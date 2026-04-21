@@ -1,12 +1,159 @@
 # Changelog
 
-## [4.20.0] - 2026-04-21
+## [Unreleased]
+
+### Fixed
+- `/signum init` now treats root `ARCHITECTURE.md` as an authoritative input alongside legacy `docs/architecture.md`, so harness-generated architecture docs are actually read back by the scanner
+- Claude overlay PACK parity test now follows the current `sync_contract_artifacts` implementation instead of the removed direct `cp` command
+- Claude overlay runtime assets now include the helper scripts, schemas, agents, and review prompts that its packaged commands reference, instead of pointing at missing or stale copies
+
+### Documentation
+- `README.md` now clearly marks Signum as experimental / use-at-your-own-risk
+- `QUICKSTART.md`, `docs/how-it-works.md`, and `docs/reference.md` were re-aligned with current behavior and mirrored into the Claude overlay docs
+
+## [4.19.1] - 2026-04-20
+
+### Fixed
+- Durable contract/archive evidence now preserves the full execute receipt chain for replay and verification
+  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now mirror/archive `execution_context.json`, `receipts/`, `runs/`, and `snapshots/` instead of only `receipts/execute.json`
+  - `lib/contract-dir.sh` and `platforms/claude-code/lib/contract-dir.sh` now sync directories idempotently, avoiding nested `receipts/receipts`-style copies on repeated syncs
+  - `tests/test-contract-dir.sh` and `platforms/claude-code/tests/test-contract-dir.sh` now cover directory evidence sync and re-sync behavior
+
+## [4.19.0] - 2026-04-10
+
+### Added
+- Offline eval harness v1 for prompt/orchestration-sensitive changes
+  - `evals/checks.py` — deterministic invariant grader for contract/audit/proofpack semantics
+  - `evals/run.py` — snapshot runner for 6 representative fixtures with `--update-snapshots` support
+  - `evals/fixtures/*.json` + `evals/snapshots/*.json` — committed eval corpus and reviewed golden outputs
+  - `tests/test-eval-harness.sh` — shell coverage for the green path and broken-snapshot regression detection
+
+### Documentation
+- `README.md`, `docs/how-it-works.md`, and `docs/QUALITY_SCORE.md` — maintainer guidance for the new offline eval harness
+- `docs/PLANS.md` — provider-alignment intake rule plus eval-harness-first planning note
+
+## [4.18.1] - 2026-04-10
+
+### Fixed
+- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `anti_entropy_report.json` under the active contract artifact root, advertises it in explain mode, syncs it to per-contract directories, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
+
+## [4.18.0] - 2026-04-10
+
+### Added
+- `/signum init --harness` — deterministic harness-doc bootstrap on top of project context bootstrap
+  - `lib/init-harness-scaffold.sh` — emits drafts for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`
+  - `tests/test-init-harness-scaffold.sh` — validation for scaffold structure, content, and existing-file detection
+  - Brownfield-safe behavior: if `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves them and scaffolds only missing harness docs unless `--force` is also provided
+- Anti-entropy Stage 1 report-only flow
+  - `lib/anti-entropy-report.sh` — aggregates follow-up findings from cleanup evidence, `modules.yaml`, doc parity reports, and metric-ratchet reports
+  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that always writes `anti_entropy_report.json` under the active contract artifact root and never changes pipeline decision
+  - `tests/test-anti-entropy-report.sh` and `tests/test-pack-anti-entropy.sh` — coverage for report generation and fallback artifact behavior
 
 ### Changed
-- Canonical contract-dir artifact root cleanup and parity hardening for the Claude overlay
-  - overlay command/docs/prompts now consistently describe `.signum/contracts/<contractId>/` as the active artifact root
-  - overlay CI/template surfaces prefer canonical artifact paths before legacy root fallback
-  - overlay changelog/docs/quickstart wording now matches the canonical storage model used by the runtime
+- `commands/init.md` — documents `--harness` mode for root Signum init flow
+- `platforms/claude-code/commands/init.md` — documents `--harness` mode for Claude overlay init flow; disallows `--actualize` + `--harness` in the MVP
+- `commands/signum.md` — root PACK now emits advisory `anti_entropy_report.json` under the active contract artifact root after proofpack assembly and archives/cleans it with the rest of the working set
+
+### Documentation
+- `docs/reference.md` — canonical source policy now states root `commands/signum.md` is the source of truth and platform variants are overlays
+- `docs/overlay-deviations.json` — machine-readable allowlist for intentional overlay differences (currently `RECONCILE` in Claude Code overlay)
+- `lib/doc-parity-check.sh` + `tests/test-doc-parity.sh` + `.github/workflows/doc-parity.yml` — warn-only doc/parity validation
+- `docs/plans/2026-03-15-large-project-support-roadmap.md` — roadmap statuses corrected for shipped Phase 1-5 capabilities; remaining debt now tracked separately
+- `docs/how-it-works.md` and `README.md` — public docs synced to `init --harness`
+- Added repo-level harness docs for Signum itself: `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, `docs/QUALITY_SCORE.md`
+
+## [4.17.0] - 2026-03-27
+
+### Added
+- **Verification-before-completion gate** (engineer) — 5-step gate: IDENTIFY/RUN/READ/VERIFY/LOG with mandatory evidence capture and red flags list
+- **4-status reviewer protocol** — APPROVE_WITH_CONCERNS verdict + concerns[] field for documented-but-acceptable issues; synthesizer AUTO_OK accepts concerns with severity <= MINOR
+- **Execute log schema v2** — timing (started_at/finished_at/duration_ms), error_type (transient/permanent), termination_reason, per-attempt status and timing, output + evidence fields
+- **INTERRUPTED status** — engineer writes execute_log.json after every attempt; new status for mid-loop crashes
+- **Contract injection scan** — lib/contract-injection-scan.sh defends against MINJA-class Unicode injection (zero-width, bidi overrides, tag characters) between contractor and engineer
+- **Session context** — lib/session-manager.sh provides cross-run memory with typed entries (success/failure/scope_violation/model_disagreement) and TTL-based eviction; contractor reads session for improved contracts
+- **Policy-driven model routing** — lib/policy-resolver.sh reads .signum/policy.toml for risk-based model overrides (e.g., high-risk -> opus engineer)
+- **Failure taxonomy** — codex/gemini review failures classified as transient (timeout, rate_limit, provider_overloaded) vs permanent (auth_expired, adapter_crash) with failure_reason field
+- **Proofpack chain** — lib/proofpack-index.sh appends hash-linked entries to .signum/proofpack-index.jsonl (tamper-evident audit trail)
+- **Metric ratchet** — lib/metric-ratchet.sh computes weekly performance comparison (auto_ok_rate, confidence, etc.) from proofpack archive
+- **Proofpack v4.8 schema** — timing, releaseVerdict, riskLevel, reviewCoverage fields for punk-run receipt compatibility
+
+### Fixed
+- **Contractor haiku fails on medium-risk** (#9) — orchestrator auto-retries with sonnet when haiku fails; maxTurns increased 12 -> 18
+- **Engineer execute_log.json missing on partial completion** — CRITICAL note to write after every attempt + INTERRUPTED status
+- **Scope gate broken with annotated paths** — strip parenthetical annotations from inScope, use while-read loop instead of for-in
+- **Contract injection scan crashes on string assumptions** — handle both object ({text: ...}) and plain string formats
+
+### Documentation
+- docs/shared-receipt-mapping.md — field mapping between signum proofpack and specpunk receipt v1
+- docs/thin-cli-extraction-plan.md — prioritized plan for extracting 15 bash scripts (~3200 LOC) to Rust signum-core crate
+- lib/templates/policy.toml — example policy configuration
+
+## [4.16.1] - 2026-03-23
+
+## [4.16.0] - 2026-03-22
+
+## [4.15.1] - 2026-03-22
+
+## [4.15.0] - 2026-03-20
+
+## [4.14.0] - 2026-03-20
+
+## [4.13.0] - 2026-03-20
+
+### Added
+- **Receipt chain** — deterministic phase-boundary enforcement with append-only receipts (issue #7)
+  - `lib/snapshot-tree.sh` — workspace tree snapshot before each engineer launch, captures sorted manifest + tree hash
+  - `lib/boundary-verifier.sh` — runs AC verifiers via DSL runner after engineer returns, checks scope integrity (both out-of-scope and missing inScope), hashes artifacts, classifies evidence strength (observational/predicate/exit_only), writes append-only receipts under the active contract artifact root in `runs/<run_id>/`
+  - `lib/transition-verifier.sh` — blocks execute→audit transition unless receipt is present, PASS, contract hash matches, artifact hashes valid, append-only chain intact, and all ACs have non-vacuous evidence
+  - Orchestrator steps: 2.0.5 (pre-execute snapshot), 2.4.6 (scope existence gate), 2.5 (boundary verification), 2.6 (transition verification)
+  - Iterative repair: fresh snapshot per attempt, boundary+transition verify per repair iteration, `RECEIPT_CHAIN_OK` flag prevents silent failure swallowing
+  - Synthesizer: **Execute Receipt Coverage Gate** — AUTO_BLOCK when receipt missing, status != PASS, any AC without evidence, or vacuous evidence on medium/high risk. Overrides reviewer approval.
+- **Vacuous verify detection** — boundary verifier classifies each AC verify block as `observational`, `predicate`, or `exit_only`. Exit-only blocked on medium/high risk contracts.
+- **Scope existence gate** (Step 2.4.6) — verifies all non-glob `inScope` paths exist after engineer runs. Catches the incident class where files were promised in contract but never created.
+
+### Changed
+- **Policy scanner** — `TODO:`, `FIXME:`, `HACK:`, `XXX:` upgraded from MINOR to CRITICAL `incomplete_implementation`. Added `panic("not implemented")`, `raise NotImplementedError`, `throw new Error("TODO")` patterns. Non-code files (markdown, json, yaml, docs, examples, tests) excluded from incomplete_implementation rules.
+- **Contractor prompt** — `verify.type: "manual"` forbidden. All ACs must use typed DSL with `steps`. Non-vacuous evidence required (must assert observable state via `expect.*` or predicates like `test`, `grep`, `jq -e`).
+- **Engineer prompt** — receipt-chain paths (`receipts/`, `runs/`, `snapshots/`) under the active contract artifact root are declared verifier-owned, forbidden for engineer writes.
+- **Archive mode** — preserves execute receipt before purging receipt chain intermediates.
+- **`allowNewFilesUnder` scope strictness** — only permits file additions, not modifications or deletions of existing files under those paths.
+
+### Security
+- `dsl-runner.sh` resolved from trusted Signum install paths only (prevents workspace-local runner injection); workspace fallback requires explicit `SIGNUM_TRUST_LOCAL=1`
+- `LC_ALL=C` enforced in all receipt chain scripts (prevents locale-dependent sort/join collation mismatches)
+- `git ls-files -- .` constrains file listing to workspace root (monorepo-safe)
+- Portable empty array expansion `${arr[@]+"${arr[@]}"}` for bash < 4.4 compatibility
+- Receipt chain verifiers are hard gates — missing scripts cause `exit 1`, not silent degradation
+
+## [4.12.1] - 2026-03-20
+
+## [4.12.0] - 2026-03-19
+
+### Added
+- **Anti-entropy system** — module lifecycle tracking and cleanup contracts for combating code quality degradation in AI-assisted development
+  - `modules.yaml` manifest + JSON Schema (`lib/schemas/modules.schema.json`) for declaring module lifecycle status (active/experimental/deprecated/removed)
+  - Contract schema v3.8: `removals` array (RM01-pattern) for declarative file/directory deletion with `preventReintroduction` and `modulesYamlTransition`
+  - Contract schema v3.8: `cleanupObligations` array (CO01-pattern) with K8s Finalizer semantics — blocking obligations prevent AUTO_OK
+  - `file_not_exists` DSL assertion for verifying successful removals
+  - `grep` added to DSL exec whitelist for reference-checking verify blocks
+  - Contractor: steps 1.7 (modules.yaml reading), 3.7 (cleanup task detection), 3.7.5 (removal/obligation extraction with auto-verify generation)
+  - Engineer: steps 2.5 (execute removals before implementation), 2.6 (execute cleanup obligations in repair loop)
+  - Synthesizer: `removalVerification` + `obligationVerification` sections, AUTO_BLOCK on unfulfilled blocking obligations
+  - Scope gate: removal target paths allowed as deletion targets
+- **Proofpack v4.7** — `removalEvidence` section with per-removal filesystem state and per-obligation fulfillment tracking
+
+## [4.11.0] - 2026-03-19
+
+## [4.10.0] - 2026-03-18
+
+### Added
+- **Evidence coverage score** — new `evidenceCoverage` section in audit_summary.json tracking AC verification rate and file review coverage. Formula: `(verified/total * 60) + (reviewed/total * 40)`. AC ID normalization handles mismatched formats (ac-1 vs AC1).
+- **Release verdict** — new `releaseVerdict` field (PROMOTE/HOLD/REJECT) alongside `decision`. Derived from decision + evidence coverage score. PROMOTE requires AUTO_OK + score >= 70.
+- **Finding support level** — `supportLevel` (HIGH/MEDIUM/LOW) on each deduplicated finding, calculated as `confirmedBy.length / availableReviews`. Replaces absolute count with relative measure.
+- **reviewedFiles[]** — new required field in all 3 review templates (general, security, performance). Lists every analyzed file including clean ones with no findings. Enables accurate file coverage tracking.
+
+### Changed
+- Synthesizer version bump to v4.9 in agent prompt
 
 ## [4.9.0] - 2026-03-17
 

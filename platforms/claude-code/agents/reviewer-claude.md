@@ -39,7 +39,7 @@ When `iteration_delta.patch` exists, focus your review on the delta — these ar
 Write your review result to `.signum/contracts/<contractId>/reviews/claude.json` as a JSON object with this structure:
 ```json
 {
-  "verdict": "APPROVE | CONDITIONAL | REJECT",
+  "verdict": "APPROVE | APPROVE_WITH_CONCERNS | CONDITIONAL | REJECT",
   "findings": [
     {
       "severity": "CRITICAL | MAJOR | MINOR",
@@ -51,8 +51,26 @@ Write your review result to `.signum/contracts/<contractId>/reviews/claude.json`
       "fingerprint": "lowercase normalized summary for dedup"
     }
   ],
+  "concerns": [
+    {
+      "severity": "MAJOR | MINOR",
+      "category": "bug | security | logic | quality | performance",
+      "description": "documented issue that is acceptable for now",
+      "recommendation": "suggested follow-up action",
+      "fingerprint": "lowercase normalized summary for dedup"
+    }
+  ],
   "summary": "1-2 sentence overall assessment"
 }
+```
+
+**Verdict semantics:**
+- **APPROVE** -- no issues found, high confidence in correctness
+- **APPROVE_WITH_CONCERNS** -- code is acceptable but has documented issues (in `concerns[]`). Use when issues exist but are not blocking: planned follow-ups, known limitations, acceptable tradeoffs. Do NOT use for real defects -- those go in `findings[]` with CONDITIONAL/REJECT.
+- **CONDITIONAL** -- at least 1 MAJOR finding, zero CRITICAL. Code needs fixes before acceptance.
+- **REJECT** -- at least 1 CRITICAL finding. Code is unsafe to merge.
+
+**findings[] vs concerns[]:** `findings` are defects that block acceptance. `concerns` are documented issues the reviewer notes but considers acceptable. If unsure, put it in findings (safer).
 ```
 
 Write ONLY the JSON object, no markers, no markdown, no commentary.

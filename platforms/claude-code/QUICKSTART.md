@@ -7,13 +7,14 @@ Get from zero to a verified code change in 3 minutes.
 Signum is a Claude Code plugin. Install it:
 
 ```bash
-claude plugin add heurema/signum
+claude plugin marketplace add heurema/emporium
+claude plugin install signum@emporium
 ```
 
 Verify:
 
 ```bash
-claude /signum explain
+claude "/signum explain"
 ```
 
 ## 2. Run Your First Pipeline
@@ -29,7 +30,7 @@ Signum runs 4 phases automatically:
 1. **CONTRACT** — Generates a verifiable spec from your request
 2. **EXECUTE** — Implements code against the spec (with repair loop)
 3. **AUDIT** — Reviews with up to 3 independent AI models
-4. **PACK** — Bundles proof artifacts into `proofpack.json`
+4. **PACK** — Bundles proof artifacts into `proofpack.json` and writes advisory `anti_entropy_report.json` under the active contract artifact root
 
 You approve the contract once. Everything else is autonomous.
 
@@ -47,6 +48,9 @@ Decisions:
 - **AUTO_BLOCK** — Issues found. Check `audit_summary.json` under the active contract artifact root.
 - **HUMAN_REVIEW** — Inconclusive. Review flagged findings manually.
 
+Optional follow-up:
+- `jq '.status, .summary' "$ARTIFACT_ROOT/anti_entropy_report.json"` — advisory cleanup / anti-drift findings
+
 ## 4. Understand the Phases
 
 | Phase | What happens | Duration |
@@ -62,6 +66,7 @@ Key artifacts under the active contract artifact root (`.signum/contracts/<contr
 - `mechanic_report.json` — Lint/typecheck/test results vs baseline
 - `audit_summary.json` — Consensus decision with reasoning
 - `proofpack.json` — Self-contained evidence bundle
+- `anti_entropy_report.json` — Advisory follow-up findings (non-blocking)
 
 ## 5. Configure External Providers (Optional)
 
@@ -138,6 +143,30 @@ cat > project.glossary.json << 'EOF'
 EOF
 ```
 
+### modules.yaml (optional)
+
+Declares module lifecycle status. Enables cleanup contracts with structured removals.
+
+```bash
+cat > modules.yaml << 'EOF'
+version: 1
+modules:
+  - path: src/api/
+    name: api
+    status: active
+    owner: "@you"
+  - path: src/old-api/
+    name: old-api
+    status: deprecated
+    deprecated_since: "2026-03-01"
+    remove_after: "2026-04-01"
+    replaced_by: src/api/
+    reason: "Replaced by v2 API"
+EOF
+```
+
+When you run `/signum "remove the old-api module"`, the contractor reads `modules.yaml`, generates `removals` and `cleanupObligations` entries, and the engineer deletes files + cleans up references in a single verified pass.
+
 ### repo-contract.json (optional)
 
 Invariants that must always hold. Any regression is AUTO_BLOCK regardless of task.
@@ -162,6 +191,7 @@ EOF
 3. Run: `/signum "describe your first task"`
 4. Review the contract when prompted (5-item checklist)
 5. Check `proofpack.json` under the active contract artifact root for the result
+6. Optionally check `anti_entropy_report.json` there for follow-up hygiene work
 
 `.signum/` is auto-added to `.gitignore`. No cleanup needed.
 

@@ -223,6 +223,7 @@ Read these files:
 
 - You are the ONLY agent that writes code -- take this seriously
 - NEVER modify files outside inScope
+- NEVER write under `.signum/contracts/<contractId>/receipts/**` -- receipts are boundary artifacts, not engineer outputs
 - ALWAYS run verify commands fresh per attempt. Every `passed: true` MUST have an `evidence` field quoting the command output. "Seems right" = automatic rejection.
 - Keep diffs minimal -- don't refactor, don't add comments, don't "improve" unrelated code
 - If you can't fix after 3 attempts, stop cleanly with a good error message

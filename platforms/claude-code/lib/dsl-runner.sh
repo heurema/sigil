@@ -5,7 +5,7 @@ set -euo pipefail
 
 readonly MAX_STEPS=20
 readonly MAX_TIMEOUT_MS=120000
-readonly EXEC_WHITELIST="test ls wc cat jq"
+readonly EXEC_WHITELIST="test ls wc cat jq grep"
 readonly CAPTURE_MAX_BYTES=65536  # 64KB
 
 # --- helpers ---
@@ -160,17 +160,18 @@ _validate_expect() {
   fi
 
   # Must have at least one assertion
-  local has_json_path has_stdout_contains has_stdout_matches has_exit_code has_file_exists
+  local has_json_path has_stdout_contains has_stdout_matches has_exit_code has_file_exists has_file_not_exists
   has_json_path=$(jq -r ".steps[$idx].expect | has(\"json_path\")" "$file")
   has_stdout_contains=$(jq -r ".steps[$idx].expect | has(\"stdout_contains\")" "$file")
   has_stdout_matches=$(jq -r ".steps[$idx].expect | has(\"stdout_matches\")" "$file")
   has_exit_code=$(jq -r ".steps[$idx].expect | has(\"exit_code\")" "$file")
   has_file_exists=$(jq -r ".steps[$idx].expect | has(\"file_exists\")" "$file")
+  has_file_not_exists=$(jq -r ".steps[$idx].expect | has(\"file_not_exists\")" "$file")
 
   if [[ "$has_json_path" != "true" && "$has_stdout_contains" != "true" && \
         "$has_stdout_matches" != "true" && "$has_exit_code" != "true" && \
-        "$has_file_exists" != "true" ]]; then
-    validate_error "step $idx: expect must have at least one assertion (json_path, stdout_contains, stdout_matches, exit_code, file_exists)"
+        "$has_file_exists" != "true" && "$has_file_not_exists" != "true" ]]; then
+    validate_error "step $idx: expect must have at least one assertion (json_path, stdout_contains, stdout_matches, exit_code, file_exists, file_not_exists)"
   fi
 
   # json_path requires equals
@@ -379,6 +380,18 @@ _run_expect() {
     fpath=$(jq -r ".steps[$idx].expect.file_exists" "$file")
     if [[ ! -f "$fpath" ]]; then
       printf 'step %d: file does not exist: %s' "$idx" "$fpath"
+      return 1
+    fi
+  fi
+
+  # file_not_exists (v3.8)
+  local has_file_not_exists
+  has_file_not_exists=$(jq -r ".steps[$idx].expect | has(\"file_not_exists\")" "$file")
+  if [[ "$has_file_not_exists" == "true" ]]; then
+    local fnpath
+    fnpath=$(jq -r ".steps[$idx].expect.file_not_exists" "$file")
+    if [[ -e "$fnpath" ]]; then
+      printf 'step %d: path still exists (expected removed): %s' "$idx" "$fnpath"
       return 1
     fi
   fi

@@ -1,5 +1,21 @@
 # Signum Reference
 
+## Canonical Sources
+
+Signum has multiple documentation surfaces, but they do not have equal authority.
+
+- **Canonical pipeline behavior:** root `commands/signum.md`
+- **Platform-specific overlays:** `platforms/*/commands/signum.md`
+- **Derived docs:** `README.md`, `docs/how-it-works.md`, `docs/reference.md`, roadmap docs
+
+If a derived doc disagrees with root `commands/signum.md`, treat the command file as the source of truth. Platform overlays may add surface-specific behavior, but they should be read as explicit deviations from the root pipeline rather than independent definitions of core Signum behavior.
+
+### Known overlay deviations
+
+- `platforms/claude-code/commands/signum.md` currently adds **Phase 5: RECONCILE** after PACK.
+- This is an **overlay-only deviation**, not canonical core pipeline behavior.
+- Treat it as valid only while it remains listed in `docs/overlay-deviations.json`.
+
 ## Usage
 
 ```
@@ -47,7 +63,7 @@ Estimated cost: ~$0.50-1.00.
 
 # Reopen and run the same command
 /signum refactor the payment module
-# Signum checks contracts/index.json first and asks: resume from Phase 2, or restart?
+# Signum checks contracts/index.json.activeContractId and asks: resume from Phase 2, or restart?
 ```
 
 ## Pipeline Phases
@@ -58,17 +74,17 @@ CONTRACT → EXECUTE → AUDIT → PACK
 
 ### Phase 1: CONTRACT
 
-Contractor agent (haiku) scans the codebase and produces `contract.json` under the active contract artifact root (`.signum/contracts/<contractId>/`) — a structured specification with goal, scope, acceptance criteria, holdout scenarios, and risk assessment.
+Contractor agent (haiku) scans the codebase and produces `contract.json` under the active contract artifact root (`.signum/contracts/<contractId>/`), with a root `.signum/contract.json` compatibility path during the migration.
 
 Hard stop if `openQuestions` is non-empty — the user must answer before proceeding.
 
 ### Phase 2: EXECUTE
 
-1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes, saves `baseline.json` under the active contract artifact root.
+1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes and saves `baseline.json` under the active contract artifact root.
 2. **Engineer agent** (sonnet) implements the contract. Repair loop: up to 3 attempts of implement → check acceptance criteria → fix failures.
 3. **Scope gate** — deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Pipeline stops on scope violation.
 
-Outputs: `baseline.json`, `combined.patch`, `execute_log.json` under the active contract artifact root.
+Outputs under the active contract artifact root: `baseline.json`, `combined.patch`, `execute_log.json`.
 
 ### Phase 3: AUDIT
 
@@ -89,11 +105,11 @@ Pre-existing failures (checks that failed in baseline AND still fail) no longer 
 
 ### Phase 4: PACK
 
-Assembles `proofpack.json` under the active contract artifact root — self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
+Assembles `proofpack.json` under the active contract artifact root — a self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
 
 ## Artifacts
 
-Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and now mainly holds registry/state surfaces plus compatibility views during the contract-dir migration.
+Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and now mainly holds registry/state surfaces plus compatibility views during the contract-dir migration. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory.
 
 | File | Phase | Contents |
 |------|-------|----------|
@@ -108,14 +124,17 @@ Canonical run artifacts live under the active contract artifact root `.signum/co
 | `reviews/gemini.json` | Audit | Gemini CLI performance review (or unavailable marker) |
 | `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
 | `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
+| `anti_entropy_report.json` | Pack | Advisory anti-entropy follow-up findings; report-only, does not change pipeline decision |
 
 Canonical contract directories typically contain:
 - `contract.json`
 - `proofpack.json`
+- `anti_entropy_report.json`
 - `audit_summary.json`
 - `approval.json`
-- `anti_entropy_report.json`
 - `execution_context.json`
+- `reviews/`
+- `iterations/`
 - `receipts/`
 - `runs/<runId>/`
 - `snapshots/`
@@ -124,7 +143,7 @@ Canonical contract directories typically contain:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `schemaVersion` | `"3.0"`–`"3.7"` | Schema version |
+| `schemaVersion` | `"3.0"`–`"3.8"` | Schema version |
 | `glossaryVersion` | string | Version from `project.glossary.json` at contract creation time (optional, omitted when file absent) |
 | `goal` | string | What to build (min 10 chars) |
 | `inScope` | string[] | Items in scope (min 1) |
@@ -348,13 +367,28 @@ Signum continues without the provider if auth fails.
 
 ### Provider timeout
 
-External providers are killed after 180 seconds. The review continues with remaining providers. Check `reviews/` under the active contract artifact root for provider status.
+External providers are killed after 180 seconds. The review continues with remaining providers. Check `reviews/` under the canonical artifact root for provider status.
 
 ### `.signum/` exists from previous run
 
-Normal behavior. Signum detects an existing active contract through `contracts/index.json.activeContractId` and offers:
+Normal behavior. Signum detects existing `contract.json` and offers:
 - **Resume**: continue from Phase 2
 - **Restart**: clear artifacts, start fresh
+
+### Optional: jj-supersede integration (v4.15.0+)
+
+In jj-managed repositories, the contractor can detect ghost solutions — functions that are semantically superseded but still present in the codebase. This requires [jj-supersede](https://github.com/heurema/jj-supersede):
+
+```bash
+uv tool install jj-supersede
+```
+
+When both `jj` and `jj-supersede` are available, the contractor automatically:
+1. Runs `jj-supersede report --json` during CONTRACT phase (step 1.8)
+2. Generates `removals` entries with `type: "function"` for superseded functions
+3. Creates non-blocking `cleanupObligations` with `action: "remove_code"`
+
+If `jj-supersede` is not installed or the project is not a jj repo, this step is silently skipped. No configuration needed.
 
 ### Plugin not loading
 

@@ -52,10 +52,38 @@ Read `.signum/contracts/<contractId>/contract-engineer.json`. Extract:
 
 Read `.signum/contracts/<contractId>/baseline.json` (written by orchestrator). Note any pre-existing failures -- you are NOT responsible for fixing them, but you MUST NOT introduce new ones.
 
+### Step 2.5: Execute removals (v3.8)
+
+If the contract has a `removals` array:
+
+1. For each removal entry (sorted by id):
+   - If `type` is `"directory"`: delete the entire directory (`rm -rf <path>`)
+   - If `type` is `"file"`: delete the file (`rm -f <path>`)
+   - Verify the path no longer exists
+   - If `preventReintroduction` is true: note this path — do NOT recreate it during implementation
+2. If `modulesYamlTransition` is set and `modules.yaml` exists at project root:
+   - Update the module's `status` field accordingly (e.g., `deprecated` → `removed`)
+   - If transitioning to `removed`, add `removed_since: <today's date>` (informational)
+
+Removals happen BEFORE implementation to ensure clean state.
+
+### Step 2.6: Execute cleanup obligations (v3.8)
+
+If the contract has a `cleanupObligations` array:
+
+1. For each obligation (sorted by id):
+   - Read the `action` and `description`
+   - Execute the cleanup: update imports, remove references, update docs/config as described
+   - Run the obligation's `verify` steps using the DSL runner
+   - If verify fails and `blocking` is true: treat as an AC failure (enters repair loop)
+   - If verify fails and `blocking` is false: log warning but continue
+2. Obligations are part of the repair loop — if they fail, the engineer gets up to 3 attempts to fix them
+
 ### Step 3: Implement changes
 
 Write the code to satisfy ALL acceptance criteria. Follow these rules:
 - Touch ONLY files in `inScope` (or new files within `allowNewFilesUnder` directories)
+- Removal targets from `removals` array are also allowed as deletion targets
 - Do NOT touch files in `outOfScope`
 - Write tests if acceptance criteria require them
 - Follow existing code style and conventions
@@ -63,21 +91,49 @@ Write the code to satisfy ALL acceptance criteria. Follow these rules:
 
 ### Step 4: Repair loop
 
+**CRITICAL: Write execute_log.json after EVERY attempt, not just at the end.** If you crash between attempts, the pipeline needs a partial log to report failure cleanly instead of a confusing "file not found" error.
+
 After implementation, run ALL verify commands from acceptance criteria:
 
 ```
 attempt 1: run verify commands
-  if ALL pass: SUCCESS -> save diff and log
+  -> WRITE execute_log.json immediately (status: SUCCESS or attempts so far)
+  if ALL pass: SUCCESS -> save diff
   if ANY fail: read error output, make targeted fix
 attempt 2: run verify commands again
+  -> UPDATE execute_log.json with attempt 2 results
   if ALL pass: SUCCESS
   if ANY fail: read error, try different approach
 attempt 3: final attempt
+  -> UPDATE execute_log.json with attempt 3 results
   if ALL pass: SUCCESS
   if ANY fail: STOP -> mark FAILED in log
 ```
 
+If you cannot complete ANY attempt (crash, timeout, unexpected error), write execute_log.json with `status: "INTERRUPTED"` and `termination_reason` explaining what happened. An interrupted log is always better than no log.
+
 If a verify command has `type: "manual"`, skip it during the repair loop. Log it as `"manual: requires human verification"` in execute_log.json.
+
+### Step 4.1: Verification-before-completion gate
+
+Before marking ANY attempt as PASSED or declaring SUCCESS, apply this mandatory 5-step gate:
+
+1. **IDENTIFY** - for each acceptance criterion, what exact command proves it passes?
+2. **RUN** - execute the FULL command fresh. Do NOT reuse previous run results.
+3. **READ** - examine the FULL output and exit code. Count actual passes/failures.
+4. **VERIFY** - does the output actually confirm the claim? If NO: state actual status with evidence. If YES: state claim WITH evidence quoted.
+5. **ONLY THEN** - log the result in execute_log.json with `evidence` field.
+
+**Skip any step = lying, not verifying.** No exceptions.
+
+**Red flags - STOP and re-verify if you catch yourself:**
+- Using "should", "probably", "seems to", "looks like" about results
+- About to mark attempt PASSED without running the command in THIS attempt
+- Expressing satisfaction ("Done!", "Great!") before step 4
+- Trusting partial verification (e.g., "linter passed" without running tests)
+- Relying on previous attempt results instead of running fresh
+
+**3-fix escalation rule:** if the same type of failure recurs across 3 attempts, STOP. This is not a bug - it is wrong architecture. Report it in execute_log.json and mark FAILED.
 
 ### Step 5: Save artifacts
 
@@ -85,13 +141,9 @@ On success:
 - Generate `.signum/contracts/<contractId>/combined.patch` via `git diff`
 - Write `.signum/contracts/<contractId>/execute_log.json` with attempt details
 
-On failure (any attempt fails after max retries):
-- Write `.signum/contracts/<contractId>/execute_log.json` with all attempt errors and `"status": "FAILED"`
+On failure:
+- Write `.signum/contracts/<contractId>/execute_log.json` with all attempt errors
 - Do NOT generate combined.patch (pipeline will stop)
-
-CRITICAL: Always write `.signum/contracts/<contractId>/execute_log.json` as your FIRST action after each attempt completes (before generating patch). This ensures the orchestrator can detect progress even if the agent is interrupted mid-step. Write it with current status after EVERY attempt, not only at the end.
-
-If you cannot complete ANY attempt (crash, timeout, unexpected error), write execute_log.json with `status: "INTERRUPTED"` and `termination_reason` explaining what happened. An interrupted log is always better than no log.
 
 ## Output Format for execute_log.json
 
@@ -130,9 +182,13 @@ If you cannot complete ANY attempt (crash, timeout, unexpected error), write exe
 ```
 
 **Key fields:**
+- `schema_version`: always 2 (v1 had no output/evidence/timing fields)
 - `status`: `SUCCESS` | `FAILED` | `TIMEOUT` | `INTERRUPTED`
-- `error_type`: null on success, `"transient"` or `"permanent"` on failure
-- `termination_reason`: null on success, e.g. `"max_attempts_exceeded"`, `"agent_crash"` on failure
+- `error_type`: null on success, `"transient"` (flaky test, timeout) or `"permanent"` (wrong architecture, impossible AC) on failure
+- `termination_reason`: null on success, e.g. `"max_attempts_exceeded"`, `"architecture_issue"`, `"ac_impossible"`, `"agent_crash"` on failure/interruption
+- `started_at` / `finished_at` / `duration_ms`: overall execution timing (ISO 8601)
+- Per-attempt `started_at`: when each attempt started
+- Per-attempt `status`: `SUCCESS` | `PARTIAL` | `FAILED`
 - `output`: actual command stdout (first ~500 chars)
 - `evidence`: direct quote from output proving the claim (required for `passed: true`)
 ```
@@ -167,14 +223,8 @@ Read these files:
 
 - You are the ONLY agent that writes code -- take this seriously
 - NEVER modify files outside inScope
-- NEVER create or modify any receipt-chain artifacts. These are verifier-owned, not engineer-owned.
-- Forbidden paths for engineer writes:
-  - `.signum/contracts/<contractId>/receipts/**`
-  - `.signum/contracts/<contractId>/runs/**`
-  - `.signum/contracts/<contractId>/snapshots/**`
-  - `.signum/contracts/<contractId>/*receipt*.json`
-  - `.signum/contracts/<contractId>/*hash*.txt`
-- Your job is to change project code and normal execution artifacts only (`combined.patch`, `execute_log.json`, code, tests, configs). Receipt generation is deterministic bash work performed after you return.
-- ALWAYS run verify commands, don't assume your code is correct
+- NEVER write under `.signum/contracts/<contractId>/receipts/**` -- receipts are boundary artifacts, not engineer outputs
+- ALWAYS run verify commands fresh per attempt. Every `passed: true` MUST have an `evidence` field quoting the command output. "Seems right" = automatic rejection.
 - Keep diffs minimal -- don't refactor, don't add comments, don't "improve" unrelated code
 - If you can't fix after 3 attempts, stop cleanly with a good error message
+- If the same failure type recurs 3 times, report it as an architecture issue, not a bug

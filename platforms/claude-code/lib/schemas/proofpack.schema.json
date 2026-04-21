@@ -94,6 +94,42 @@
         "auditSummary": { "$ref": "#/definitions/envelope" }
       }
     },
+    "removalEvidence": {
+      "type": "object",
+      "description": "Evidence of file/directory removals and cleanup obligation fulfillment (v4.7)",
+      "properties": {
+        "removals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "path", "removed"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^RM[0-9]+$" },
+              "path": { "type": "string" },
+              "type": { "type": "string", "enum": ["file", "directory"] },
+              "removed": { "type": "boolean" },
+              "orphanReferences": { "type": "integer", "minimum": 0 },
+              "modulesYamlUpdated": { "type": "boolean" }
+            }
+          }
+        },
+        "obligations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "fulfilled"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^CO[0-9]+$" },
+              "action": { "type": "string" },
+              "fulfilled": { "type": "boolean" },
+              "blocking": { "type": "boolean" },
+              "verifyOutput": { "type": "string" }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "iterativeAudit": {
       "type": "object",
       "description": "Iterative AUDIT metadata (v4.6+). Present only when AUDIT ran >1 iteration.",

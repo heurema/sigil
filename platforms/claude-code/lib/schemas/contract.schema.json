@@ -116,6 +116,7 @@
                                 "stdout_matches": { "type": "string" },
                                 "exit_code": { "type": "integer" },
                                 "file_exists": { "type": "string" },
+                                "file_not_exists": { "type": "string", "description": "Assert that a file/directory does NOT exist (v3.8)" },
                                 "source": { "type": "string" }
                               }
                             },
@@ -326,6 +327,98 @@
       },
       "description": "Computed gate: go = contract is ready for execution, no-go = requires revision or escalation"
     },
+    "removals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "reason", "type"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^RM[0-9]+$" },
+          "path": { "type": "string", "description": "Relative path to file or directory to remove" },
+          "reason": { "type": "string" },
+          "type": { "type": "string", "enum": ["file", "directory"] },
+          "replacedBy": { "type": "string", "description": "Path to the replacement (if applicable)" },
+          "preventReintroduction": { "type": "boolean", "default": false, "description": "If true, engineer must verify the path does not reappear" },
+          "modulesYamlTransition": {
+            "type": "string",
+            "enum": ["deprecated_to_removed", "active_to_deprecated", "active_to_removed", "none"],
+            "description": "What status transition to apply in modules.yaml"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Files/directories to delete as part of this contract (v3.8)"
+    },
+    "cleanupObligations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action", "target", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^CO[0-9]+$" },
+          "action": {
+            "type": "string",
+            "enum": ["update_imports", "update_docs", "update_config", "update_manifest", "remove_references", "custom"],
+            "description": "Type of cleanup action"
+          },
+          "target": { "type": "string", "description": "Glob pattern or path for files to clean up" },
+          "description": { "type": "string" },
+          "blocking": { "type": "boolean", "default": true, "description": "If true, unfulfilled obligation blocks AUTO_OK" },
+          "verify": {
+            "type": "object",
+            "required": ["steps"],
+            "properties": {
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "capture": { "type": "string" }
+                  },
+                  "oneOf": [
+                    {
+                      "required": ["exec"],
+                      "properties": {
+                        "exec": {
+                          "type": "object",
+                          "required": ["argv"],
+                          "properties": {
+                            "argv": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+                          }
+                        },
+                        "capture": { "type": "string" }
+                      }
+                    },
+                    {
+                      "required": ["expect"],
+                      "properties": {
+                        "expect": {
+                          "type": "object",
+                          "properties": {
+                            "exit_code": { "type": "integer" },
+                            "stdout_contains": { "type": "string" },
+                            "stdout_matches": { "type": "string" },
+                            "file_exists": { "type": "string" },
+                            "file_not_exists": { "type": "string" },
+                            "source": { "type": "string" }
+                          }
+                        },
+                        "capture": { "type": "string" }
+                      }
+                    }
+                  ]
+                },
+                "minItems": 1
+              },
+              "timeout_ms": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Cleanup actions that must be completed alongside the main task (v3.8, K8s Finalizer semantics)"
+    },
     "implementationStrategy": {
       "type": "object",
       "required": ["taskType", "guidance"],
@@ -334,73 +427,6 @@
         "guidance": { "type": "string", "minLength": 1 }
       },
       "description": "Task-type-specific process guidance for the Engineer; optional, informational only"
-    },
-    "cleanupObligations": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["action", "target", "description"],
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": ["update_roadmap", "update_memory", "update_status", "update_docs", "remove_code", "update_manifest"],
-            "description": "Type of cleanup action required"
-          },
-          "target": {
-            "type": "string",
-            "description": "File path or identifier of the target to update/remove"
-          },
-          "description": {
-            "type": "string",
-            "description": "Human-readable description of what needs to be done"
-          },
-          "blocking": {
-            "type": "boolean",
-            "default": true,
-            "description": "If true, PACK will not complete until this obligation is resolved"
-          },
-          "resolvedAt": {
-            "type": ["string", "null"],
-            "format": "date-time",
-            "description": "Timestamp when obligation was resolved (null = pending)"
-          }
-        },
-        "additionalProperties": false
-      },
-      "description": "Post-implementation obligations that must be resolved before the contract is complete (Kubernetes Finalizer pattern)"
-    },
-    "removals": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["path", "reason", "type"],
-        "properties": {
-          "path": {
-            "type": "string",
-            "description": "File or module path to be removed"
-          },
-          "reason": {
-            "type": "string",
-            "description": "Why this code/file should be removed (e.g. 'Replaced by src/new_module.rs')"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["file", "module", "function", "class", "route", "dependency"],
-            "description": "Granularity of the removal"
-          },
-          "supersededBy": {
-            "type": "string",
-            "description": "Path or identifier of the replacement"
-          },
-          "removeAfter": {
-            "type": "string",
-            "format": "date",
-            "description": "Deadline for removal (feature flag time-bomb pattern)"
-          }
-        },
-        "additionalProperties": false
-      },
-      "description": "Code/artifacts that should be removed as part of this change (OpenSpec REMOVED pattern)"
     }
   }
 }

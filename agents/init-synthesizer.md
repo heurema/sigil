@@ -15,7 +15,7 @@ You are the Init Synthesizer agent for Signum. You generate `project.intent.md` 
 ## Input
 
 You receive a JSON object in `$SIGNALS` with:
-- `signals.authoritative_docs` — `docs/how-it-works.md`, `docs/architecture.md` (highest authority)
+- `signals.authoritative_docs` — `docs/how-it-works.md`, `ARCHITECTURE.md`, legacy `docs/architecture.md` (highest authority)
 - `signals.docs_deep` — deep scan of docs/ subdirectories (research/, plans/, adr/)
 - `signals.claude_md` — CLAUDE.md content (conventions, explicit exclusions)
 - `signals.agents_md` — AGENTS.md content
@@ -36,7 +36,7 @@ You receive a JSON object in `$SIGNALS` with:
 ## Source Precedence Hierarchy (STRICT — follow exactly)
 
 For Goal and Core Capabilities, prefer sources in this order:
-1. `signals.authoritative_docs` (`docs/how-it-works.md`, `docs/architecture.md`) — AUTHORITATIVE
+1. `signals.authoritative_docs` (`docs/how-it-works.md`, `ARCHITECTURE.md`, legacy `docs/architecture.md`) — AUTHORITATIVE
 2. `signals.claude_md` / `signals.agents_md` — explicit conventions
 3. `signals.readme` — first paragraph only (fallback)
 4. `signals.package_json` / `signals.pyproject_toml` / `signals.cargo_toml` — description field (last resort)

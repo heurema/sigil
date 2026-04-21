@@ -34,10 +34,10 @@ assert_not_contains() {
 echo "=== Overlay reference canonical paths ==="
 
 assert_contains '.signum/contracts/<contractId>/' "overlay reference mentions canonical contract artifact root"
-assert_contains 'Outputs: `baseline.json`, `combined.patch`, `execute_log.json` under the active contract artifact root.' "overlay execute outputs use canonical wording"
+assert_contains 'Outputs under the active contract artifact root: `baseline.json`, `combined.patch`, `execute_log.json`.' "overlay execute outputs use canonical wording"
 assert_contains 'Iteration artifacts are stored under the active contract artifact root' "overlay iterative audit uses canonical storage wording"
 assert_contains 'contracts/index.json.activeContractId' "overlay resume wording uses registry-first state"
-assert_contains 'Check `reviews/` under the active contract artifact root for provider status.' "overlay provider status uses canonical reviews dir"
+assert_contains 'Check `reviews/` under the canonical artifact root for provider status.' "overlay provider status uses canonical reviews dir"
 
 assert_not_contains 'Signum detects .signum/contract.json' "overlay no longer teaches root resume path"
 assert_not_contains 'produces `.signum/contract.json`' "overlay no longer teaches root contract path"

@@ -64,7 +64,7 @@ CONTRACT_HITS="$(
     . | sort
 )"
 
-EXPECTED_CONTRACT_HITS=$'./README.md\n./agents/contractor.md\n./docs/reference.md\n./platforms/claude-code/agents/contractor.md'
+EXPECTED_CONTRACT_HITS=$'./README.md\n./agents/contractor.md\n./docs/reference.md\n./platforms/claude-code/agents/contractor.md\n./platforms/claude-code/docs/reference.md'
 
 assert_exact_file_set \
   "only intentional non-test root contract mentions remain" \
@@ -77,6 +77,9 @@ assert_contains "$ROOT_DIR/README.md" \
 assert_contains "$ROOT_DIR/docs/reference.md" \
   'with a root `.signum/contract.json` compatibility path during the migration' \
   "reference doc frames root contract path as compatibility path"
+assert_contains "$ROOT_DIR/platforms/claude-code/docs/reference.md" \
+  'with a root `.signum/contract.json` compatibility path during the migration' \
+  "overlay reference doc frames root contract path as compatibility path"
 assert_contains "$ROOT_DIR/agents/contractor.md" \
   '`.signum/contract.json` is only a compatibility view pointing at that canonical file' \
   "root contractor prompt frames root contract path as compatibility view"
