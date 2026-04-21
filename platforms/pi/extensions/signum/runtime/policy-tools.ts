@@ -180,29 +180,29 @@ function collectAllowedPaths(contract: Record<string, any>): string[] {
   const direct = sanitizePaths(contract.inScope ?? [])
   const extracted = extractLikelyPaths(contract.inScope ?? [])
   const verifyPaths = extractVerifyPaths(contract.acceptanceCriteria ?? [])
-  return [...new Set([...direct.filter(looksLikePath), ...extracted, ...verifyPaths])]
+  return [...new Set([...direct.filter(isPolicyPathSpec), ...extracted, ...verifyPaths].map((path) => normalizePolicyPath(path)).filter(Boolean))]
 }
 
 function collectAllowNewDirectories(contract: Record<string, any>): string[] {
   const direct = sanitizePaths(contract.allowNewFilesUnder ?? [])
   const extracted = extractLikelyPaths(contract.allowNewFilesUnder ?? [])
-  return [...new Set([...direct.filter(looksLikePath), ...extracted])]
+  return [...new Set([...direct.filter(isPolicyPathSpec), ...extracted].map((path) => normalizePolicyPath(path)).filter(Boolean))]
 }
 
 function sanitizePaths(paths: string[]): string[] {
   return paths
-    .map((path) => String(path ?? "").replace(/ \(.*$/, "").trim())
+    .map((path) => normalizePolicyPath(String(path ?? "").replace(/ \(.*$/, "").trim()))
     .filter(Boolean)
 }
 
 function extractLikelyPaths(values: unknown[]): string[] {
   const found = new Set<string>()
-  const pattern = /\b(?:\.?\/?[A-Za-z0-9_@-]+(?:\/[A-Za-z0-9_.@-]+)*\/?|[A-Za-z0-9_.@-]+\.[A-Za-z0-9]+)\b/g
+  const pattern = /(?:\.?\/?[A-Za-z0-9_@-]+(?:\/[A-Za-z0-9_.@-]+)+\/?|\.?\/?[A-Za-z0-9_@-]+\/|[A-Za-z0-9_.@-]+\.[A-Za-z0-9]+)/g
   for (const value of values) {
     const text = String(value ?? "")
     for (const match of text.matchAll(pattern)) {
-      const candidate = match[0].replace(/^\.\//, "")
-      if (!looksLikePath(candidate)) continue
+      const candidate = normalizePolicyPath(match[0])
+      if (!candidate || !looksLikePath(candidate)) continue
       found.add(candidate)
     }
   }
@@ -251,7 +251,30 @@ function looksLikePath(value: string): boolean {
   return /[/.]/.test(value) && !/^\.[A-Za-z0-9]+$/.test(value) && !/\s/.test(value)
 }
 
-function assertReadablePath(projectRoot: string, absolutePath: string, policy: ContractPolicy, tracker: Tracker, tool: string) {
+function isPolicyPathSpec(value: string): boolean {
+  return looksLikePath(value) || /^[A-Za-z0-9_@-]+$/.test(value)
+}
+
+function normalizePolicyPath(value: string): string {
+  return value
+    .replace(/^\.\//, "")
+    .replace(/\/+/g, "/")
+    .replace(/[\])'"`.,;:]+$/, "")
+    .replace(/\/$/, "")
+    .trim()
+}
+
+export function isReadablePathAllowed(rel: string): boolean {
+  const normalized = normalizePolicyPath(rel)
+  return Boolean(normalized) && normalized !== "." && !normalized.startsWith("../")
+}
+
+export function isMutationPathAllowed(rel: string, exists: boolean, policy: ContractPolicy): boolean {
+  const normalized = normalizePolicyPath(rel)
+  return exists ? matchesAllowedPath(normalized, policy.allowed_paths) : matchesAllowedDir(normalized, policy.allow_new_files_under)
+}
+
+function assertReadablePath(projectRoot: string, absolutePath: string, _policy: ContractPolicy, tracker: Tracker, tool: string) {
   const normalized = normalizeExistingPath(projectRoot, absolutePath)
   if (!normalized.startsWith(projectRoot)) {
     throw violationError(tracker, {
@@ -265,8 +288,7 @@ function assertReadablePath(projectRoot: string, absolutePath: string, policy: C
 
   const rel = projectRelative(projectRoot, normalized)
   if (isReadableSystemPath(rel)) return
-  if (matchesAllowedPath(rel, policy.allowed_paths)) return
-  if (matchesAllowedDir(rel, policy.allow_new_files_under)) return
+  if (isReadablePathAllowed(rel)) return
 
   throw violationError(tracker, {
     type: "path",
@@ -292,10 +314,9 @@ async function assertMutationPath(projectRoot: string, absolutePath: string, pol
   }
 
   const rel = projectRelative(projectRoot, normalized)
-  const allowedExisting = exists && matchesAllowedPath(rel, policy.allowed_paths)
-  const allowedNew = !exists && matchesAllowedDir(rel, policy.allow_new_files_under)
+  const allowedPath = isMutationPathAllowed(rel, exists, policy)
 
-  if (!allowedExisting && !allowedNew) {
+  if (!allowedPath) {
     throw violationError(tracker, {
       type: "path",
       tool,

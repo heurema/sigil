@@ -27,6 +27,12 @@ assert.equal(verify.steps[3].type, 'assertOnlyPathsChanged')
 assert.deepEqual(verify.steps[3].paths, ['README.md'])
 
 const contract = normalizeContractForPiRuntime({
+  inScope: [
+    'AUDIT phase changes in platforms/pi/extensions/signum/phases/audit.ts needed for the repair loop.',
+    'Targeted docs in docs/reference.md and platforms/pi/README.md only.',
+    'Tests under tests/ that verify the bounded loop.',
+  ],
+  allowNewFilesUnder: ['platforms/pi/extensions/signum/runtime/', 'tests/'],
   acceptanceCriteria: [
     {
       id: 'AC1',
@@ -50,6 +56,16 @@ const contract = normalizeContractForPiRuntime({
   ],
 })
 
+assert.deepEqual(contract.inScope, [
+  'platforms/pi/extensions/signum/phases/audit.ts',
+  'docs/reference.md',
+  'platforms/pi/README.md',
+  'tests',
+])
+assert.deepEqual(contract.allowNewFilesUnder, [
+  'platforms/pi/extensions/signum/runtime',
+  'tests',
+])
 assert.equal(contract.acceptanceCriteria[0].visibility, 'visible')
 assert.equal(contract.acceptanceCriteria[0].verify.steps[0].type, 'assertNotModified')
 assert.equal(contract.acceptanceCriteria[0].verify.steps[1].type, 'assertNotContains')

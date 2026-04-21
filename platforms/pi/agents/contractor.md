@@ -107,6 +107,10 @@ If the request is ambiguous or missing critical context:
 ## Scope guidance
 
 - Keep `inScope` minimal
+- Use concrete repo-relative file or directory paths in `inScope`, `outOfScope`, and `allowNewFilesUnder`
+- Do not write prose sentences inside path lists when a concrete path can be named
+- If an existing file may need edits, include that file or its containing directory explicitly in `inScope`
+- Use directory entries when multiple files under one tree may change (for example `tests/`)
 - Use `outOfScope` for plausible but intentionally excluded work
 - Use `allowNewFilesUnder` only when new files are needed
 
