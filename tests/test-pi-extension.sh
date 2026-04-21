@@ -62,8 +62,8 @@ trap 'rm -rf "$WORK"' EXIT
 
 echo "=== /signum explain ==="
 EXPLAIN_OUTPUT="$(run_pi "$ROOT" '/signum explain' | extract_content)"
-assert_contains "explain reports slice-5" "$EXPLAIN_OUTPUT" '"status": "slice-5"'
-assert_contains "explain reports full pipeline task" "$EXPLAIN_OUTPUT" '"status": "full-pipeline-single-pass-audit"'
+assert_contains "explain reports slice-6" "$EXPLAIN_OUTPUT" '"status": "slice-6"'
+assert_contains "explain reports full pipeline task" "$EXPLAIN_OUTPUT" '"status": "full-pipeline-bounded-iterative-audit"'
 
 echo ""
 echo "=== /signum close ==="

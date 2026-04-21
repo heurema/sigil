@@ -13,9 +13,9 @@ Slice 6 is in progress:
 - `/signum archive` and `/signum close` manage contract state natively in TypeScript
 - `/signum <task>` now runs CONTRACT -> EXECUTE -> AUDIT -> PACK in pi
 - engineer execution uses runtime policy-wrapped `read` / `edit` / `write` / `bash` tools
-- AUDIT runs as a single-pass pi-native flow with mechanic, policy scan, holdouts, reviewer sessions, and deterministic synthesis
+- AUDIT runs as a bounded iterative pi-native flow with mechanic, policy scan, holdouts, reviewer sessions, deterministic synthesis, and repair metadata persisted under `.signum/`
 - PACK writes `proofpack.json`, `anti_entropy_report.json`, and syncs artifacts into the per-contract directory
-- iterative AUDIT parity is still deferred explicitly; it is not silently dropped
+- iterative AUDIT repair uses `SIGNUM_AUDIT_MAX_ITERATIONS` with a default of `20`, writes `.signum/audit_iteration_log.json` plus `.signum/repair_brief.json`, mirrors per-pass artifacts under `.signum/iterations/<pass>/`, and keeps holdout payload details hidden from engineer-facing repair flow
 
 ## Local development
 

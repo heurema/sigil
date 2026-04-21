@@ -12,7 +12,7 @@
   - `tests/test-pi-extension.sh` plus optional live smoke `tests/test-pi-full-pipeline.sh`
 
 ### Notes
-- pi AUDIT currently ships as single-pass for MVP coverage; iterative AUDIT parity remains deferred explicitly
+- pi AUDIT now supports bounded iterative repair parity with `.signum/audit_iteration_log.json`, `.signum/repair_brief.json`, per-pass snapshots under `.signum/iterations/`, and proofpack `iterativeAudit` summaries
 
 ## [4.19.1] - 2026-04-20
 

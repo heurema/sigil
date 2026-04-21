@@ -56,7 +56,7 @@ Ship this in **bounded slices**:
 
 This keeps the work aligned with repo policy: do not mix docs, deterministic-core rewrites, and orchestration changes all at once.
 
-**Status as of 2026-04-21:** Slices 1–6 are complete for the pi-native MVP. Deferred or follow-up work remains for iterative AUDIT parity, optional custom UI, broader test coverage, and npm publish-path decisions.
+**Status as of 2026-04-21:** Slices 1–6 are complete for the pi-native MVP, and bounded iterative AUDIT parity now ships in the pi runtime. Follow-up work remains for optional custom UI, broader test coverage, and npm publish-path decisions.
 
 ---
 

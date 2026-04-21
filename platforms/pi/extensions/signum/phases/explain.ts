@@ -9,7 +9,7 @@ export async function runExplainPhase(): Promise<string> {
     name: "Signum",
     version,
     platform: "pi",
-    status: "slice-5",
+    status: "slice-6",
     pipeline: ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
     commands: {
       explain: { implemented: true },
@@ -18,8 +18,8 @@ export async function runExplainPhase(): Promise<string> {
       close: { implemented: true },
       task: {
         implemented: true,
-        status: "full-pipeline-single-pass-audit",
-        note: "Default /signum <task> runs CONTRACT, EXECUTE, AUDIT, and PACK. AUDIT is single-pass in the pi runtime; iterative audit parity is still deferred.",
+        status: "full-pipeline-bounded-iterative-audit",
+        note: "Default /signum <task> runs CONTRACT, EXECUTE, AUDIT, and PACK. AUDIT uses a bounded iterative repair loop for MAJOR or CRITICAL findings in the pi runtime.",
       },
     },
     phases: {
@@ -32,8 +32,8 @@ export async function runExplainPhase(): Promise<string> {
         note: "Engineer execution runs via SDK session with runtime policy-wrapped read/edit/write/bash tools and writes execute artifacts.",
       },
       AUDIT: {
-        status: "implemented-single-pass",
-        note: "Mechanic, policy scan, holdout validation, reviewer sessions, deterministic synthesis, and audit summary artifacts are available. Iterative audit remains deferred.",
+        status: "implemented-bounded-iterative",
+        note: "Mechanic, policy scan, holdout validation, reviewer sessions, deterministic synthesis, repair briefs, and bounded iterative audit metadata are available in the pi runtime.",
       },
       PACK: {
         status: "implemented",
@@ -67,6 +67,9 @@ export async function runExplainPhase(): Promise<string> {
       ".signum/holdout_report.json",
       ".signum/reviews/*.json",
       ".signum/audit_summary.json",
+      ".signum/audit_iteration_log.json",
+      ".signum/repair_brief.json",
+      ".signum/iterations/<pass>/",
       ".signum/proofpack.json",
       ".signum/anti_entropy_report.json",
       ".signum/contracts/index.json",

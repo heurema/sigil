@@ -83,5 +83,15 @@ const runOk = await evaluateVerifySteps(projectRoot, {
 })
 assert.equal(runOk.exitCode, 0)
 
+const equalsStdout = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'run', command: 'printf stable' },
+    { type: 'assertEquals', valueFrom: 'stdout', value: 'stable' },
+  ],
+}, [], {
+  exec: async (_cmd, _args, _opts) => ({ code: 0, stdout: 'stable', stderr: '' }),
+})
+assert.equal(equalsStdout.exitCode, 0)
+
 console.log('PASS: pi execute verify classification')
 EOF

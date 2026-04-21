@@ -8,6 +8,16 @@ import type { Model } from "@mariozechner/pi-ai"
 
 import { dslRunnerScriptPath, mechanicParserScriptPath, policyScannerScriptPath } from "../paths.ts"
 import { selectRoleModel, type SignumRole } from "../models.ts"
+import {
+  buildAuditIterationLog,
+  buildRepairBrief,
+  computeAuditIterationScore,
+  runAuditRepairIteration,
+  selectAuditRepairEngineerModel,
+  snapshotAuditIterationArtifacts,
+  type AuditIterationFinding,
+  type AuditIterationLogEntry,
+} from "../runtime/audit-iterations.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
 import { toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { setSignumStatus } from "../ui.ts"
@@ -16,6 +26,8 @@ interface ContractDocument {
   contractId: string
   riskLevel: "low" | "medium" | "high"
   goal: string
+  inScope: string[]
+  allowNewFilesUnder?: string[]
   acceptanceCriteria: Array<{ id: string; visibility?: string; description?: string; verify?: unknown }>
   holdoutScenarios?: Array<{ id?: string; description?: string; verify?: unknown }>
 }
@@ -39,6 +51,7 @@ interface HoldoutReport {
 
 interface ExecuteLog {
   totalAttempts?: number
+  auditRepairAttempts?: unknown[]
 }
 
 interface ExecuteReceipt {
@@ -82,6 +95,9 @@ export interface AuditPhaseResult {
   summary: string
 }
 
+const DEFAULT_AUDIT_MAX_ITERATIONS = 20
+const SIGNUM_AUDIT_MAX_ITERATIONS = "SIGNUM_AUDIT_MAX_ITERATIONS"
+
 export async function runAuditPhase(
   pi: ExtensionAPI,
   ctx: ExtensionCommandContext,
@@ -89,19 +105,8 @@ export async function runAuditPhase(
   const projectRoot = ctx.cwd
   const contract = await readJson<ContractDocument>(resolve(projectRoot, ".signum/contract.json"))
   await readJson(resolve(projectRoot, ".signum/contract-engineer.json"))
-
-  setSignumStatus(ctx, "audit mechanic")
-  await mkdir(resolve(projectRoot, ".signum", "reviews"), { recursive: true })
-  await runRequiredScript(pi, projectRoot, mechanicParserScriptPath, [".signum/baseline.json"], "mechanic parser")
-
-  setSignumStatus(ctx, "audit policy")
-  await runScriptAllowFailure(pi, projectRoot, policyScannerScriptPath, [".signum/combined.patch"])
-
-  setSignumStatus(ctx, "audit holdout")
-  const holdoutReport = await runHoldoutValidation(pi, projectRoot, contract)
-
-  setSignumStatus(ctx, "audit review context")
-  await writeReviewContext(pi, projectRoot)
+  const iterationsMax = getAuditIterationsMax()
+  const auditIterationLogPath = resolve(projectRoot, ".signum/audit_iteration_log.json")
 
   const runner = new SdkRoleSessionRunner()
   const availableModels = await ctx.modelRegistry.getAvailable()
@@ -114,6 +119,181 @@ export async function runAuditPhase(
   if (!semanticModel) {
     throw new Error("No authenticated model available for semantic reviewer")
   }
+
+  const auditIterations: AuditIterationLogEntry[] = []
+  let terminalReason = "completed single audit pass"
+  let earlyStopReason = ""
+  let auditSummary: ReturnType<typeof buildAuditSummary> | null = null
+  const engineerModel = await selectAuditRepairEngineerModel({ ctx, availableModels })
+  if (!engineerModel) {
+    throw new Error("No authenticated model available for audit repair engineer")
+  }
+
+  for (let iteration = 1; iteration <= iterationsMax; iteration++) {
+    auditSummary = await runSingleAuditIteration({
+      pi,
+      ctx,
+      projectRoot,
+      contract,
+      runner,
+      availableModels,
+      semanticModel,
+      iteration,
+      iterationsMax,
+    })
+
+    auditIterations.push({
+      pass: iteration,
+      decision: auditSummary.decision,
+      score: auditSummary.iterationScore,
+      findingsCount: auditSummary.findingsCount,
+      remainingSeverity: auditSummary.remainingSeverity,
+      consensus: auditSummary.consensus,
+      reasoning: auditSummary.reasoning,
+      mechanicRegressions: auditSummary.mechanicRegressions,
+      holdoutFailures: auditSummary.holdoutFailures,
+      canonicalFindings: auditSummary.canonicalFindings,
+    })
+
+    let iterationTerminalReason = terminalReason
+    let shouldStop = false
+    let shouldRepair = false
+
+    if (auditSummary.remainingSeverity === "none") {
+      iterationTerminalReason = iteration > 1 ? "all reviewer MAJOR/CRITICAL findings resolved after repair iterations" : "completed single audit pass"
+      shouldStop = true
+    } else if (auditSummary.remainingSeverity === "MINOR") {
+      iterationTerminalReason = "bounded audit ended with MINOR findings only; keeping conservative terminal decision"
+      if (!earlyStopReason) {
+        earlyStopReason = "major and critical findings are cleared"
+      }
+      shouldStop = true
+    } else if (iteration >= iterationsMax) {
+      iterationTerminalReason = `reached ${SIGNUM_AUDIT_MAX_ITERATIONS}=${iterationsMax}`
+      if (!earlyStopReason) {
+        earlyStopReason = iterationTerminalReason
+      }
+      shouldStop = true
+    } else {
+      iterationTerminalReason = `repair brief prepared after pass ${iteration}`
+      shouldRepair = true
+    }
+
+    const currentLog = buildAuditIterationLog(auditIterations, iterationsMax, iterationTerminalReason, shouldStop ? earlyStopReason : "")
+    const currentAuditSummary = {
+      ...auditSummary,
+      iterationsMax,
+      iterationsUsed: currentLog.iterationsUsed,
+      bestIteration: currentLog.bestIteration,
+      iterativeAuditMode: currentLog.iterationsUsed > 1 ? "bounded-repair-loop" : "single-pass",
+      terminalReason: currentLog.terminalReason,
+      earlyStop: currentLog.earlyStop,
+      earlyStopReason: currentLog.earlyStopReason,
+    }
+    await writeJson(auditIterationLogPath, currentLog)
+    await writeJson(resolve(projectRoot, ".signum/audit_summary.json"), currentAuditSummary)
+    await snapshotAuditIterationArtifacts(projectRoot, iteration)
+
+    if (shouldStop) {
+      terminalReason = iterationTerminalReason
+      auditSummary = currentAuditSummary
+      break
+    }
+
+    if (!shouldRepair) {
+      auditSummary = currentAuditSummary
+      break
+    }
+
+    const repairBrief = buildRepairBrief(contract, auditSummary, iteration + 1, iterationsMax)
+    await writeJson(resolve(projectRoot, ".signum/repair_brief.json"), repairBrief)
+    const repair = await runAuditRepairIteration({
+      pi,
+      ctx,
+      runner,
+      projectRoot,
+      contract,
+      model: engineerModel,
+      pass: iteration + 1,
+      iterationsMax,
+    })
+    if (repair.status === "blocked") {
+      return {
+        status: "failed",
+        summary: [
+          `AUDIT repair failed after pass ${iteration}/${iterationsMax}.`,
+          repair.summary,
+        ].join("\n"),
+      }
+    }
+    if (repair.status === "no_changes") {
+      terminalReason = repair.summary
+      earlyStopReason = repair.summary
+      auditSummary = currentAuditSummary
+      break
+    }
+
+    terminalReason = `repair pass ${iteration + 1} completed; rerunning audit review cycle`
+  }
+
+  if (!auditSummary) {
+    throw new Error("Audit summary was not produced")
+  }
+
+  const finalLog = buildAuditIterationLog(auditIterations, iterationsMax, terminalReason, earlyStopReason)
+  const finalAuditSummary = {
+    ...auditSummary,
+    iterationsMax,
+    iterationsUsed: finalLog.iterationsUsed,
+    bestIteration: finalLog.bestIteration,
+    iterativeAuditMode: finalLog.iterationsUsed > 1 ? "bounded-repair-loop" : "single-pass",
+    terminalReason: finalLog.terminalReason,
+    earlyStop: finalLog.earlyStop,
+    earlyStopReason: finalLog.earlyStopReason,
+  }
+  await writeJson(auditIterationLogPath, finalLog)
+  await writeJson(resolve(projectRoot, ".signum/audit_summary.json"), finalAuditSummary)
+
+  return {
+    status: "ok",
+    decision: finalAuditSummary.decision,
+    summary: [
+      `AUDIT complete: ${finalAuditSummary.decision}`,
+      `Mechanic: ${finalAuditSummary.mechanic}`,
+      `Available reviews: ${finalAuditSummary.availableReviews}/3`,
+      `Consensus: ${finalAuditSummary.consensus}`,
+      `Confidence: ${finalAuditSummary.confidence.overall}%`,
+      `Reasoning: ${finalAuditSummary.reasoning}`,
+      `Iterations: ${finalLog.iterationsUsed}/${iterationsMax}`,
+    ].join("\n"),
+  }
+}
+
+async function runSingleAuditIteration(input: {
+  pi: ExtensionAPI
+  ctx: ExtensionCommandContext
+  projectRoot: string
+  contract: ContractDocument
+  runner: SdkRoleSessionRunner
+  availableModels: Model[]
+  semanticModel: Model
+  iteration: number
+  iterationsMax: number
+}) {
+  const { pi, ctx, projectRoot, contract, runner, availableModels, semanticModel, iteration, iterationsMax } = input
+
+  setSignumStatus(ctx, `audit mechanic ${iteration}/${iterationsMax}`)
+  await mkdir(resolve(projectRoot, ".signum", "reviews"), { recursive: true })
+  await runRequiredScript(pi, projectRoot, mechanicParserScriptPath, [".signum/baseline.json"], "mechanic parser")
+
+  setSignumStatus(ctx, `audit policy ${iteration}/${iterationsMax}`)
+  await runScriptAllowFailure(pi, projectRoot, policyScannerScriptPath, [".signum/combined.patch"])
+
+  setSignumStatus(ctx, `audit holdout ${iteration}/${iterationsMax}`)
+  const holdoutReport = await runHoldoutValidation(pi, projectRoot, contract)
+
+  setSignumStatus(ctx, `audit review context ${iteration}/${iterationsMax}`)
+  await writeReviewContext(pi, projectRoot)
 
   const reviewPlans = buildReviewPlan(contract.riskLevel, availableModels, semanticModel)
   const reviewResults: Array<Promise<{ providerKey: ReviewRolePlan["providerKey"]; review: ReviewDocument }>> = []
@@ -163,9 +343,9 @@ export async function runAuditPhase(
   const executeLog = await readJson<ExecuteLog>(resolve(projectRoot, ".signum/execute_log.json"))
   const executeReceipt = await readOptionalJson<ExecuteReceipt>(resolve(projectRoot, ".signum/receipts/execute.json"))
 
-  setSignumStatus(ctx, "audit synthesize")
+  setSignumStatus(ctx, `audit synthesize ${iteration}/${iterationsMax}`)
   const synthOpinion = await runSynthesizer(runner, ctx, projectRoot)
-  const auditSummary = buildAuditSummary({
+  return buildAuditSummary({
     contract,
     mechanic,
     policyScan,
@@ -174,22 +354,14 @@ export async function runAuditPhase(
     executeReceipt,
     reviews,
     synthOpinion,
+    repairPassesCompleted: Math.max(0, iteration - 1),
   })
+}
 
-  await writeJson(resolve(projectRoot, ".signum/audit_summary.json"), auditSummary)
-
-  return {
-    status: "ok",
-    decision: auditSummary.decision,
-    summary: [
-      `AUDIT complete: ${auditSummary.decision}`,
-      `Mechanic: ${auditSummary.mechanic}`,
-      `Available reviews: ${auditSummary.availableReviews}/3`,
-      `Consensus: ${auditSummary.consensus}`,
-      `Confidence: ${auditSummary.confidence.overall}%`,
-      `Reasoning: ${auditSummary.reasoning}`,
-    ].join("\n"),
-  }
+function getAuditIterationsMax(): number {
+  const raw = process.env[SIGNUM_AUDIT_MAX_ITERATIONS]
+  const parsed = Number.parseInt(raw ?? "", 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_AUDIT_MAX_ITERATIONS
 }
 
 function buildReviewPlan(riskLevel: ContractDocument["riskLevel"], availableModels: Model[], semanticModel: Model): ReviewRolePlan[] {
@@ -508,8 +680,9 @@ function buildAuditSummary(input: {
   executeReceipt: ExecuteReceipt | null
   reviews: { claude: ReviewDocument; codex: ReviewDocument; gemini: ReviewDocument }
   synthOpinion: Record<string, unknown> | null
+  repairPassesCompleted: number
 }) {
-  const { contract, mechanic, policyScan, holdout, executeLog, executeReceipt, reviews, synthOpinion } = input
+  const { contract, mechanic, policyScan, holdout, executeLog, executeReceipt, reviews, synthOpinion, repairPassesCompleted } = input
   const reviewEntries = Object.entries(reviews) as Array<[keyof typeof reviews, ReviewDocument]>
   const parsedReviews = reviewEntries.filter(([, review]) => review.parseOk && review.available)
   const approveCount = parsedReviews.filter(([, review]) => review.verdict === "APPROVE").length
@@ -525,12 +698,27 @@ function buildAuditSummary(input: {
       fingerprint: createFindingFingerprint(finding),
     })),
   )
-  const criticalCount = allFindings.filter((finding) => finding.severity === "CRITICAL").length
-  const majorCount = allFindings.filter((finding) => finding.severity === "MAJOR").length
-  const minorCount = allFindings.filter((finding) => finding.severity === "MINOR").length
+  const canonicalFindingsMap = new Map<string, AuditIterationFinding>()
+  for (const finding of allFindings) {
+    const fingerprint = finding.fingerprint ?? createFindingFingerprint(finding)
+    if (canonicalFindingsMap.has(fingerprint)) continue
+    canonicalFindingsMap.set(fingerprint, {
+      fingerprint,
+      category: finding.category,
+      file: finding.file,
+      severity: finding.severity,
+      comment: finding.comment,
+    })
+  }
+  const canonicalFindings = [...canonicalFindingsMap.values()]
+
+  const criticalCount = canonicalFindings.filter((finding) => finding.severity === "CRITICAL").length
+  const majorCount = canonicalFindings.filter((finding) => finding.severity === "MAJOR").length
+  const minorCount = canonicalFindings.filter((finding) => finding.severity === "MINOR").length
   const policyCritical = policyScan.summaryCounts?.critical ?? 0
   const mechanicRegression = Boolean(mechanic.hasRegressions)
-  const holdoutClean = holdout.failed === 0 && holdout.errors === 0
+  const holdoutFailures = holdout.failed + holdout.errors
+  const holdoutClean = holdoutFailures === 0
   const receiptPass = executeReceipt?.status === "PASS"
 
   const missingOrFailedReviewers = reviewEntries
@@ -559,6 +747,7 @@ function buildAuditSummary(input: {
     parsedReviews.every(([, review]) => review.verdict === "APPROVE") &&
     majorCount === 0 &&
     criticalCount === 0 &&
+    minorCount === 0 &&
     !mechanicRegression &&
     holdoutClean &&
     receiptPass
@@ -566,7 +755,7 @@ function buildAuditSummary(input: {
     decision = "AUTO_OK"
   }
 
-  const executionHealth = computeExecutionHealth(executeReceipt, executeLog)
+  const executionHealth = computeExecutionHealth(executeReceipt, executeLog, repairPassesCompleted)
   const baselineStability = computeBaselineStability(mechanic)
   const behavioralEvidence = holdout.total > 0 ? Math.round((holdout.passed / holdout.total) * 100) : 75
   const reviewAlignment =
@@ -602,13 +791,26 @@ function buildAuditSummary(input: {
     policyCritical,
     majorCount,
     criticalCount,
+    minorCount,
     mechanicRegression,
     parseErrorCount,
     unavailableCount,
   })
 
+  const remainingSeverity: "CRITICAL" | "MAJOR" | "MINOR" | "none" =
+    criticalCount > 0 ? "CRITICAL" : majorCount > 0 ? "MAJOR" : minorCount > 0 ? "MINOR" : "none"
+  const iterationScore = computeAuditIterationScore({
+    findingsCount: { critical: criticalCount, major: majorCount, minor: minorCount },
+    mechanicRegressions: mechanicRegression,
+    holdoutFailures,
+  })
+
   return {
     mechanic: mechanicRegression ? "regression" : "pass",
+    mechanicRegressions: mechanicRegression,
+    holdoutFailures,
+    iterationScore,
+    canonicalFindings,
     policy: {
       critical: policyScan.summaryCounts?.critical ?? 0,
       major: policyScan.summaryCounts?.major ?? 0,
@@ -634,8 +836,13 @@ function buildAuditSummary(input: {
       overall,
     },
     iterationsUsed: 1,
+    iterationsMax: DEFAULT_AUDIT_MAX_ITERATIONS,
     bestIteration: 1,
     iterativeAuditMode: "single-pass",
+    terminalReason: "completed single audit pass",
+    earlyStop: false,
+    earlyStopReason: "",
+    remainingSeverity,
     findingsCount: {
       critical: criticalCount,
       major: majorCount,
@@ -656,6 +863,7 @@ function buildReasoning(input: {
   policyCritical: number
   majorCount: number
   criticalCount: number
+  minorCount: number
   mechanicRegression: boolean
   parseErrorCount: number
   unavailableCount: number
@@ -673,6 +881,9 @@ function buildReasoning(input: {
     }
     if (input.majorCount > 0) {
       reasons.push(`${input.majorCount} major reviewer finding(s) remain open`)
+    }
+    if (input.majorCount === 0 && input.criticalCount === 0 && input.minorCount > 0) {
+      reasons.push(`${input.minorCount} minor reviewer finding(s) remain open; keeping conservative decision`)
     }
   }
 
@@ -692,11 +903,14 @@ function buildReasoning(input: {
   return reasons.join("; ")
 }
 
-function computeExecutionHealth(executeReceipt: ExecuteReceipt | null, executeLog: ExecuteLog): number {
+function computeExecutionHealth(executeReceipt: ExecuteReceipt | null, executeLog: ExecuteLog, repairPassesCompleted: number): number {
   const total = Math.max(1, executeReceipt?.summary?.total_acs ?? 0)
   const passed = Math.max(0, executeReceipt?.summary?.passed_acs ?? 0)
-  const repairAttempts = Math.max(0, (executeLog.totalAttempts ?? 1) - 1)
-  return clampPercent(Math.round((passed / total) * 100 - repairAttempts * 5))
+  const executeAttempts = Math.max(0, (executeLog.totalAttempts ?? 1) - 1)
+  const auditRepairAttempts = Array.isArray(executeLog.auditRepairAttempts)
+    ? executeLog.auditRepairAttempts.length
+    : repairPassesCompleted
+  return clampPercent(Math.round((passed / total) * 100 - (executeAttempts + auditRepairAttempts) * 5))
 }
 
 function computeBaselineStability(mechanic: MechanicReport): number {

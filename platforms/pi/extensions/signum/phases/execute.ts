@@ -281,7 +281,7 @@ async function captureReceiptSnapshot(pi: ExtensionAPI, projectRoot: string) {
   }
 }
 
-async function runBoundaryVerification(
+export async function runBoundaryVerification(
   pi: ExtensionAPI,
   projectRoot: string,
   contract: ContractDocument,
@@ -660,12 +660,26 @@ export async function evaluateVerifySteps(
           break
         }
         case "assertequals": {
-          if (typeof step.field !== "string") {
-            return fail("invalid_step", `ERROR: step ${index}: assertEquals requires field`)
+          const hasField = typeof step.field === "string"
+          const hasPath = typeof step.path === "string"
+          const hasStdout = step.valueFrom === "stdout"
+          const hasInlineValue = Object.prototype.hasOwnProperty.call(step, "actual")
+          if (!hasField && !hasPath && !hasStdout && !hasInlineValue) {
+            return fail("invalid_step", `ERROR: step ${index}: assertEquals requires field, path, valueFrom: \"stdout\", or actual`)
           }
-          const actual = state.get(step.field)
-          if (JSON.stringify(actual) !== JSON.stringify(step.value)) {
-            return fail("assert_failed", `FAIL: field ${step.field} expected ${JSON.stringify(step.value)} got ${JSON.stringify(actual)}`)
+          const actual = hasField
+            ? state.get(step.field)
+            : hasPath
+              ? await readCached(step.path)
+              : hasStdout
+                ? lastStdout
+                : step.actual
+          const expected = Object.prototype.hasOwnProperty.call(step, "expected") ? step.expected : step.value
+          if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+            return fail(
+              "assert_failed",
+              `FAIL: assertEquals expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`,
+            )
           }
           break
         }
@@ -838,7 +852,7 @@ export function classifyVerifyStrength(verify: { steps: unknown[] }): string {
   return "exit_only"
 }
 
-async function runTransitionVerification(pi: ExtensionAPI, projectRoot: string): Promise<{ ok: boolean; output: string }> {
+export async function runTransitionVerification(pi: ExtensionAPI, projectRoot: string): Promise<{ ok: boolean; output: string }> {
   const command = [
     "SIGNUM_TRUST_LOCAL=1",
     `bash ${shellQuote(transitionVerifierScriptPath)}`,
@@ -861,7 +875,7 @@ async function runTransitionVerification(pi: ExtensionAPI, projectRoot: string):
   }
 }
 
-async function buildCombinedPatch(pi: ExtensionAPI, projectRoot: string): Promise<string> {
+export async function buildCombinedPatch(pi: ExtensionAPI, projectRoot: string): Promise<string> {
   const gitDiff = await pi.exec("git", ["diff", "--", ".", ":(exclude).signum"], { timeout: 30 })
   if (gitDiff.code === 0 && gitDiff.stdout.trim().length > 0) {
     return gitDiff.stdout

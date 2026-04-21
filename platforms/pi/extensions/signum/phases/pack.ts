@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs"
-import { copyFile, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
+import { copyFile, cp, mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
 import { createHash, randomBytes } from "node:crypto"
 import { dirname, resolve } from "node:path"
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent"
 
 import { packAntiEntropyScriptPath, proofpackIndexScriptPath } from "../paths.ts"
+import { buildIterativeAuditProofpackSummary, type AuditIterationLog } from "../runtime/audit-iterations.ts"
 import {
   contractDirPath,
   ensureContractIndex,
@@ -33,7 +34,12 @@ interface AuditSummary {
   availableReviews?: number
   releaseVerdict?: string
   iterationsUsed?: number
+  iterationsMax?: number
   bestIteration?: number
+  terminalReason?: string
+  earlyStop?: boolean
+  earlyStopReason?: string
+  remainingSeverity?: string
 }
 
 interface ExecuteLog {
@@ -121,6 +127,7 @@ async function buildProofpack(
   const policyScanEnvelope = await buildEnvelope(resolve(projectRoot, ".signum/policy_scan.json"), true)
   const auditEnvelope = await buildEnvelope(resolve(projectRoot, ".signum/audit_summary.json"), true)
   const reviewsEnvelope = await buildReviewsEnvelope(resolve(projectRoot, ".signum/reviews"))
+  const auditIterationLog = await readOptionalJson<AuditIterationLog>(resolve(projectRoot, ".signum/audit_iteration_log.json"))
 
   const contractHashText = await readOptionalText(resolve(projectRoot, ".signum/contract-hash.txt"))
   const contractHash = extractTaggedValue(contractHashText, "contract_sha256")
@@ -183,20 +190,11 @@ async function buildProofpack(
     proofpack.removalEvidence = removalEvidence
   }
 
-  if ((audit.iterationsUsed ?? 1) > 1) {
-    proofpack.iterativeAudit = {
-      iterationsUsed: audit.iterationsUsed,
-      iterationsMax: audit.iterationsUsed,
-      bestIteration: audit.bestIteration ?? audit.iterationsUsed,
-      earlyStop: false,
-      earlyStopReason: "",
-      terminalReason: "",
-      remainingSeverity: "none",
-      auditIterations: [],
-      resolvedFindings: [],
-      remainingFindings: [],
-    }
+  if ((audit.iterationsUsed ?? 1) > 1 && auditIterationLog) {
+    proofpack.iterativeAudit = buildIterativeAuditProofpackSummary(auditIterationLog)
   }
+
+  void resolve(projectRoot, ".signum/audit_iteration_log.json")
 
   return proofpack
 }
@@ -316,6 +314,8 @@ async function syncContractArtifacts(projectRoot: string, contractId: string) {
   for (const relativePath of [
     ".signum/contract.json",
     ".signum/audit_summary.json",
+    ".signum/audit_iteration_log.json",
+    ".signum/repair_brief.json",
     ".signum/proofpack.json",
     ".signum/anti_entropy_report.json",
     ".signum/approval.json",
@@ -331,6 +331,11 @@ async function syncContractArtifacts(projectRoot: string, contractId: string) {
   const executeReceipt = resolve(projectRoot, ".signum/receipts/execute.json")
   if (await exists(executeReceipt)) {
     await copyFile(executeReceipt, resolve(contractDir, "receipts/execute.json"))
+  }
+
+  const iterationsDir = resolve(projectRoot, ".signum/iterations")
+  if (await exists(iterationsDir)) {
+    await cp(iterationsDir, resolve(contractDir, "iterations"), { recursive: true })
   }
 }
 

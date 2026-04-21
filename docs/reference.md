@@ -45,9 +45,9 @@ pi install . -l
 ```
 
 Important parity note:
-- the pi runtime currently ships **single-pass AUDIT**
 - root `commands/signum.md` remains canonical
-- iterative AUDIT parity is tracked as explicit follow-up work, not silently dropped
+- the pi runtime now supports bounded iterative AUDIT repair parity for reviewer MAJOR/CRITICAL findings
+- iterative state is persisted under `.signum/`, including per-pass snapshots under `.signum/iterations/`, and summarized into proofpack `iterativeAudit` when more than one audit iteration runs
 
 ## Examples
 
@@ -130,7 +130,7 @@ Synthesizer agent applies deterministic rules:
 
 Pre-existing failures (checks that failed in baseline AND still fail) no longer auto-block.
 
-In the pi runtime overlay, AUDIT currently runs as a **single-pass** flow for MVP coverage. The iterative review/fix loop remains a parity follow-up.
+In the pi runtime overlay, AUDIT runs as a bounded iterative flow when reviewer MAJOR or CRITICAL findings remain. The maximum iteration count defaults to `20` and can be overridden with `SIGNUM_AUDIT_MAX_ITERATIONS`. Iteration metadata is persisted in `.signum/audit_iteration_log.json`, per-pass artifacts are mirrored under `.signum/iterations/<pass>/`, and engineer-facing repair inputs are summarized in `.signum/repair_brief.json` without exposing raw holdout scenario payloads.
 
 ### Phase 4: PACK
 
@@ -152,8 +152,11 @@ Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`
 | `reviews/claude.json` | Audit | Claude opus semantic review |
 | `reviews/codex.json` | Audit | Codex CLI security review (or unavailable marker) |
 | `reviews/gemini.json` | Audit | Gemini CLI performance review (or unavailable marker) |
-| `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
-| `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
+| `audit_summary.json` | Audit | Synthesized decision with consensus reasoning, confidence scores, and iterative metadata |
+| `audit_iteration_log.json` | Audit | Per-pass iterative AUDIT metadata, scoring, and finding fingerprints |
+| `repair_brief.json` | Audit | Engineer-facing sanitized repair input for the next bounded pass |
+| `iterations/<pass>/` | Audit | Mirrored per-pass audit artifacts, reviews, and execute receipt snapshot |
+| `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, confidence, and iterative summary |
 | `anti_entropy_report.json` | Pack | Advisory anti-entropy follow-up findings; report-only, does not change pipeline decision |
 
 Durable per-contract snapshots typically mirror:
@@ -285,7 +288,7 @@ Runs during Phase 1 spec quality gate. Scans for `docs/adr/` or `docs/decisions/
 
 ### Iterative AUDIT (v4.6+)
 
-When AUDIT finds MAJOR or CRITICAL issues, it enters an iterative repair loop:
+When AUDIT finds MAJOR or CRITICAL issues, it enters an iterative repair loop. In the pi runtime this loop is bounded and persists stable metadata under `.signum/`:
 
 1. Engineer fixes findings (fresh agent, clean context)
 2. Full review cycle re-runs from scratch
@@ -296,9 +299,9 @@ When AUDIT finds MAJOR or CRITICAL issues, it enters an iterative repair loop:
 | `SIGNUM_AUDIT_MAX_ITERATIONS` | `20` | Maximum audit fix iterations before terminal decision |
 | `SIGNUM_CI_RELAXED` | `false` | If `"true"`, HUMAN_REVIEW maps to exit 0 instead of 78 |
 
-Iteration artifacts are stored in `.signum/iterations/01/`, `.signum/iterations/02/`, etc. Each contains the full set of audit artifacts for that pass.
+The pi runtime persists `.signum/audit_iteration_log.json` with `iterationsUsed`, `iterationsMax`, `bestIteration`, `terminalReason`, `earlyStopReason`, `remainingSeverity`, and per-pass metadata. It also mirrors pass artifacts under `.signum/iterations/01/`, `.signum/iterations/02/`, etc. and writes `.signum/repair_brief.json` for engineer-facing repair input using visible contract material (`.signum/contract-engineer.json`) while keeping hidden holdout definitions out of the repair brief.
 
-The proofpack includes an `iterativeAudit` section when >1 iteration was used, with per-iteration summaries, resolved/remaining findings, and the best iteration number.
+The proofpack includes an `iterativeAudit` section when >1 iteration was used, with stable summary fields such as `iterationsUsed`, `iterationsMax`, `bestIteration`, `terminalReason`, `earlyStop`, `earlyStopReason`, `remainingSeverity`, summarized `auditIterations` entries, and resolved/remaining finding summaries rather than full per-iteration envelopes.
 
 ### proofpack.json fields (v4.6)
 
