@@ -37,10 +37,14 @@ fi
 
 node --input-type=module - <<'EOF'
 import assert from 'node:assert/strict'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { classifyVerifyStrength, evaluateVerifySteps } from './platforms/pi/extensions/signum/phases/execute.ts'
+import { promisify } from 'node:util'
+import { classifyVerifyStrength, collectDiffStatus, evaluateVerifySteps } from './platforms/pi/extensions/signum/phases/execute.ts'
+
+const execFileAsync = promisify(execFile)
 
 assert.equal(classifyVerifyStrength({ steps: [{ type: 'readFile', path: 'a.ts' }] }), 'observational')
 assert.equal(classifyVerifyStrength({ steps: [{ type: 'assertContains', path: 'a.ts', text: 'x' }] }), 'observational')
@@ -100,6 +104,40 @@ const dotAll = await evaluateVerifySteps(projectRoot, {
   ],
 }, [])
 assert.equal(dotAll.exitCode, 0)
+
+const gitRoot = await mkdtemp(join(tmpdir(), 'signum-execute-diff-status-'))
+await writeFile(join(gitRoot, 'README.md'), '# Demo\n', 'utf8')
+await mkdir(join(gitRoot, 'tests'), { recursive: true })
+await execFileAsync('git', ['init', '-q'], { cwd: gitRoot })
+await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: gitRoot })
+await execFileAsync('git', ['config', 'user.name', 'test'], { cwd: gitRoot })
+await execFileAsync('git', ['add', 'README.md'], { cwd: gitRoot })
+await execFileAsync('git', ['commit', '-qm', 'init'], { cwd: gitRoot })
+await writeFile(join(gitRoot, 'README.md'), '# Demo\n\nupdated\n', 'utf8')
+await writeFile(join(gitRoot, 'tests', 'self-hosted.sh'), '#!/usr/bin/env bash\n', 'utf8')
+
+const execAdapter = {
+  exec: async (cmd, args, opts = {}) => {
+    try {
+      const { stdout, stderr } = await execFileAsync(cmd, args, {
+        cwd: opts.cwd,
+        timeout: opts.timeout,
+      })
+      return { code: 0, stdout, stderr }
+    } catch (error) {
+      return {
+        code: error.code ?? 1,
+        stdout: error.stdout ?? '',
+        stderr: error.stderr ?? String(error),
+      }
+    }
+  },
+}
+const diffStatus = await collectDiffStatus(execAdapter, gitRoot, ['README.md', 'tests/self-hosted.sh'])
+assert.deepEqual(diffStatus.added, ['tests/self-hosted.sh'])
+assert.deepEqual(diffStatus.modified, ['README.md'])
+assert.equal(diffStatus.statusByPath.get('tests/self-hosted.sh'), 'A')
+assert.equal(diffStatus.statusByPath.get('README.md'), 'M')
 
 console.log('PASS: pi execute verify classification')
 EOF

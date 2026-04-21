@@ -459,8 +459,8 @@ async function existingReceiptAttempts(runDir: string): Promise<number> {
   }
 }
 
-async function collectDiffStatus(
-  pi: ExtensionAPI,
+export async function collectDiffStatus(
+  pi: Pick<ExtensionAPI, "exec">,
   projectRoot: string,
   changedFiles: string[],
 ): Promise<{
@@ -470,45 +470,99 @@ async function collectDiffStatus(
   deleted: string[]
   statusByPath: Map<string, "A" | "M" | "D">
 }> {
-  const result = await pi.exec("git", ["diff", "--name-status", "--", ".", ":(exclude).signum"], {
+  const diffResult = await pi.exec("git", ["diff", "--name-status", "--", ".", ":(exclude).signum"], {
+    cwd: projectRoot,
+    timeout: 10_000,
+  })
+  const statusResult = await pi.exec("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", ".", ":(exclude).signum"], {
     cwd: projectRoot,
     timeout: 10_000,
   })
 
-  const added: string[] = []
-  const modified: string[] = []
-  const deleted: string[] = []
   const statusByPath = new Map<string, "A" | "M" | "D">()
 
-  if (result.code === 0 && result.stdout.trim().length > 0) {
-    for (const line of result.stdout.split(/\r?\n/)) {
+  if (diffResult.code === 0 && diffResult.stdout.trim().length > 0) {
+    for (const line of diffResult.stdout.split(/\r?\n/)) {
       const trimmed = line.trim()
       if (!trimmed) continue
       const [rawStatus, rawPath] = trimmed.split(/\s+/, 2)
       const status = rawStatus?.startsWith("A") ? "A" : rawStatus?.startsWith("D") ? "D" : "M"
       const path = rawPath?.trim()
       if (!path) continue
-      statusByPath.set(path, status)
-      if (status === "A") added.push(path)
-      else if (status === "D") deleted.push(path)
-      else modified.push(path)
+      mergePathStatus(statusByPath, path, status)
     }
   }
 
-  if (statusByPath.size === 0) {
-    for (const path of changedFiles) {
-      statusByPath.set(path, "M")
-      modified.push(path)
+  if (statusResult.code === 0 && statusResult.stdout.trim().length > 0) {
+    for (const line of statusResult.stdout.split(/\r?\n/)) {
+      const parsed = parsePorcelainStatusLine(line)
+      if (!parsed) continue
+      mergePathStatus(statusByPath, parsed.path, parsed.status)
     }
+  }
+
+  for (const path of changedFiles.map((value) => value.replace(/^\.\//, "")).filter(Boolean)) {
+    if (!statusByPath.has(path)) {
+      mergePathStatus(statusByPath, path, "M")
+    }
+  }
+
+  const added: string[] = []
+  const modified: string[] = []
+  const deleted: string[] = []
+  for (const [path, status] of statusByPath.entries()) {
+    if (status === "A") added.push(path)
+    else if (status === "D") deleted.push(path)
+    else modified.push(path)
   }
 
   return {
-    changed: [...new Set([...added, ...modified, ...deleted])],
-    added,
-    modified,
-    deleted,
+    changed: [...new Set([...added, ...modified, ...deleted])].sort(),
+    added: added.sort(),
+    modified: modified.sort(),
+    deleted: deleted.sort(),
     statusByPath,
   }
+}
+
+function parsePorcelainStatusLine(line: string): { path: string; status: "A" | "M" | "D" } | null {
+  if (!line.trim()) return null
+  if (line.startsWith("?? ")) {
+    const path = line.slice(3).trim()
+    return path ? { path, status: "A" } : null
+  }
+
+  if (line.length < 4) return null
+  const indexStatus = line[0] ?? " "
+  const worktreeStatus = line[1] ?? " "
+  const path = line.slice(3).trim()
+  if (!path) return null
+
+  if (indexStatus === "D" || worktreeStatus === "D") {
+    return { path, status: "D" }
+  }
+  if (indexStatus === "A" || worktreeStatus === "A") {
+    return { path, status: "A" }
+  }
+  return { path, status: "M" }
+}
+
+function mergePathStatus(statusByPath: Map<string, "A" | "M" | "D">, path: string, nextStatus: "A" | "M" | "D") {
+  const normalizedPath = path.replace(/^\.\//, "")
+  const previous = statusByPath.get(normalizedPath)
+  if (!previous) {
+    statusByPath.set(normalizedPath, nextStatus)
+    return
+  }
+  if (previous === "D" || nextStatus === "D") {
+    statusByPath.set(normalizedPath, "D")
+    return
+  }
+  if (previous === "A" || nextStatus === "A") {
+    statusByPath.set(normalizedPath, "A")
+    return
+  }
+  statusByPath.set(normalizedPath, "M")
 }
 
 function pathAllowedByPolicy(
