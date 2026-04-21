@@ -13,11 +13,14 @@ interface SignumProgressState {
   milestone: string
   startedAt: number
   recentEvents: string[]
+  frameIndex: number
 }
 
 const signumProgressState = new WeakMap<ExtensionCommandContext, SignumProgressState>()
 const SIGNUM_RECENT_EVENT_LIMIT = 5
 const SIGNUM_PROGRESS_WIDGET_ID = "signum-progress"
+const SIGNUM_PIPELINE_PHASES = ["CONTRACT", "EXECUTE", "AUDIT", "PACK"] as const
+const SIGNUM_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸"] as const
 
 export function setSignumStatus(ctx: ExtensionCommandContext, text?: string) {
   if (!ctx.hasUI) return
@@ -48,6 +51,7 @@ export function setSignumProgress(ctx: ExtensionCommandContext, phase: string, m
     milestone,
     startedAt: previous?.phase === phase ? previous.startedAt : Date.now(),
     recentEvents: [...(previous?.recentEvents ?? [])],
+    frameIndex: previous ? (previous.frameIndex + 1) % SIGNUM_SPINNER_FRAMES.length : 0,
   }
 
   if (event) {
@@ -114,17 +118,32 @@ function renderSignumProgress(ctx: ExtensionCommandContext) {
   if (!state) return
 
   const elapsed = formatHeartbeatElapsed(Date.now() - state.startedAt)
-  const recentEvents = state.recentEvents.length > 0 ? state.recentEvents : ["waiting for update"]
+  const recentEvents = state.recentEvents.length > 0 ? state.recentEvents : ["waiting for milestone update"]
+  const currentPhase = normalizePipelinePhase(state.phase)
+  const spinner = SIGNUM_SPINNER_FRAMES[state.frameIndex % SIGNUM_SPINNER_FRAMES.length]
+  const stepper = SIGNUM_PIPELINE_PHASES.map((phase) => formatStepperPhase(ctx, phase, currentPhase)).join(" ")
   const widgetLines = [
-    "Signum",
-    `phase: ${state.phase}`,
+    `Signum ${spinner}`,
+    stepper,
     `milestone: ${state.milestone}`,
     `elapsed: ${elapsed}`,
-    "recent:",
+    "recent events:",
     ...recentEvents.map((event) => `- ${event}`),
   ]
   ctx.ui.setWidget(SIGNUM_PROGRESS_WIDGET_ID, widgetLines)
-  setSignumStatus(ctx, `${state.phase} ${state.milestone} · elapsed ${elapsed} · recent events ${recentEvents.join(" · ")}`)
+  setSignumStatus(ctx, `${currentPhase} ${state.milestone} · elapsed ${elapsed} · recent events ${recentEvents.join(" · ")}`)
+}
+
+function normalizePipelinePhase(phase: string): string {
+  const upper = phase.trim().toUpperCase()
+  return SIGNUM_PIPELINE_PHASES.includes(upper as (typeof SIGNUM_PIPELINE_PHASES)[number]) ? upper : "CONTRACT"
+}
+
+function formatStepperPhase(ctx: ExtensionCommandContext, phase: (typeof SIGNUM_PIPELINE_PHASES)[number], currentPhase: string): string {
+  const isActive = phase === currentPhase
+  const theme = ctx.ui.theme
+  const label = isActive ? `[${phase}]` : phase
+  return isActive ? theme.fg("accent", label) : theme.fg("dim", label)
 }
 
 function formatHeartbeatElapsed(durationMs: number): string {
