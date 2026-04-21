@@ -28,6 +28,18 @@ interface PipelineRunResult {
   packDecision?: string
 }
 
+interface ContractDocument {
+  contractId?: string
+}
+
+interface ContractIndexDocument {
+  activeContractId?: string | null
+}
+
+interface ExecuteReceipt {
+  contract_id?: string
+}
+
 export async function runSignumCommand(
   pi: ExtensionAPI,
   rawArgs: string,
@@ -296,11 +308,24 @@ async function runPipelineFromCurrentState(
   }
 }
 
-async function readExecuteSuccess(projectRoot: string): Promise<boolean> {
+export async function readExecuteSuccess(projectRoot: string): Promise<boolean> {
   try {
     await stat(resolve(projectRoot, ".signum/receipts/execute.json"))
-    const parsed = JSON.parse(await readFile(resolve(projectRoot, ".signum/execute_log.json"), "utf8")) as { status?: string }
-    return parsed.status === "SUCCESS"
+
+    const executeLog = JSON.parse(await readFile(resolve(projectRoot, ".signum/execute_log.json"), "utf8")) as { status?: string }
+    if (executeLog.status !== "SUCCESS") {
+      return false
+    }
+
+    const contract = JSON.parse(await readFile(resolve(projectRoot, ".signum/contract.json"), "utf8")) as ContractDocument
+    const index = JSON.parse(await readFile(resolve(projectRoot, ".signum/contracts/index.json"), "utf8")) as ContractIndexDocument
+    const executeReceipt = JSON.parse(await readFile(resolve(projectRoot, ".signum/receipts/execute.json"), "utf8")) as ExecuteReceipt
+
+    const contractId = typeof contract.contractId === "string" ? contract.contractId : undefined
+    const activeContractId = typeof index.activeContractId === "string" ? index.activeContractId : undefined
+    const receiptContractId = typeof executeReceipt.contract_id === "string" ? executeReceipt.contract_id : undefined
+
+    return Boolean(contractId && activeContractId && receiptContractId && contractId === activeContractId && receiptContractId === activeContractId)
   } catch {
     return false
   }
