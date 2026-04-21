@@ -111,6 +111,7 @@ If the request is ambiguous or missing critical context:
 - Do not write prose sentences inside path lists when a concrete path can be named
 - If an existing file may need edits, include that file or its containing directory explicitly in `inScope`
 - Use directory entries when multiple files under one tree may change (for example `tests/`)
+- If a test/task change in an npm-managed repo may require script wiring, include `package.json` explicitly in `inScope`
 - Use `outOfScope` for plausible but intentionally excluded work
 - Use `allowNewFilesUnder` only when new files are needed
 
