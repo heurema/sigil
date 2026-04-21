@@ -66,5 +66,12 @@ const fail = await evaluateVerifySteps(projectRoot, {
 assert.equal(fail.exitCode, 1)
 assert.equal(fail.reason, 'assert_failed')
 
+const scoped = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'assertOnlyPathsChanged', paths: ['tests/'] },
+  ],
+}, ['tests/test-pi-full-pipeline.sh'])
+assert.equal(scoped.exitCode, 0)
+
 console.log('PASS: pi execute verify classification')
 EOF

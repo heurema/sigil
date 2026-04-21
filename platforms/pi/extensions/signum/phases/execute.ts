@@ -694,7 +694,7 @@ export async function evaluateVerifySteps(
             : Array.isArray(step.paths)
               ? step.paths.filter((value): value is string => typeof value === "string")
               : []
-          const disallowed = changedPaths.filter((path) => !allowed.includes(path))
+          const disallowed = changedPaths.filter((path) => !matchesAllowedPath(path.replace(/^\.\//, ""), allowed))
           if (disallowed.length > 0) {
             return fail("assert_failed", `FAIL: unexpected changed paths: ${disallowed.join(", ")}`)
           }
