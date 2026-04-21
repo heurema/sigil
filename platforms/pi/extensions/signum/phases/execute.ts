@@ -549,7 +549,7 @@ async function collectMissingInScope(projectRoot: string, allowedPaths: string[]
   return [...new Set(missing)]
 }
 
-async function evaluateVerifySteps(
+export async function evaluateVerifySteps(
   projectRoot: string,
   verify: { steps: unknown[] },
   changedPaths: string[],
@@ -643,7 +643,14 @@ async function evaluateVerifySteps(
           if (typeof step.pattern !== "string") {
             return fail("invalid_step", `ERROR: step ${index}: assertMatches requires pattern`)
           }
-          const source = step.valueFrom === "stdout" ? lastStdout : typeof step.value === "string" ? step.value : ""
+          const source =
+            typeof step.path === "string"
+              ? await readCached(step.path)
+              : step.valueFrom === "stdout"
+                ? lastStdout
+                : typeof step.value === "string"
+                  ? step.value
+                  : ""
           const regex = new RegExp(step.pattern, "m")
           if (!regex.test(source)) {
             return fail("assert_failed", `FAIL: pattern ${step.pattern} did not match ${JSON.stringify(source)}`)

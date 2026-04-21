@@ -37,13 +37,34 @@ fi
 
 node --input-type=module - <<'EOF'
 import assert from 'node:assert/strict'
-import { classifyVerifyStrength } from './platforms/pi/extensions/signum/phases/execute.ts'
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { classifyVerifyStrength, evaluateVerifySteps } from './platforms/pi/extensions/signum/phases/execute.ts'
 
 assert.equal(classifyVerifyStrength({ steps: [{ type: 'readFile', path: 'a.ts' }] }), 'observational')
 assert.equal(classifyVerifyStrength({ steps: [{ type: 'assertContains', path: 'a.ts', text: 'x' }] }), 'observational')
 assert.equal(classifyVerifyStrength({ steps: [{ type: 'gitDiffFiles' }] }), 'observational')
 assert.equal(classifyVerifyStrength({ steps: [{ exec: { argv: ['grep', '-q', 'x', 'a.ts'] } }] }), 'predicate')
 assert.equal(classifyVerifyStrength({ steps: [{ type: 'run', command: 'echo ok' }] }), 'exit_only')
+
+const projectRoot = await mkdtemp(join(tmpdir(), 'signum-execute-verify-'))
+await writeFile(join(projectRoot, 'sample.txt'), 'iterative audit metadata\n', 'utf8')
+
+const ok = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'assertMatches', path: 'sample.txt', pattern: 'iterative\\s+audit' },
+  ],
+}, [])
+assert.equal(ok.exitCode, 0)
+
+const fail = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'assertMatches', path: 'sample.txt', pattern: 'proofpack' },
+  ],
+}, [])
+assert.equal(fail.exitCode, 1)
+assert.equal(fail.reason, 'assert_failed')
 
 console.log('PASS: pi execute verify classification')
 EOF

@@ -74,9 +74,9 @@ Also include when possible:
   - `assertOnlyPathsChanged`
   - `assertNotModified`
   - `assertFileExists`
-  - `assertReferenceMatchesImplementation`
-  - `assertSemanticAlignment`
+- Do not use `assertReferenceMatchesImplementation` or `assertSemanticAlignment` in pi contracts; prefer explicit file/path assertions instead
 - Prefer exact file/path assertions over vague semantic-only checks when possible
+- When using `assertMatches`, provide a concrete `path` for file-content matching or `valueFrom: "stdout"` for command output matching
 - Use `text` for string assertions instead of mixing `text` and `value` unless a scalar equality check is intended
 - Use negative AC language where appropriate (`must not`, `reject`, `prevent`, `fail`) so the contract can be tested robustly
 
