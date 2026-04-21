@@ -14,7 +14,7 @@ import {
   writeContractIndex,
 } from "../runtime/script-adapters/contract-dir.ts"
 import { toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
-import { setSignumStatus } from "../ui.ts"
+import { setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ContractDocument {
   contractId: string
@@ -80,18 +80,22 @@ export async function runPackPhase(
   await writeJson(contractPath, updatedContract)
 
   const runId = `signum-${completedAt.slice(0, 10)}-${randomBytes(3).toString("hex")}`
-  const proofpack = await buildProofpack(projectRoot, updatedContract, audit, executeLog, runId, completedAt)
+  const proofpack = await withSignumHeartbeat(ctx, "pack", "assemble", () =>
+    buildProofpack(projectRoot, updatedContract, audit, executeLog, runId, completedAt),
+  )
   await writeJson(resolve(projectRoot, ".signum/proofpack.json"), proofpack)
 
   setSignumStatus(ctx, "pack anti-entropy")
-  await runPackAntiEntropy(pi, projectRoot)
+  await withSignumHeartbeat(ctx, "pack", "anti-entropy", () => runPackAntiEntropy(pi, projectRoot))
 
   setSignumStatus(ctx, "pack index")
-  await appendProofpackIndex(pi, projectRoot)
+  await withSignumHeartbeat(ctx, "pack", "index", () => appendProofpackIndex(pi, projectRoot))
 
   setSignumStatus(ctx, "pack sync")
-  await syncContractArtifacts(projectRoot, updatedContract.contractId)
-  await markContractCompleted(projectRoot, updatedContract.contractId)
+  await withSignumHeartbeat(ctx, "pack", "sync", async () => {
+    await syncContractArtifacts(projectRoot, updatedContract.contractId)
+    await markContractCompleted(projectRoot, updatedContract.contractId)
+  })
 
   return {
     status: "ok",

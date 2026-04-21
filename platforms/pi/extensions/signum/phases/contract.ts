@@ -26,7 +26,7 @@ import { runJsonScript, runTextScript, sha256File, toUtcTimestamp } from "../run
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
 import { parsePossiblyBrokenJsonObject } from "../runtime/contract-json.ts"
 import { analyzePiContractForRuntime, normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
-import { emitSignumMessage, setSignumStatus } from "../ui.ts"
+import { emitSignumMessage, setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ContractRunOptions {
   task: string
@@ -107,6 +107,11 @@ export async function runContractPhase(
   options: ContractRunOptions,
 ): Promise<ContractPhaseResult> {
   const projectRoot = ctx.cwd
+  setSignumStatus(ctx, "contract workspace")
+  emitSignumMessage(pi, "CONTRACT started: workspace preparation in progress.", {
+    phase: "contract",
+    milestone: "workspace",
+  })
   await prepareWorkspace(projectRoot)
 
   const runner = new SdkRoleSessionRunner()
@@ -129,12 +134,21 @@ export async function runContractPhase(
     "Scan the codebase, assess risk, and write .signum/contract.json.",
   ].join("\n")
 
+  setSignumStatus(ctx, "contract contractor")
+  emitSignumMessage(pi, "CONTRACT milestone: contractor run starting.", {
+    phase: "contract",
+    milestone: "contractor",
+  })
+
   let contractorResult: Awaited<ReturnType<typeof runContractor>>
   try {
-    contractorResult = await runContractor(runner, projectRoot, firstModel, basePrompt)
+    contractorResult = await withSignumHeartbeat(ctx, "contract", "contractor", () =>
+      runContractor(runner, projectRoot, firstModel, basePrompt),
+    )
   } catch (error) {
     throw new Error(`Contractor role session failed on first attempt: ${error instanceof Error ? error.message : String(error)}`)
   }
+  setSignumStatus(ctx, "contract validation")
   let contractRead = await readAndValidateContract(projectRoot)
   if (!contractRead.contract) {
     contractRead = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
@@ -152,11 +166,15 @@ export async function runContractPhase(
       fallbackModel && `${fallbackModel.provider}/${fallbackModel.id}` !== `${firstModel.provider}/${firstModel.id}` ? fallbackModel : firstModel
     const retryPrompt = buildContractValidationRetryPrompt(basePrompt, contractRead.errors)
 
+    setSignumStatus(ctx, "contract contractor retry")
     try {
-      contractorResult = await runContractor(runner, projectRoot, retryModel, retryPrompt)
+      contractorResult = await withSignumHeartbeat(ctx, "contract", "contractor retry", () =>
+        runContractor(runner, projectRoot, retryModel, retryPrompt),
+      )
     } catch (error) {
       throw new Error(`Contractor role session failed on retry attempt: ${error instanceof Error ? error.message : String(error)}`)
     }
+    setSignumStatus(ctx, "contract validation retry")
     contractRead = await readAndValidateContract(projectRoot)
     if (!contractRead.contract) {
       contractRead = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
@@ -167,6 +185,7 @@ export async function runContractPhase(
     }
   }
 
+  setSignumStatus(ctx, "contract deterministic checks")
   const injection = await runTextScript(pi, contractInjectionScanScriptPath, [resolve(projectRoot, ".signum/contract.json")])
   if (!injection.ok) {
     if (/BLOCKED:/i.test(injection.output)) {
@@ -208,11 +227,15 @@ export async function runContractPhase(
       "Keep all other contract fields consistent with the task.",
     ].join("\n")
 
+    setSignumStatus(ctx, "contract contractor holdout retry")
     try {
-      contractorResult = await runContractor(runner, projectRoot, fallbackModel, retryPrompt)
+      contractorResult = await withSignumHeartbeat(ctx, "contract", "contractor holdout retry", () =>
+        runContractor(runner, projectRoot, fallbackModel, retryPrompt),
+      )
     } catch (error) {
       throw new Error(`Contractor role session failed during holdout retry: ${error instanceof Error ? error.message : String(error)}`)
     }
+    setSignumStatus(ctx, "contract validation holdout retry")
     contractRead = await readAndValidateContract(projectRoot)
     if (!contractRead.contract) {
       contractRead = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
@@ -277,6 +300,12 @@ export async function runContractPhase(
     }
   }
 
+  setSignumStatus(ctx, "contract approval")
+  emitSignumMessage(pi, "CONTRACT milestone: awaiting approval.", {
+    phase: "contract",
+    milestone: "approval",
+    contractId: contract.contractId,
+  })
   const approval = shouldAutoApproveContract()
     ? { approved: true, failedItems: [] }
     : await runApprovalChecklist(ctx)

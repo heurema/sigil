@@ -9,7 +9,7 @@ import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-sessi
 import { sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { createPolicyAwareEngineerTools, deriveExecutionPolicy } from "../runtime/policy-tools.ts"
 import { compilePortableRegex } from "../runtime/portable-regex.ts"
-import { setSignumStatus } from "../ui.ts"
+import { setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ExecuteResult {
   status: "success" | "blocked" | "failed"
@@ -45,9 +45,11 @@ export async function runExecutePhase(
   const executeStartedAt = toUtcTimestamp()
 
   setSignumStatus(ctx, "execute baseline")
-  await captureExecutionBaseline(pi, projectRoot, contract.contractId, executeStartedAt)
-  await captureReceiptSnapshot(pi, projectRoot)
-  await snapshotProjectTree(projectRoot, resolve(projectRoot, ".signum/snapshots/execute-before"))
+  await withSignumHeartbeat(ctx, "execute", "baseline", async () => {
+    await captureExecutionBaseline(pi, projectRoot, contract.contractId, executeStartedAt)
+    await captureReceiptSnapshot(pi, projectRoot)
+    await snapshotProjectTree(projectRoot, resolve(projectRoot, ".signum/snapshots/execute-before"))
+  })
 
   const runner = new SdkRoleSessionRunner()
   const promptAsset = await loadRolePromptAsset("engineer")
@@ -85,14 +87,16 @@ export async function runExecutePhase(
       .filter(Boolean)
       .join("\n")
 
-    const run = await runner.run({
-      role: "engineer",
-      projectRoot,
-      prompt,
-      model: engineerModel,
-      toolNames: [...policyTools.builtInToolNames, ...policyTools.customTools.map((tool) => tool.name)],
-      customTools: policyTools.customTools,
-    })
+    const run = await withSignumHeartbeat(ctx, "execute", `attempt ${attempt}/${maxAttempts}`, () =>
+      runner.run({
+        role: "engineer",
+        projectRoot,
+        prompt,
+        model: engineerModel,
+        toolNames: [...policyTools.builtInToolNames, ...policyTools.customTools.map((tool) => tool.name)],
+        customTools: policyTools.customTools,
+      }),
+    )
 
     const violations = policyTools.getViolations()
     if (violations.length > 0) {
@@ -151,7 +155,10 @@ export async function runExecutePhase(
         finished_at: toUtcTimestamp(),
       })
 
-      const boundary = await runBoundaryVerification(pi, projectRoot, contract, policy, changedFiles)
+      setSignumStatus(ctx, `execute verify boundary ${attempt}/${maxAttempts}`)
+      const boundary = await withSignumHeartbeat(ctx, "execute", "boundary verification", () =>
+        runBoundaryVerification(pi, projectRoot, contract, policy, changedFiles),
+      )
       if (!boundary.ok) {
         await writeJson(resolve(projectRoot, ".signum/execute_log.json"), {
           status: "BOUNDARY_BLOCKED",
@@ -172,7 +179,10 @@ export async function runExecutePhase(
         }
       }
 
-      const transition = await runTransitionVerification(pi, projectRoot)
+      setSignumStatus(ctx, `execute verify transition ${attempt}/${maxAttempts}`)
+      const transition = await withSignumHeartbeat(ctx, "execute", "transition verification", () =>
+        runTransitionVerification(pi, projectRoot),
+      )
       if (!transition.ok) {
         await writeJson(resolve(projectRoot, ".signum/execute_log.json"), {
           status: "TRANSITION_BLOCKED",

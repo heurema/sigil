@@ -127,6 +127,7 @@ export async function runSignumCommand(
 
           if (decision === "restart") {
             const cleared = await clearWorkingSet(ctx.cwd)
+            setSignumStatus(ctx, "task contract")
             const contractResult = await runContractPhase(pi, ctx, { task: parsed.command.task })
             if (contractResult.status !== "approved") {
               return {
@@ -151,6 +152,7 @@ export async function runSignumCommand(
               }
             }
 
+            setSignumStatus(ctx, "task execute")
             const pipelineResult = await runPipelineFromCurrentState(pi, ctx)
             return {
               kind: "task",
@@ -179,6 +181,7 @@ export async function runSignumCommand(
             }
           }
 
+          setSignumStatus(ctx, "task execute")
           const pipelineResult = await runPipelineFromCurrentState(pi, ctx)
           return {
             kind: "task",
@@ -198,6 +201,7 @@ export async function runSignumCommand(
           }
         }
 
+        setSignumStatus(ctx, "task contract")
         const contractResult = await runContractPhase(pi, ctx, { task: parsed.command.task })
         if (contractResult.status !== "approved") {
           return {
@@ -212,6 +216,7 @@ export async function runSignumCommand(
           }
         }
 
+        setSignumStatus(ctx, "task execute")
         const pipelineResult = await runPipelineFromCurrentState(pi, ctx)
         return {
           kind: "task",
@@ -246,6 +251,7 @@ async function runPipelineFromCurrentState(
   const projectRoot = ctx.cwd
   const hasSuccessfulExecute = await readExecuteSuccess(projectRoot)
 
+  setSignumStatus(ctx, hasSuccessfulExecute ? "task execute reuse" : "task execute")
   const executeResult = hasSuccessfulExecute
     ? { status: "success" as const, summary: "EXECUTE already completed earlier in this working set. Reusing existing artifacts." }
     : await runExecutePhase(pi, ctx)
@@ -257,6 +263,7 @@ async function runPipelineFromCurrentState(
     }
   }
 
+  setSignumStatus(ctx, "task audit")
   const auditResult = await runAuditPhase(pi, ctx)
   if (auditResult.status !== "ok" || !auditResult.decision) {
     return {
@@ -265,6 +272,7 @@ async function runPipelineFromCurrentState(
     }
   }
 
+  setSignumStatus(ctx, "task pack")
   const packResult = await runPackPhase(pi, ctx)
   return {
     summary: [executeResult.summary, "", auditResult.summary, "", packResult.summary].join("\n"),

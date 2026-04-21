@@ -4,6 +4,10 @@ import type { SignumRunState } from "./state.ts"
 
 export type ResumeDecision = "resume" | "restart" | "cancel"
 
+interface SignumHeartbeatController {
+  stop(): void
+}
+
 export function setSignumStatus(ctx: ExtensionCommandContext, text?: string) {
   if (!ctx.hasUI) return
 
@@ -16,6 +20,52 @@ export function setSignumStatus(ctx: ExtensionCommandContext, text?: string) {
   const prefix = theme.fg("accent", "signum")
   const body = theme.fg("dim", ` ${text}`)
   ctx.ui.setStatus("signum", `${prefix}${body}`)
+}
+
+export function startSignumHeartbeat(
+  ctx: ExtensionCommandContext,
+  phase: string,
+  milestone: string,
+  intervalMs = 15_000,
+): SignumHeartbeatController {
+  if (!ctx.hasUI) {
+    return { stop() {} }
+  }
+
+  const startedAt = Date.now()
+  const setHeartbeatStatus = () => {
+    const elapsed = formatHeartbeatElapsed(Date.now() - startedAt)
+    setSignumStatus(ctx, `${phase} ${milestone} · elapsed ${elapsed}`)
+  }
+
+  setHeartbeatStatus()
+  const heartbeat = setInterval(setHeartbeatStatus, intervalMs)
+  return {
+    stop() {
+      clearInterval(heartbeat)
+    },
+  }
+}
+
+export async function withSignumHeartbeat<T>(
+  ctx: ExtensionCommandContext,
+  phase: string,
+  milestone: string,
+  run: () => Promise<T>,
+): Promise<T> {
+  const heartbeat = startSignumHeartbeat(ctx, phase, milestone)
+  try {
+    return await run()
+  } finally {
+    heartbeat.stop()
+  }
+}
+
+function formatHeartbeatElapsed(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }
 
 export function emitSignumMessage(pi: ExtensionAPI, content: string, details?: Record<string, unknown>) {

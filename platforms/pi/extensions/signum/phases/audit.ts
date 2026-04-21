@@ -20,7 +20,7 @@ import {
 import { collectDiffStatus, evaluateVerifySteps } from "./execute.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
 import { toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
-import { setSignumStatus } from "../ui.ts"
+import { setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ContractDocument {
   contractId: string
@@ -130,17 +130,20 @@ export async function runAuditPhase(
   }
 
   for (let iteration = 1; iteration <= iterationsMax; iteration++) {
-    auditSummary = await runSingleAuditIteration({
-      pi,
-      ctx,
-      projectRoot,
-      contract,
-      runner,
-      availableModels,
-      semanticModel,
-      iteration,
-      iterationsMax,
-    })
+    setSignumStatus(ctx, `audit iteration ${iteration}/${iterationsMax}`)
+    auditSummary = await withSignumHeartbeat(ctx, "audit", `iteration ${iteration}/${iterationsMax}`, () =>
+      runSingleAuditIteration({
+        pi,
+        ctx,
+        projectRoot,
+        contract,
+        runner,
+        availableModels,
+        semanticModel,
+        iteration,
+        iterationsMax,
+      }),
+    )
 
     auditIterations.push({
       pass: iteration,
@@ -207,16 +210,19 @@ export async function runAuditPhase(
 
     const repairBrief = buildRepairBrief(contract, auditSummary, iteration + 1, iterationsMax)
     await writeJson(resolve(projectRoot, ".signum/repair_brief.json"), repairBrief)
-    const repair = await runAuditRepairIteration({
-      pi,
-      ctx,
-      runner,
-      projectRoot,
-      contract,
-      model: engineerModel,
-      pass: iteration + 1,
-      iterationsMax,
-    })
+    setSignumStatus(ctx, `audit repair ${iteration + 1}/${iterationsMax}`)
+    const repair = await withSignumHeartbeat(ctx, "audit", `repair ${iteration + 1}/${iterationsMax}`, () =>
+      runAuditRepairIteration({
+        pi,
+        ctx,
+        runner,
+        projectRoot,
+        contract,
+        model: engineerModel,
+        pass: iteration + 1,
+        iterationsMax,
+      }),
+    )
     if (repair.status === "blocked") {
       return {
         status: "failed",
