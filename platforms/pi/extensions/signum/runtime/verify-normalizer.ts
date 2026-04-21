@@ -26,6 +26,18 @@ interface VerifyLintIssue {
   message: string
 }
 
+export interface PiContractProfile {
+  kind: "default" | "meta-task"
+  matchedScopes: string[]
+}
+
+export interface PiContractValidationResult {
+  profile: PiContractProfile
+  errors: string[]
+  warnings: string[]
+  sanitizedVisibleVerifySteps: number
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000
 
 export function normalizeContractForPiRuntime<T extends ContractLike>(contract: T): T {
@@ -64,9 +76,7 @@ export function normalizeVerifyForPiRuntime(verify: unknown): unknown {
 
 export function collectPiContractVerifyIssues(contract: ContractLike): string[] {
   const issues: VerifyLintIssue[] = []
-  const visibleCriteria = Array.isArray(contract.acceptanceCriteria)
-    ? contract.acceptanceCriteria.filter((criterion) => (criterion.visibility ?? "visible") !== "holdout")
-    : []
+  const visibleCriteria = getVisibleCriteria(contract)
 
   for (const criterion of visibleCriteria) {
     const criterionId = typeof criterion.id === "string" && criterion.id ? criterion.id : "unknown"
@@ -96,6 +106,13 @@ export function collectPiContractVerifyIssues(contract: ContractLike): string[] 
         })
       }
 
+      if (referencesLatePhaseArtifact(step)) {
+        issues.push({
+          criterionId,
+          message: `${criterionId}: do not require later-phase .signum artifacts during execute-phase verification`,
+        })
+      }
+
       if (!isImplementationSourcePath(path)) continue
 
       if (["assertnotcontains", "assertnotcontainsany"].includes(normalizedType)) {
@@ -122,6 +139,38 @@ export function collectPiContractVerifyIssues(contract: ContractLike): string[] 
   return issues.map((issue) => issue.message)
 }
 
+export function detectPiContractProfile(contract: ContractLike): PiContractProfile {
+  const matchedScopes = normalizeScopeList(contract.inScope) as string[] | unknown
+  const items = Array.isArray(matchedScopes) ? matchedScopes.filter((item): item is string => typeof item === "string") : []
+  const metaTaskMatches = items.filter((item) => META_TASK_SCOPE_PATTERN.test(item))
+
+  return {
+    kind: metaTaskMatches.length > 0 ? "meta-task" : "default",
+    matchedScopes: metaTaskMatches,
+  }
+}
+
+export function analyzePiContractForRuntime(rawContract: ContractLike, normalizedContract: ContractLike = normalizeContractForPiRuntime(rawContract)): PiContractValidationResult {
+  const profile = detectPiContractProfile(normalizedContract)
+  const errors = collectPiContractVerifyIssues(normalizedContract)
+  const warnings: string[] = []
+  const sanitizedVisibleVerifySteps = countSanitizedVisibleVerifySteps(rawContract, normalizedContract)
+
+  if (profile.kind === "meta-task") {
+    warnings.push(`meta-task profile active for: ${profile.matchedScopes.join(", ")}`)
+  }
+  if (sanitizedVisibleVerifySteps > 0) {
+    warnings.push(`sanitized ${sanitizedVisibleVerifySteps} brittle visible verify step(s) during pi normalization`)
+  }
+
+  return {
+    profile,
+    errors,
+    warnings,
+    sanitizedVisibleVerifySteps,
+  }
+}
+
 export function normalizeScopeList(value: unknown, options: { directoriesOnly?: boolean } = {}): unknown {
   if (!Array.isArray(value)) return value
 
@@ -143,6 +192,33 @@ export function normalizeScopeList(value: unknown, options: { directoriesOnly?: 
   }
 
   return [...new Set(normalized)]
+}
+
+function getVisibleCriteria(contract: ContractLike): Array<Record<string, unknown>> {
+  return Array.isArray(contract.acceptanceCriteria)
+    ? contract.acceptanceCriteria.filter((criterion) => (criterion.visibility ?? "visible") !== "holdout")
+    : []
+}
+
+function countSanitizedVisibleVerifySteps(rawContract: ContractLike, normalizedContract: ContractLike): number {
+  const rawById = new Map<string, number>()
+  for (const criterion of getVisibleCriteria(rawContract)) {
+    const criterionId = typeof criterion.id === "string" ? criterion.id : ""
+    const steps = Array.isArray((criterion.verify as VerifyBlock | undefined)?.steps) ? ((criterion.verify as VerifyBlock).steps as unknown[]) : []
+    if (criterionId) rawById.set(criterionId, steps.length)
+  }
+
+  let removed = 0
+  for (const criterion of getVisibleCriteria(normalizedContract)) {
+    const criterionId = typeof criterion.id === "string" ? criterion.id : ""
+    const normalizedSteps = Array.isArray((criterion.verify as VerifyBlock | undefined)?.steps)
+      ? ((criterion.verify as VerifyBlock).steps as unknown[]).length
+      : 0
+    const rawSteps = rawById.get(criterionId) ?? normalizedSteps
+    removed += Math.max(0, rawSteps - normalizedSteps)
+  }
+
+  return removed
 }
 
 function normalizeCriterion(criterion: Record<string, unknown>): Record<string, unknown> {
@@ -277,8 +353,18 @@ function looksLikePath(value: string): boolean {
   return /[/.]/.test(value) && !/^\.[A-Za-z0-9]+$/.test(value) && !/\s/.test(value)
 }
 
+function referencesLatePhaseArtifact(step: Record<string, unknown>): boolean {
+  const path = typeof step.path === "string" ? step.path : ""
+  if (LATE_PHASE_SIGNUM_PATH_PATTERN.test(path)) return true
+  const command = typeof step.command === "string" ? step.command : ""
+  if (LATE_PHASE_SIGNUM_PATH_PATTERN.test(command)) return true
+  return false
+}
+
+const META_TASK_SCOPE_PATTERN = /^(?:platforms\/pi\/extensions\/signum|docs\/reference\.md|platforms\/pi\/README\.md|tests(?:\/|$))/
+const LATE_PHASE_SIGNUM_PATH_PATTERN = /\.signum\/(?:repair_brief|audit_iteration_log|iterations\/|proofpack|anti_entropy|holdout_report|reviews\/)/i
 const BRITTLE_SECRECY_PATTERN = /(?:\bholdoutScenarios\b|\bcontract\.holdoutScenarios\b|Read\s+\.signum\/(?:contract|holdout_report)\.json|\.signum\/(?:contract|holdout_report)\.json)/i
-const BRITTLE_LITERAL_PATTERN = /iterativeAuditMode\s*:\s*["']single-pass["']/i
+const BRITTLE_LITERAL_PATTERN = /(?:iterativeAuditMode\s*:\s*["']single-pass["']|full-pipeline-single-pass-audit)/i
 
 const TYPE_ALIASES: Record<string, string> = {
   readfile: "readFile",

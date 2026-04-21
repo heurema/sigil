@@ -24,7 +24,7 @@ import {
 } from "../runtime/script-adapters/contract-dir.ts"
 import { runJsonScript, runTextScript, sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
-import { collectPiContractVerifyIssues, normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
+import { analyzePiContractForRuntime, normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
 import { emitSignumMessage, setSignumStatus } from "../ui.ts"
 
 interface ContractRunOptions {
@@ -55,6 +55,20 @@ interface ContractDocument {
 interface ContractReadResult {
   contract: ContractDocument | null
   errors: string[]
+}
+
+interface ContractValidationReport {
+  status: "ok" | "invalid"
+  source: "file" | "final-text" | "missing"
+  profile: {
+    kind: "default" | "meta-task"
+    matchedScopes: string[]
+  }
+  normalized: boolean
+  sanitizedVisibleVerifySteps: number
+  errors: string[]
+  warnings: string[]
+  checkedAt: string
 }
 
 interface SpecQuality {
@@ -319,18 +333,40 @@ export async function runContractPhase(
 async function salvageContractFromFinalText(projectRoot: string, finalText: string): Promise<ContractReadResult> {
   const extracted = extractJsonObject(finalText)
   if (!extracted) {
+    const errors = ["contractor final text did not contain a JSON object"]
+    await writeContractValidationReport(projectRoot, {
+      status: "invalid",
+      source: "final-text",
+      profile: { kind: "default", matchedScopes: [] },
+      normalized: false,
+      sanitizedVisibleVerifySteps: 0,
+      errors,
+      warnings: [],
+      checkedAt: toUtcTimestamp(),
+    })
     return {
       contract: null,
-      errors: ["contractor final text did not contain a JSON object"],
+      errors,
     }
   }
 
   try {
-    return await validateParsedContract(projectRoot, JSON.parse(extracted) as ContractDocument)
+    return await validateParsedContract(projectRoot, JSON.parse(extracted) as ContractDocument, "final-text")
   } catch {
+    const errors = ["contractor final text contained invalid JSON"]
+    await writeContractValidationReport(projectRoot, {
+      status: "invalid",
+      source: "final-text",
+      profile: { kind: "default", matchedScopes: [] },
+      normalized: false,
+      sanitizedVisibleVerifySteps: 0,
+      errors,
+      warnings: [],
+      checkedAt: toUtcTimestamp(),
+    })
     return {
       contract: null,
-      errors: ["contractor final text contained invalid JSON"],
+      errors,
     }
   }
 }
@@ -387,7 +423,7 @@ function buildContractValidationRetryPrompt(basePrompt: string, errors: string[]
 
 function formatContractValidationErrors(errors: string[]): string {
   if (errors.length === 0) return ""
-  return ` Deterministic validation errors: ${errors.slice(0, 8).join(" | ")}`
+  return ` Deterministic validation errors: ${errors.slice(0, 8).join(" | ")} | see .signum/contract_validation.json`
 }
 
 async function runContractor(
@@ -424,22 +460,49 @@ async function prepareWorkspace(projectRoot: string) {
 async function readAndValidateContract(projectRoot: string): Promise<ContractReadResult> {
   try {
     const raw = await readFile(resolve(projectRoot, ".signum/contract.json"), "utf8")
-    return await validateParsedContract(projectRoot, JSON.parse(raw) as ContractDocument)
+    return await validateParsedContract(projectRoot, JSON.parse(raw) as ContractDocument, "file")
   } catch {
+    const errors = [".signum/contract.json missing or unreadable"]
+    await writeContractValidationReport(projectRoot, {
+      status: "invalid",
+      source: "missing",
+      profile: { kind: "default", matchedScopes: [] },
+      normalized: false,
+      sanitizedVisibleVerifySteps: 0,
+      errors,
+      warnings: [],
+      checkedAt: toUtcTimestamp(),
+    })
     return {
       contract: null,
-      errors: [".signum/contract.json missing or unreadable"],
+      errors,
     }
   }
 }
 
-async function validateParsedContract(projectRoot: string, rawContract: ContractDocument): Promise<ContractReadResult> {
+async function validateParsedContract(
+  projectRoot: string,
+  rawContract: ContractDocument,
+  source: ContractValidationReport["source"],
+): Promise<ContractReadResult> {
   const parsed = normalizeContractForPiRuntime(rawContract)
+  const validation = analyzePiContractForRuntime(rawContract, parsed)
   const errors: string[] = []
   if (!isValidContract(parsed)) {
     errors.push("contract is missing required fields or has an invalid top-level shape")
   }
-  errors.push(...collectPiContractVerifyIssues(parsed))
+  errors.push(...validation.errors)
+
+  await writeContractValidationReport(projectRoot, {
+    status: errors.length === 0 ? "ok" : "invalid",
+    source,
+    profile: validation.profile,
+    normalized: true,
+    sanitizedVisibleVerifySteps: validation.sanitizedVisibleVerifySteps,
+    errors,
+    warnings: validation.warnings,
+    checkedAt: toUtcTimestamp(),
+  })
 
   if (errors.length > 0) {
     return {
@@ -777,6 +840,10 @@ async function writeEngineerContract(projectRoot: string, contract: ContractDocu
   }
 
   await writeJson(resolve(projectRoot, ".signum/contract-engineer.json"), engineerContract)
+}
+
+async function writeContractValidationReport(projectRoot: string, report: ContractValidationReport) {
+  await writeJson(resolve(projectRoot, ".signum/contract_validation.json"), report)
 }
 
 async function writeJson(path: string, value: unknown) {

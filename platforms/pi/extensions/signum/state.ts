@@ -29,6 +29,7 @@ const WORKING_SET_FILES = [
   ".signum/policy_scan.json",
   ".signum/spec_quality.json",
   ".signum/spec_validation.json",
+  ".signum/contract_validation.json",
   ".signum/repo_contract_baseline.json",
   ".signum/repo_contract_violations.json",
   ".signum/contract-hash.txt",
