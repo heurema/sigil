@@ -295,18 +295,19 @@ function isSanitizedAway(step: unknown): boolean {
   if (!step || typeof step !== "object") return false
   const record = step as Record<string, unknown>
   const type = typeof record.type === "string" ? record.type.toLowerCase().replace(/[-_]/g, "") : ""
+  const path = typeof record.path === "string" ? record.path : ""
 
-  if (type === "assertmatches") {
-    const path = typeof record.path === "string" ? record.path : ""
-    const pattern = typeof record.pattern === "string" ? record.pattern : ""
-    if (isBrittleShellEntrypointAssertion(path, pattern) || isBrittleShellHelperAssertion(path, pattern)) {
+  if (isShellHarnessPath(path)) {
+    const shellTexts = [
+      ...(typeof record.pattern === "string" ? [record.pattern] : []),
+      ...collectStepTexts(record),
+    ]
+    if (shellTexts.some((text) => isBrittleShellAssertion(path, text))) {
       return true
     }
   }
 
   if (!["assertnotcontains", "assertnotcontainsany"].includes(type)) return false
-
-  const path = typeof record.path === "string" ? record.path : ""
   if (!isImplementationSourcePath(path)) return false
 
   return collectStepTexts(record).some((text) => BRITTLE_SECRECY_PATTERN.test(text) || BRITTLE_LITERAL_PATTERN.test(text))
@@ -337,19 +338,45 @@ function isShellHarnessPath(path: string): boolean {
   return /\.sh$/i.test(path.replace(/^\.\//, ""))
 }
 
-function isBrittleShellEntrypointAssertion(path: string, pattern: string): boolean {
+function isBrittleShellAssertion(path: string, text: string): boolean {
   if (!isShellHarnessPath(path)) return false
-  const normalized = pattern
-    .replace(/\\\//g, "/")
-    .replace(/\\\./g, ".")
-    .toLowerCase()
-  return normalized.includes("pi") && normalized.includes("--no-extensions") && normalized.includes("platforms/pi/extensions/signum/index")
+  const normalized = normalizeShellAssertionText(text)
+  return (
+    isBrittleShellEntrypointAssertion(normalized)
+    || isBrittleShellHelperPathAssertion(normalized)
+    || isBrittleShellHelperAssertion(normalized)
+    || isBrittleShellCopyMechanismAssertion(normalized)
+  )
 }
 
-function isBrittleShellHelperAssertion(path: string, pattern: string): boolean {
-  if (!isShellHarnessPath(path)) return false
-  const normalized = pattern.toLowerCase()
+function isBrittleShellEntrypointAssertion(normalized: string): boolean {
+  return normalized.includes("pi") && normalized.includes("--no-extensions") && (
+    normalized.includes("platforms/pi/extensions/signum/index")
+    || /\$(?:\{)?ext(?:_rel|_copy)?\b/.test(normalized)
+  )
+}
+
+function isBrittleShellHelperPathAssertion(normalized: string): boolean {
+  return normalized.includes("platforms/pi/extensions/signum/index") && /\bext(?:_rel|_copy)?\s*=/.test(normalized)
+}
+
+function isBrittleShellHelperAssertion(normalized: string): boolean {
   return (normalized.includes("python3") || normalized.includes("jq")) && normalized.includes("json")
+}
+
+function isBrittleShellCopyMechanismAssertion(normalized: string): boolean {
+  return /\bcp\s+-r\b/.test(normalized)
+    || /\brsync\b/.test(normalized)
+    || (/\btar\b/.test(normalized) && (normalized.includes("|") || normalized.includes("-cf") || normalized.includes("-xf")))
+}
+
+function normalizeShellAssertionText(text: string): string {
+  return text
+    .replace(/\\\//g, "/")
+    .replace(/\\\./g, ".")
+    .replace(/\\\$/g, "$")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
 }
 
 function extractPathCandidates(text: string): string[] {
