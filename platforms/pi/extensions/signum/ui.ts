@@ -20,7 +20,8 @@ const signumProgressState = new WeakMap<ExtensionCommandContext, SignumProgressS
 const SIGNUM_RECENT_EVENT_LIMIT = 5
 const SIGNUM_PROGRESS_WIDGET_ID = "signum-progress"
 const SIGNUM_PIPELINE_PHASES = ["CONTRACT", "EXECUTE", "AUDIT", "PACK"] as const
-const SIGNUM_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸"] as const
+const SIGNUM_SPINNER_FRAMES = ["|", "/", "-", "\\"] as const
+const SIGNUM_SPINNER_INTERVAL_MS = 150
 
 export function setSignumStatus(ctx: ExtensionCommandContext, text?: string) {
   if (!ctx.hasUI) return
@@ -75,7 +76,7 @@ export function startSignumHeartbeat(
   ctx: ExtensionCommandContext,
   phase: string,
   milestone: string,
-  intervalMs = 15_000,
+  intervalMs = SIGNUM_SPINNER_INTERVAL_MS,
 ): SignumHeartbeatController {
   if (!ctx.hasUI) {
     return { stop() {} }
@@ -85,6 +86,7 @@ export function startSignumHeartbeat(
   const setHeartbeatStatus = () => {
     const state = signumProgressState.get(ctx)
     if (!state) return
+    state.frameIndex = (state.frameIndex + 1) % SIGNUM_SPINNER_FRAMES.length
     renderSignumProgress(ctx)
   }
 
