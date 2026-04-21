@@ -9,9 +9,9 @@
 #
 # Options:
 #   --workspace-root PATH       Workspace root to inspect (default: $PWD)
-#   --signum-dir PATH           Signum artifact dir (default: .signum)
-#   --contract PATH             Engineer-visible contract (default: .signum/contract-engineer.json)
-#   --contract-full PATH        Full contract (default: .signum/contract.json)
+#   --signum-dir PATH           Signum artifact dir (default: active contract root from .signum/contracts/index.json, else .signum)
+#   --contract PATH             Engineer-visible contract (default: <signum-dir>/contract-engineer.json)
+#   --contract-full PATH        Full contract (default: <signum-dir>/contract.json)
 #   --snapshot PATH             Snapshot JSON from snapshot-tree.sh
 #   --execution-context PATH    Execution context JSON
 #   --artifacts CSV             Artifact names under signum dir (default: combined.patch,execute_log.json)
@@ -26,7 +26,7 @@ else
 fi
 
 WORKSPACE_ROOT="$PWD"
-SIGNUM_DIR=".signum"
+SIGNUM_DIR=""
 CONTRACT_ENGINEER=""
 CONTRACT_FULL=""
 SNAPSHOT_JSON=""
@@ -74,6 +74,22 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "boundary-verifier.sh: jq not found" >&2
   exit 1
 fi
+
+resolve_default_signum_dir() {
+  local workspace_root="$1"
+  local index_path="$workspace_root/.signum/contracts/index.json"
+  local active_id=""
+
+  if [[ -f "$index_path" ]]; then
+    active_id="$(jq -r '.activeContractId // empty' "$index_path" 2>/dev/null || true)"
+    if [[ -n "$active_id" && -d "$workspace_root/.signum/contracts/$active_id" ]]; then
+      printf '%s\n' "$workspace_root/.signum/contracts/$active_id"
+      return 0
+    fi
+  fi
+
+  printf '%s\n' "$workspace_root/.signum"
+}
 
 hash_file() {
   local path="$1"
@@ -195,6 +211,9 @@ classify_verify_strength() {
 }
 
 ABS_WORKSPACE=$(CDPATH= cd "$WORKSPACE_ROOT" && pwd)
+if [[ -z "$SIGNUM_DIR" ]]; then
+  SIGNUM_DIR="$(resolve_default_signum_dir "$ABS_WORKSPACE")"
+fi
 if [[ "$SIGNUM_DIR" = /* ]]; then
   ABS_SIGNUM_DIR="$SIGNUM_DIR"
 else

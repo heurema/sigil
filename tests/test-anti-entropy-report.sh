@@ -51,9 +51,15 @@ assert_pass "reporter is executable after chmod" chmod +x "$REPORTER"
 
 setup_clean_project() {
   local dir="$1"
-  mkdir -p "$dir/.signum" "$dir/docs"
+  local contract_id="sig-20260410-1000-test"
+  local artifact_root="$dir/.signum/contracts/$contract_id"
+  mkdir -p "$artifact_root" "$dir/.signum/contracts" "$dir/docs"
 
-  cat > "$dir/.signum/contract.json" <<'EOF'
+  cat > "$dir/.signum/contracts/index.json" <<EOF
+{"activeContractId":"$contract_id","contracts":[{"contractId":"$contract_id","status":"auditing","directory":".signum/contracts/$contract_id"}]}
+EOF
+
+  cat > "$artifact_root/contract.json" <<'EOF'
 {
   "schemaVersion": "3.8",
   "contractId": "sig-1",
@@ -78,7 +84,7 @@ setup_clean_project() {
 }
 EOF
 
-  cat > "$dir/.signum/proofpack.json" <<'EOF'
+  cat > "$artifact_root/proofpack.json" <<'EOF'
 {
   "schemaVersion": "4.7",
   "signumVersion": "4.19.1",
@@ -141,7 +147,7 @@ modules:
     name: ghost
     status: removed
 EOF
-cat > "$DIRTY/.signum/proofpack.json" <<'EOF'
+cat > "$DIRTY/.signum/contracts/sig-20260410-1000-test/proofpack.json" <<'EOF'
 {
   "schemaVersion": "4.7",
   "signumVersion": "4.19.1",
@@ -216,10 +222,19 @@ assert_contains "metric_regression category imported" "$(echo "$IMPORTED_OUT" | 
 
 echo ""
 echo "=== Output file ==="
-OUT_FILE="$WORK/report.json"
-assert_pass "reporter writes output file" "$REPORTER" --project-root "$CLEAN" --as-of 2026-04-10 --output "$OUT_FILE"
+OUT_FILE="$CLEAN/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json"
+assert_pass "reporter writes output file in canonical artifact root" "$REPORTER" --project-root "$CLEAN" --as-of 2026-04-10 --output "$OUT_FILE"
 assert_pass "output file created" test -f "$OUT_FILE"
 assert_equals "output file content is ok status" "$(jq -r '.status' "$OUT_FILE")" "ok"
+
+echo ""
+echo "=== Output path infers canonical inputs ==="
+OUTPUT_ONLY="$WORK/output-only"
+setup_clean_project "$OUTPUT_ONLY"
+OUTPUT_ONLY_PATH="$OUTPUT_ONLY/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json"
+assert_pass "reporter succeeds with only output path under canonical dir" "$REPORTER" --project-root "$OUTPUT_ONLY" --as-of 2026-04-10 --output "$OUTPUT_ONLY_PATH"
+assert_pass "output-only report written" test -f "$OUTPUT_ONLY_PATH"
+assert_equals "output-only report status ok" "$(jq -r '.status' "$OUTPUT_ONLY_PATH")" "ok"
 
 echo ""
 echo "=== Results ==="

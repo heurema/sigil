@@ -93,7 +93,7 @@ Add a project-level layer above task contracts:
   - decision rationale
 - existing `repo-contract.json`
   - executable repo-wide invariants
-- existing task `.signum/contract.json`
+- existing task `.signum/contracts/<contractId>/contract.json`
   - narrow executable slice
 
 ### 4.2 Contract inheritance

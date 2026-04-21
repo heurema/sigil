@@ -159,11 +159,17 @@ git commit -m "feat: contractor reads project.intent.md, sets contextInheritance
 
 Step 1.2 validates `schemaVersion, goal, inScope, acceptanceCriteria, riskLevel`. `contextInheritance` is optional — existing validation passes without it. No code change needed, but confirm by reading the validation jq command (~line 389) to verify it won't reject contracts with unknown fields.
 
+Assume the active contract artifact root is already resolved and these canonical paths are available in the orchestration snippets below:
+```bash
+CONTRACT_PATH="$ARTIFACT_ROOT/contract.json"
+INTENT_CHECK_PATH="$ARTIFACT_ROOT/intent_check.json"
+```
+
 - [ ] **Step 1: Add intent_check.json to setup cleanup list**
 
-Find the `rm -f` block in setup cleanup (~line 355) and add `.signum/intent_check.json`:
+Find the setup cleanup block (~line 355 in the original draft) and add the canonical intent-check artifact:
 ```bash
-       .signum/intent_check.json \
+       "$INTENT_CHECK_PATH" \
 ```
 
 - [ ] **Step 2: Add intent_check.json to archive mode purge list**
@@ -218,8 +224,8 @@ After Step 1.3.5 (spec quality gate + prose check) and before Step 1.3.7 (multi-
 Check if contract has a project intent reference:
 
 ```bash
-PROJECT_REF=$(jq -r '.contextInheritance.projectRef // "absent"' .signum/contract.json)
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
+PROJECT_REF=$(jq -r '.contextInheritance.projectRef // "absent"' "$CONTRACT_PATH")
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
 if [ "$RISK" = "low" ] || [ "$PROJECT_REF" = "absent" ] || [ "$PROJECT_REF" = "null" ] || [ "$PROJECT_REF" = "not_found" ]; then
   echo "Intent alignment check: skipped (risk=$RISK, projectRef=$PROJECT_REF)"
 else
@@ -256,7 +262,7 @@ Output JSON only:
 Parse the subagent response as JSON. If parsing fails, write safe default:
 `{"aligned": null, "concerns": [], "glossary_violations": [], "parse_error": true}`
 
-Write result to `.signum/intent_check.json`.
+Write result to `$INTENT_CHECK_PATH`.
 ````
 
 - [ ] **Step 2: Commit**
@@ -288,14 +294,14 @@ Find Step 1.4 display section (~line 836, after riskSignals display). Add:
 
 ```bash
 # Show project intent status
-if jq -e '.contextInheritance.projectRef' .signum/contract.json >/dev/null 2>&1; then
-  PROJECT_REF=$(jq -r '.contextInheritance.projectRef' .signum/contract.json)
+if jq -e '.contextInheritance.projectRef' "$CONTRACT_PATH" >/dev/null 2>&1; then
+  PROJECT_REF=$(jq -r '.contextInheritance.projectRef' "$CONTRACT_PATH")
   if [ "$PROJECT_REF" = "not_found" ]; then
     echo "Project intent: not found (low risk, continued)"
   else
     echo "Project intent: $PROJECT_REF (loaded)"
   fi
-elif jq -e '.contextInheritance | has("projectRef")' .signum/contract.json >/dev/null 2>&1; then
+elif jq -e '.contextInheritance | has("projectRef")' "$CONTRACT_PATH" >/dev/null 2>&1; then
   echo "Project intent: waived by user"
 fi
 ```
@@ -306,20 +312,20 @@ After clover results display, add:
 
 ```bash
 # Show intent alignment results
-if [ -f .signum/intent_check.json ]; then
-  ALIGNED=$(jq -r '.aligned // "null"' .signum/intent_check.json)
-  PARSE_ERR=$(jq -r '.parse_error // false' .signum/intent_check.json)
-  CONCERNS=$(jq -r '.concerns | length' .signum/intent_check.json)
+if [ -f "$INTENT_CHECK_PATH" ]; then
+  ALIGNED=$(jq -r '.aligned // "null"' "$INTENT_CHECK_PATH")
+  PARSE_ERR=$(jq -r '.parse_error // false' "$INTENT_CHECK_PATH")
+  CONCERNS=$(jq -r '.concerns | length' "$INTENT_CHECK_PATH")
   if [ "$PARSE_ERR" = "true" ] || [ "$ALIGNED" = "null" ]; then
     echo "Intent alignment: skipped (check failed)"
   elif [ "$ALIGNED" = "false" ] || [ "$CONCERNS" -gt 0 ]; then
     echo ""
     echo "--- Intent alignment WARNING ---"
-    jq -r '.concerns[]' .signum/intent_check.json | sed 's/^/  - /'
-    GLOSSARY_V=$(jq -r '.glossary_violations | length' .signum/intent_check.json)
+    jq -r '.concerns[]' "$INTENT_CHECK_PATH" | sed 's/^/  - /'
+    GLOSSARY_V=$(jq -r '.glossary_violations | length' "$INTENT_CHECK_PATH")
     if [ "$GLOSSARY_V" -gt 0 ]; then
       echo "Glossary violations:"
-      jq -r '.glossary_violations[]' .signum/intent_check.json | sed 's/^/  - /'
+      jq -r '.glossary_violations[]' "$INTENT_CHECK_PATH" | sed 's/^/  - /'
     fi
   else
     echo "Intent alignment: OK"

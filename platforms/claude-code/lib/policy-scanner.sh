@@ -2,18 +2,24 @@
 # policy-scanner.sh -- deterministic policy scan on combined.patch (zero LLM cost)
 # Scans only addition lines (+) in the patch for security, unsafe, and dependency patterns.
 # Usage: policy-scanner.sh <patch_file>
-# Output: .signum/policy_scan.json
+# Output: <patch_dir>/policy_scan.json
 # Exit 0: scan complete (findings may be empty)
 # Exit 1: fatal error (missing tools, missing patch file — writes JSON error + exits non-zero)
 
 set -euo pipefail
 
 PATCH_FILE="${1:-}"
+OUTPUT_DIR=""
+OUTPUT_PATH=""
 
 if [ -z "$PATCH_FILE" ]; then
   echo "Usage: policy-scanner.sh <patch_file>" >&2
   exit 1
 fi
+
+OUTPUT_DIR=$(dirname "$PATCH_FILE")
+[ -n "$OUTPUT_DIR" ] || OUTPUT_DIR="."
+OUTPUT_PATH="${OUTPUT_DIR}/policy_scan.json"
 
 if ! command -v jq > /dev/null 2>&1; then
   echo "ERROR: jq not found" >&2
@@ -22,10 +28,10 @@ fi
 
 if [ ! -f "$PATCH_FILE" ]; then
   echo "ERROR: policy-scanner.sh: patch file not found: $PATCH_FILE" >&2
-  mkdir -p .signum
+  mkdir -p "$OUTPUT_DIR"
   jq -n --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg pf "$PATCH_FILE" \
     '{scannedAt:$ts, patchFile:$pf, error:"missing_combined_patch", findings:[], summaryCounts:{critical:0,major:0,minor:0,total:0}}' \
-    > .signum/policy_scan.json
+    > "$OUTPUT_PATH"
   exit 1
 fi
 
@@ -184,7 +190,7 @@ jq -n \
     patchFile: $patchFile,
     findings: $findings,
     summaryCounts: $summaryCounts
-  }' > .signum/policy_scan.json
+  }' > "$OUTPUT_PATH"
 
 TOTAL=$(echo "$COUNTS" | jq -r '.total')
 CRITICAL=$(echo "$COUNTS" | jq -r '.critical')

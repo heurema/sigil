@@ -197,7 +197,7 @@ Output JSON:
 Parse the subagent response as JSON. If parsing fails (malformed output), write:
 `{"aligned": null, "concerns": [], "glossary_violations": [], "parse_error": true}`.
 Note: `aligned: null` (not true) — so display shows "skipped" rather than false "OK".
-Write result to `.signum/intent_check.json`.
+Assume `CONTRACT_PATH="$ARTIFACT_ROOT/contract.json"` and `INTENT_CHECK_PATH="$ARTIFACT_ROOT/intent_check.json"` are already available, then write the result to `$INTENT_CHECK_PATH`.
 
 **Display in Step 1.4:** If `aligned=false` or concerns non-empty:
 ```
@@ -214,20 +214,20 @@ This is informational — does NOT block the pipeline.
 
 Add after risk signals display:
 ```bash
-if [ -f .signum/intent_check.json ]; then
-  ALIGNED=$(jq -r '.aligned // "null"' .signum/intent_check.json)
-  PARSE_ERR=$(jq -r '.parse_error // false' .signum/intent_check.json)
-  CONCERNS=$(jq -r '.concerns | length' .signum/intent_check.json)
+if [ -f "$INTENT_CHECK_PATH" ]; then
+  ALIGNED=$(jq -r '.aligned // "null"' "$INTENT_CHECK_PATH")
+  PARSE_ERR=$(jq -r '.parse_error // false' "$INTENT_CHECK_PATH")
+  CONCERNS=$(jq -r '.concerns | length' "$INTENT_CHECK_PATH")
   if [ "$PARSE_ERR" = "true" ] || [ "$ALIGNED" = "null" ]; then
     echo "Intent alignment: skipped (check failed)"
   elif [ "$ALIGNED" = "false" ] || [ "$CONCERNS" -gt 0 ]; then
     echo ""
     echo "--- Intent alignment WARNING ---"
-    jq -r '.concerns[]' .signum/intent_check.json | sed 's/^/  - /'
-    GLOSSARY_V=$(jq -r '.glossary_violations | length' .signum/intent_check.json)
+    jq -r '.concerns[]' "$INTENT_CHECK_PATH" | sed 's/^/  - /'
+    GLOSSARY_V=$(jq -r '.glossary_violations | length' "$INTENT_CHECK_PATH")
     if [ "$GLOSSARY_V" -gt 0 ]; then
       echo "Glossary violations:"
-      jq -r '.glossary_violations[]' .signum/intent_check.json | sed 's/^/  - /'
+      jq -r '.glossary_violations[]' "$INTENT_CHECK_PATH" | sed 's/^/  - /'
     fi
   else
     echo "Intent alignment: OK"
@@ -238,14 +238,14 @@ fi
 Also show projectRef in contract summary:
 ```bash
 # Use jq -e to test for null explicitly (jq -r turns null into "null" string)
-if jq -e '.contextInheritance.projectRef' .signum/contract.json >/dev/null 2>&1; then
-  PROJECT_REF=$(jq -r '.contextInheritance.projectRef' .signum/contract.json)
+if jq -e '.contextInheritance.projectRef' "$CONTRACT_PATH" >/dev/null 2>&1; then
+  PROJECT_REF=$(jq -r '.contextInheritance.projectRef' "$CONTRACT_PATH")
   if [ "$PROJECT_REF" = "not_found" ]; then
     echo "Project intent: not found (low risk, continued)"
   else
     echo "Project intent: $PROJECT_REF (loaded)"
   fi
-elif jq -e '.contextInheritance | has("projectRef")' .signum/contract.json >/dev/null 2>&1; then
+elif jq -e '.contextInheritance | has("projectRef")' "$CONTRACT_PATH" >/dev/null 2>&1; then
   # projectRef exists but is null → waiver
   echo "Project intent: waived by user"
 fi
@@ -271,7 +271,7 @@ The redacted contract already includes it via the updated whitelist above.
 
 ### Cleanup list
 
-Add `.signum/intent_check.json` to:
+Add `intent_check.json` under the active contract artifact root to:
 - Archive mode cleanup (transient, discard — not copied to archive dir)
 - Setup cleanup (rm at pipeline start)
 - Per-contract directory intermediate purge (archive command)

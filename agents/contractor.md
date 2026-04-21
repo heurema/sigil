@@ -174,7 +174,7 @@ You receive:
    - Validate: removal paths must exist (for files/dirs being removed), no overlap with `inScope` paths
    - If `modules.yaml` exists, add obligation to update module status in `modules.yaml`
 4. **Generate contract.json** with:
-   - `contractId`: unique identifier in format `sig-YYYYMMDD-<4char-hash>` where YYYYMMDD is the UTC date and the 4-char hash is the first 4 hex characters of the SHA-1 of the goal string. Example: `sig-20260313-a7f2`
+   - `contractId`: include a provisional unique identifier. Preferred format is `sig-YYYYMMDD-HHMM-<4char-token>`, for example `sig-20260313-1000-a7f2`. The runtime may normalize this to its canonical format before execution.
    - `status`: always set to `"draft"` when generating a new contract
    - `timestamps`: object with `createdAt` set to the current UTC datetime in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ), e.g. `"2026-03-13T10:00:00Z"`
    - `schemaVersion`: always `"3.8"` for new contracts
@@ -225,11 +225,15 @@ You receive:
    - All inScope paths must exist (or be new files to create)
    - All verify blocks must use valid DSL step types
    - At least 1 acceptance criterion
-7. **Write** contract to `.signum/contract.json`
+7. **Write** contract to the canonical artifact root provided by the orchestrator
 
 ## Output
 
-Write `.signum/contract.json` following the schema at `lib/schemas/contract.schema.json`.
+Write `contract.json` under the canonical active contract root provided by the orchestrator, following the schema at `lib/schemas/contract.schema.json`.
+
+If both paths are shown to you:
+- canonical path under `.signum/contracts/<contractId>/` is the source of truth
+- `.signum/contract.json` is only a compatibility view pointing at that canonical file
 
 If you have unresolvable questions (can't determine scope, ambiguous requirement, missing context), set `openQuestions` to a non-empty array and `requiredInputsProvided` to false. The orchestrator will HARD STOP and ask the user.
 
@@ -238,7 +242,7 @@ If you have unresolvable questions (can't determine scope, ambiguous requirement
 You have a limited number of turns. Prioritize writing the contract over exhaustive scanning.
 
 - **Discovery budget**: spend at most 1 structural sweep (Glob/tree) + 3 targeted file reads. Do NOT read every file in scope.
-- **Write deadline**: you MUST call Write for `.signum/contract.json` by turn 10. If uncertain about details, write a blocked contract with `openQuestions` and `requiredInputsProvided: false` rather than continuing to scan.
+- **Write deadline**: you MUST call Write for canonical `contract.json` by turn 10. If uncertain about details, write a blocked contract with `openQuestions` and `requiredInputsProvided: false` rather than continuing to scan.
 - **Never finish without Write**: if you reach your last turn without having written contract.json, immediately write the best contract you have, even if incomplete. An incomplete contract is recoverable; a missing contract is a pipeline failure.
 - **Low-risk shortcut**: for low-risk contracts (< 5 files, 1 language), skip step 3.6 (self-critique) entirely and write immediately after validation.
 

@@ -5,18 +5,26 @@
 # Structured JSON output for ruff (--output-format json) and eslint (-f json).
 # Parseable text patterns for pytest/cargo test (origin:stable_text).
 # Usage: mechanic-parser.sh <baseline_json_path>
-# Output: .signum/mechanic_report.json
+# Output: <baseline_dir>/mechanic_report.json
 # Exit 0: report written (checks may have regressions — that is not a fatal error)
 # Exit 1: fatal error (missing jq, missing baseline file)
 
 set -uo pipefail
 
 BASELINE_FILE="${1:-}"
+OUTPUT_DIR=""
+MECHANIC_REPORT_PATH=""
+FLAKY_TESTS_PATH=""
 
 if [ -z "$BASELINE_FILE" ]; then
   echo "Usage: mechanic-parser.sh <baseline_json_path>" >&2
   exit 1
 fi
+
+OUTPUT_DIR=$(dirname "$BASELINE_FILE")
+[ -n "$OUTPUT_DIR" ] || OUTPUT_DIR="."
+MECHANIC_REPORT_PATH="${OUTPUT_DIR}/mechanic_report.json"
+FLAKY_TESTS_PATH="${OUTPUT_DIR}/flaky_tests.json"
 
 if ! command -v jq > /dev/null 2>&1; then
   echo "ERROR: jq not found" >&2
@@ -28,7 +36,7 @@ if [ ! -f "$BASELINE_FILE" ]; then
   exit 1
 fi
 
-mkdir -p .signum
+mkdir -p "$OUTPUT_DIR"
 
 # ---------------------------------------------------------------------------
 # Read baseline exit codes
@@ -183,7 +191,7 @@ if [ -f "pyproject.toml" ] && grep -q "pytest" pyproject.toml 2>/dev/null; then
   # Persist flaky tests
   jq -n --argjson flaky "$FLAKY_TESTS" \
     '{"detectedAt": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'", "flakyTests": $flaky}' \
-    > .signum/flaky_tests.json
+    > "$FLAKY_TESTS_PATH"
   if [ "$(echo "$FLAKY_TESTS" | jq 'length')" -gt 0 ]; then
     echo "Flaky tests detected (removed from NEW_FAILURES): $(echo "$FLAKY_TESTS" | jq -r '.[]' | tr '\n' ' ')"
   fi
@@ -394,6 +402,6 @@ jq -n \
                  regression: (if ($new_failures | length) > 0 then true
                               elif $bl_test == 0 and $test_exit != 0 then true
                               else false end) }
-  }' > .signum/mechanic_report.json
+  }' > "$MECHANIC_REPORT_PATH"
 
 echo "Mechanic done. Lint=${LINT_ID}:${LINT_EXIT}(bl:${BL_LINT}) Typecheck=${TYPE_ID}:${TYPE_EXIT}(bl:${BL_TYPE}) Tests=${TEST_ID}:${TEST_EXIT}(bl:${BL_TEST})"

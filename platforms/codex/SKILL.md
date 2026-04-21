@@ -76,26 +76,31 @@ Treat `network_error`, `timeout`, and `server_error` as degraded audit coverage,
 2. If the contract is vague, stop and improve it before coding.
 3. The implementation should be checked against deterministic criteria, not just model opinion.
 4. Separate implementation context from audit context when possible.
-5. Keep all pipeline artifacts in `.signum/`.
+5. Keep pipeline artifacts under the active contract artifact root `.signum/contracts/<contractId>/`. Treat root `.signum/` as registry/state plus compatibility views.
 6. If the pipeline cannot verify a claim, say so explicitly.
 7. If the task is too small for the full pipeline, reduce scope but keep the contract-first principle.
 
 ## Artifact Layout
 
-Create and use:
+Create and use the active contract artifact root:
 
-- `.signum/contract.json`
-- `.signum/contract-engineer.json`
-- `.signum/contract-policy.json`
-- `.signum/baseline.json`
-- `.signum/execute_log.json`
-- `.signum/combined.patch`
-- `.signum/mechanic_report.json`
-- `.signum/audit_summary.json`
-- `.signum/proofpack.json`
-- `.signum/reviews/`
+- `.signum/contracts/<contractId>/`
+- `.signum/contracts/index.json.activeContractId`
 
-Also ensure `.signum/` is ignored by git when appropriate.
+Within that active contract root, create and use:
+
+- `contract.json`
+- `contract-engineer.json`
+- `contract-policy.json`
+- `baseline.json`
+- `execute_log.json`
+- `combined.patch`
+- `mechanic_report.json`
+- `audit_summary.json`
+- `proofpack.json`
+- `reviews/`
+
+Also ensure root `.signum/` is ignored by git when appropriate.
 
 ## Phase 1: CONTRACT
 
@@ -162,9 +167,9 @@ Goal: implement against the contract, not against a vague prompt.
 
 Before coding:
 
-1. Capture baseline checks into `.signum/baseline.json`
-2. Derive a reduced implementation contract in `.signum/contract-engineer.json`
-3. Derive an execution policy in `.signum/contract-policy.json`
+1. Capture baseline checks into `baseline.json` under the active contract artifact root
+2. Derive a reduced implementation contract in `contract-engineer.json` under the active contract artifact root
+3. Derive an execution policy in `contract-policy.json` under the active contract artifact root
 
 The policy should restrict:
 
@@ -181,7 +186,7 @@ Implementation rules:
 4. If verification fails, attempt targeted repair.
 5. Stop after bounded repair attempts instead of thrashing.
 
-Record attempts and outcomes in `.signum/execute_log.json`.
+Record attempts and outcomes in `execute_log.json` under the active contract artifact root.
 
 ## Phase 3: AUDIT
 
@@ -258,7 +263,7 @@ Do not upgrade to `AUTO_OK` if the audit coverage was materially reduced by exte
 
 ## Resume Behavior
 
-If `.signum/contract.json` or other pipeline artifacts already exist:
+If `contracts/index.json.activeContractId` or other pipeline artifacts already exist:
 
 1. Inspect what phases are complete.
 2. Resume from the first incomplete phase when safe.

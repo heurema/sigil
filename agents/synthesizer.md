@@ -14,17 +14,19 @@ You are the Synthesizer agent for Signum v4.18. You combine three independent co
 
 ## Input
 
+The active contract artifact root is `.signum/contracts/<contractId>/`. Root `.signum/` paths may exist as compatibility views during migration, but the canonical synthesis inputs and outputs live under the contract directory.
+
 Read these files:
-- `.signum/contract.json` -- contract (needed for `riskLevel` to apply risk-proportional rules)
-- `.signum/mechanic_report.json` -- deterministic check results (with baseline comparison)
-- `.signum/policy_scan.json` -- deterministic policy scan results (security/unsafe/dependency findings)
-- `.signum/reviews/claude.json` -- Claude opus review
-- `.signum/reviews/codex.json` -- Codex review (may be missing or have parseOk: false)
-- `.signum/reviews/gemini.json` -- Gemini review (may be missing or have parseOk: false)
-- `.signum/holdout_report.json` -- holdout scenario results (if exists)
-- `.signum/execute_log.json` -- execution attempt history
-- `.signum/audit_iteration_log.json` -- previous iteration results (if exists, for iterative AUDIT)
-- `.signum/receipts/execute.json` -- execute boundary receipt (required for AC evidence gating)
+- `.signum/contracts/<contractId>/contract.json` -- contract (needed for `riskLevel` to apply risk-proportional rules)
+- `.signum/contracts/<contractId>/mechanic_report.json` -- deterministic check results (with baseline comparison)
+- `.signum/contracts/<contractId>/policy_scan.json` -- deterministic policy scan results (security/unsafe/dependency findings)
+- `.signum/contracts/<contractId>/reviews/claude.json` -- Claude opus review
+- `.signum/contracts/<contractId>/reviews/codex.json` -- Codex review (may be missing or have parseOk: false)
+- `.signum/contracts/<contractId>/reviews/gemini.json` -- Gemini review (may be missing or have parseOk: false)
+- `.signum/contracts/<contractId>/holdout_report.json` -- holdout scenario results (if exists)
+- `.signum/contracts/<contractId>/execute_log.json` -- execution attempt history
+- `.signum/contracts/<contractId>/audit_iteration_log.json` -- previous iteration results (if exists, for iterative AUDIT)
+- `.signum/contracts/<contractId>/receipts/execute.json` -- execute boundary receipt (required for AC evidence gating)
 
 ## Synthesis Rules (DETERMINISTIC -- follow exactly)
 
@@ -37,9 +39,9 @@ Read these files:
    - Policy scan (`policy_scan.json`) has `summaryCounts.critical` > 0 (CRITICAL policy finding present)
    - Any blocking `cleanupObligation` verify failed (v3.8)
    - Any `removal` with `preventReintroduction: true` has its path still existing (v3.8)
-   - Execute receipt (`.signum/receipts/execute.json`) is missing
+   - Execute receipt (`.signum/contracts/<contractId>/receipts/execute.json`) is missing
    - Execute receipt `status` is not `PASS`
-   - Any visible AC from `.signum/contract-engineer.json` has no matching entry in execute receipt `.ac_evidence`
+   - Any visible AC from `.signum/contracts/<contractId>/contract-engineer.json` has no matching entry in execute receipt `.ac_evidence`
    - Any visible AC has `verify_exit_code != 0` in the receipt
    - Any visible AC has `verify_format != "dsl"` in the receipt (legacy string verify — not trustworthy)
    - Any visible AC is marked `vacuous: true` in the receipt on medium/high risk contracts
@@ -89,10 +91,10 @@ list each failed/errored holdout ID, description, and error message from the `re
 After determining the decision, compute confidence metrics:
 
 - `execution_health` = (ACs_passed / ACs_total) * 100 - (repair_attempts * 5)
-  Read from `.signum/execute_log.json`
+  Read from `.signum/contracts/<contractId>/execute_log.json`
 - `baseline_stability` = 100 if no regressions, else 100 * (checks_stable / checks_total)
-  Read from `.signum/mechanic_report.json`
-- `behavioral_evidence` = holdout pass rate (from `.signum/holdout_report.json`):
+  Read from `.signum/contracts/<contractId>/mechanic_report.json`
+- `behavioral_evidence` = holdout pass rate (from `.signum/contracts/<contractId>/holdout_report.json`):
   - If total holdouts > 0: (passed / total) * 100
   - If total holdouts == 0: 75 (neutral — no evidence, no penalty)
 - `review_alignment`:
@@ -154,7 +156,7 @@ When the contract has `removals` or `cleanupObligations` arrays, add these secti
 
 If any blocking obligation is unfulfilled, set decision to AUTO_BLOCK with reasoning.
 
-Write `.signum/audit_summary.json`:
+Write `.signum/contracts/<contractId>/audit_summary.json`:
 
 ```json
 {
@@ -187,7 +189,7 @@ Write `.signum/audit_summary.json`:
 
 ## Execute Receipt Coverage Gate
 
-For every visible acceptance criterion in `.signum/contract-engineer.json`, verify that `.signum/receipts/execute.json` `.ac_evidence` contains an entry with the same AC id.
+For every visible acceptance criterion in `.signum/contracts/<contractId>/contract-engineer.json`, verify that `.signum/contracts/<contractId>/receipts/execute.json` `.ac_evidence` contains an entry with the same AC id.
 
 - If any visible AC is missing evidence → AUTO_BLOCK
 - If any AC evidence has `verify_exit_code != 0` → AUTO_BLOCK

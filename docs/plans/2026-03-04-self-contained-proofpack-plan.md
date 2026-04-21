@@ -157,28 +157,41 @@ file_size() {
 }
 
 # Metadata
-DECISION=$(jq -r '.decision' .signum/audit_summary.json)
-GOAL=$(jq -r '.goal' .signum/contract.json)
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
-ATTEMPTS=$(jq -r '.totalAttempts' .signum/execute_log.json 2>/dev/null || echo "unknown")
-MECHANIC=$(jq -r '.mechanic' .signum/audit_summary.json)
-CONFIDENCE=$(jq -r '.confidence.overall // 0' .signum/audit_summary.json)
+ARTIFACT_ROOT=".signum/contracts/<contractId>"
+CONTRACT_PATH="$ARTIFACT_ROOT/contract.json"
+AUDIT_SUMMARY_PATH="$ARTIFACT_ROOT/audit_summary.json"
+EXECUTE_LOG_PATH="$ARTIFACT_ROOT/execute_log.json"
+BASELINE_PATH="$ARTIFACT_ROOT/baseline.json"
+MECHANIC_REPORT_PATH="$ARTIFACT_ROOT/mechanic_report.json"
+HOLDOUT_REPORT_PATH="$ARTIFACT_ROOT/holdout_report.json"
+COMBINED_PATCH_PATH="$ARTIFACT_ROOT/combined.patch"
+CONTRACT_HASH_PATH="$ARTIFACT_ROOT/contract-hash.txt"
+EXECUTION_CONTEXT_PATH="$ARTIFACT_ROOT/execution_context.json"
+REVIEWS_DIR="$ARTIFACT_ROOT/reviews"
+PROOFPACK_PATH="$ARTIFACT_ROOT/proofpack.json"
+
+DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
+GOAL=$(jq -r '.goal' "$CONTRACT_PATH")
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
+ATTEMPTS=$(jq -r '.totalAttempts' "$EXECUTE_LOG_PATH" 2>/dev/null || echo "unknown")
+MECHANIC=$(jq -r '.mechanic' "$AUDIT_SUMMARY_PATH")
+CONFIDENCE=$(jq -r '.confidence.overall // 0' "$AUDIT_SUMMARY_PATH")
 RUN_DATE=$(date +%Y-%m-%d)
 RUN_RANDOM=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
 RUN_ID="signum-${RUN_DATE}-${RUN_RANDOM}"
 CREATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Audit chain
-CONTRACT_HASH=$(grep 'contract_sha256:' .signum/contract-hash.txt 2>/dev/null | awk '{print $2}' || echo "unavailable")
-APPROVED_AT=$(grep 'approved_at:' .signum/contract-hash.txt 2>/dev/null | awk '{print $2}' || echo "unavailable")
-BASE_COMMIT=$(jq -r '.base_commit // "unavailable"' .signum/execution_context.json 2>/dev/null || echo "unavailable")
+CONTRACT_HASH=$(grep 'contract_sha256:' "$CONTRACT_HASH_PATH" 2>/dev/null | awk '{print $2}' || echo "unavailable")
+APPROVED_AT=$(grep 'approved_at:' "$CONTRACT_HASH_PATH" 2>/dev/null | awk '{print $2}' || echo "unavailable")
+BASE_COMMIT=$(jq -r '.base_commit // "unavailable"' "$EXECUTION_CONTEXT_PATH" 2>/dev/null || echo "unavailable")
 
 # Contract: redact holdouts, compute both hashes
-FULL_CONTRACT_SHA=$(hash_file .signum/contract.json)
-FULL_CONTRACT_SIZE=$(file_size .signum/contract.json)
+FULL_CONTRACT_SHA=$(hash_file "$CONTRACT_PATH")
+FULL_CONTRACT_SIZE=$(file_size "$CONTRACT_PATH")
 python3 -c "
 import json, sys
-with open('.signum/contract.json') as f:
+with open('$CONTRACT_PATH') as f:
     c = json.load(f)
 c.pop('holdoutScenarios', None)
 json.dump(c, sys.stdout, indent=2)
@@ -186,8 +199,8 @@ json.dump(c, sys.stdout, indent=2)
 REDACTED_CONTRACT_SHA=$(hash_file /tmp/signum-contract-redacted.json)
 
 # Diff: embed if <100KB, otherwise omit-but-hash
-DIFF_SIZE=$(file_size .signum/combined.patch)
-DIFF_SHA=$(hash_file .signum/combined.patch)
+DIFF_SIZE=$(file_size "$COMBINED_PATCH_PATH")
+DIFF_SHA=$(hash_file "$COMBINED_PATCH_PATH")
 DIFF_THRESHOLD=102400
 if [ "$DIFF_SIZE" -le "$DIFF_THRESHOLD" ]; then
   DIFF_STATUS="present"
@@ -220,7 +233,7 @@ ENV_CONTRACT=$(jq -n \
   '{content: $content, sha256: $sha, fullSha256: $fullSha, sizeBytes: $size, status: "present"}')
 
 if [ "$DIFF_STATUS" = "present" ]; then
-  DIFF_CONTENT=$(jq -Rs '.' .signum/combined.patch)
+  DIFF_CONTENT=$(jq -Rs '.' "$COMBINED_PATCH_PATH")
   ENV_DIFF=$(jq -n --argjson content "$DIFF_CONTENT" --arg sha "$DIFF_SHA" --argjson size "$DIFF_SIZE" \
     '{content: $content, sha256: $sha, sizeBytes: $size, status: "present"}')
 else
@@ -228,22 +241,22 @@ else
     '{content: null, sha256: $sha, sizeBytes: $size, status: "omitted", omitReason: $reason}')
 fi
 
-ENV_BASELINE=$(build_envelope .signum/baseline.json)
-ENV_EXEC_LOG=$(build_envelope .signum/execute_log.json)
-ENV_MECHANIC=$(build_envelope .signum/mechanic_report.json)
-ENV_AUDIT=$(build_envelope .signum/audit_summary.json)
+ENV_BASELINE=$(build_envelope "$BASELINE_PATH")
+ENV_EXEC_LOG=$(build_envelope "$EXECUTE_LOG_PATH")
+ENV_MECHANIC=$(build_envelope "$MECHANIC_REPORT_PATH")
+ENV_AUDIT=$(build_envelope "$AUDIT_SUMMARY_PATH")
 
 # Holdout report (optional)
-if [ -f .signum/holdout_report.json ]; then
-  ENV_HOLDOUT=$(build_envelope .signum/holdout_report.json)
+if [ -f "$HOLDOUT_REPORT_PATH" ]; then
+  ENV_HOLDOUT=$(build_envelope "$HOLDOUT_REPORT_PATH")
 else
   ENV_HOLDOUT=$(jq -n '{content: null, sha256: null, sizeBytes: 0, status: "omitted", omitReason: "no holdout scenarios"}')
 fi
 
-# Reviews (dynamic — enumerate .signum/reviews/)
+# Reviews (dynamic — enumerate $REVIEWS_DIR)
 REVIEWS_JSON="{}"
-if [ -d .signum/reviews ]; then
-  for REVIEW_FILE in .signum/reviews/*.json; do
+if [ -d "$REVIEWS_DIR" ]; then
+  for REVIEW_FILE in "$REVIEWS_DIR"/*.json; do
     [ -f "$REVIEW_FILE" ] || continue
     PROVIDER=$(basename "$REVIEW_FILE" .json)
     ENV=$(build_envelope "$REVIEW_FILE")
@@ -294,10 +307,10 @@ jq -n \
       reviews: $reviews,
       auditSummary: $auditSummary
     }
-  }' > .signum/proofpack.json
+  }' > "$PROOFPACK_PATH"
 
 rm -f /tmp/signum-contract-redacted.json
-echo "Proofpack v4.0 written: $RUN_ID ($(file_size .signum/proofpack.json) bytes)"
+echo "Proofpack v4.0 written: $RUN_ID ($(file_size "$PROOFPACK_PATH") bytes)"
 ```
 ````
 
@@ -475,27 +488,28 @@ Create a minimal test to verify the bash envelope builder works:
 
 ```bash
 cd /Users/vi/personal/skill7/devtools/signum
-mkdir -p /tmp/signum-test/.signum/reviews
-echo '{"goal":"test","riskLevel":"low"}' > /tmp/signum-test/.signum/contract.json
-echo 'diff content' > /tmp/signum-test/.signum/combined.patch
-echo '{"lint":0,"typecheck":0}' > /tmp/signum-test/.signum/baseline.json
-echo '{"totalAttempts":1}' > /tmp/signum-test/.signum/execute_log.json
-echo '{"mechanic":"pass","decision":"AUTO_OK","confidence":{"overall":90}}' > /tmp/signum-test/.signum/audit_summary.json
-echo '{"passed":0,"failed":0}' > /tmp/signum-test/.signum/mechanic_report.json
-echo '{"verdict":"APPROVE","findings":[],"summary":"ok"}' > /tmp/signum-test/.signum/reviews/claude.json
-echo 'contract_sha256: abc123' > /tmp/signum-test/.signum/contract-hash.txt
-echo 'approved_at: 2026-03-04T10:00:00Z' >> /tmp/signum-test/.signum/contract-hash.txt
-echo '{"base_commit":"def456"}' > /tmp/signum-test/.signum/execution_context.json
+ARTIFACT_ROOT=/tmp/signum-test/.signum/contracts/sig-test
+mkdir -p "$ARTIFACT_ROOT/reviews"
+echo '{"goal":"test","riskLevel":"low"}' > "$ARTIFACT_ROOT/contract.json"
+echo 'diff content' > "$ARTIFACT_ROOT/combined.patch"
+echo '{"lint":0,"typecheck":0}' > "$ARTIFACT_ROOT/baseline.json"
+echo '{"totalAttempts":1}' > "$ARTIFACT_ROOT/execute_log.json"
+echo '{"mechanic":"pass","decision":"AUTO_OK","confidence":{"overall":90}}' > "$ARTIFACT_ROOT/audit_summary.json"
+echo '{"passed":0,"failed":0}' > "$ARTIFACT_ROOT/mechanic_report.json"
+echo '{"verdict":"APPROVE","findings":[],"summary":"ok"}' > "$ARTIFACT_ROOT/reviews/claude.json"
+echo 'contract_sha256: abc123' > "$ARTIFACT_ROOT/contract-hash.txt"
+echo 'approved_at: 2026-03-04T10:00:00Z' >> "$ARTIFACT_ROOT/contract-hash.txt"
+echo '{"base_commit":"def456"}' > "$ARTIFACT_ROOT/execution_context.json"
 
 # Verify the generated proofpack has expected structure
 cd /tmp/signum-test
 # (paste the Phase 4 bash script and run it)
 # Then verify:
-jq '.schemaVersion' .signum/proofpack.json  # should be "4.0"
-jq '.contract.status' .signum/proofpack.json  # should be "present"
-jq '.contract.fullSha256' .signum/proofpack.json  # should be non-null
-jq '.diff.status' .signum/proofpack.json  # should be "present" (small diff)
-jq '.checks.reviews | keys' .signum/proofpack.json  # should be ["claude"]
+jq '.schemaVersion' "$ARTIFACT_ROOT/proofpack.json"  # should be "4.0"
+jq '.contract.status' "$ARTIFACT_ROOT/proofpack.json"  # should be "present"
+jq '.contract.fullSha256' "$ARTIFACT_ROOT/proofpack.json"  # should be non-null
+jq '.diff.status' "$ARTIFACT_ROOT/proofpack.json"  # should be "present" (small diff)
+jq '.checks.reviews | keys' "$ARTIFACT_ROOT/proofpack.json"  # should be ["claude"]
 rm -rf /tmp/signum-test
 ```
 

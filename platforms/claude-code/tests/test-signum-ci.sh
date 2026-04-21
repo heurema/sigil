@@ -5,6 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CI_SCRIPT="$SCRIPT_DIR/../lib/signum-ci.sh"
+source "$CI_SCRIPT"
 
 passed=0
 failed=0
@@ -35,6 +36,17 @@ assert_contains() {
     passed=$((passed + 1))
   else
     printf '  FAIL: %s — output missing "%s"\n' "$name" "$expected"
+    failed=$((failed + 1))
+  fi
+}
+
+assert_equals() {
+  local name="$1" actual="$2" expected="$3"
+  if [[ "$actual" == "$expected" ]]; then
+    printf '  PASS: %s\n' "$name"
+    passed=$((passed + 1))
+  else
+    printf '  FAIL: %s — expected "%s", got "%s"\n' "$name" "$expected" "$actual"
     failed=$((failed + 1))
   fi
 }
@@ -91,6 +103,60 @@ set -e
 
 assert_contains "shows header" "=== Signum CI ===" "$output"
 assert_contains "shows contract path" "valid.json" "$output"
+
+echo ""
+echo "=== Artifact discovery ==="
+
+CANONICAL="$WORK/canonical"
+mkdir -p "$CANONICAL/.signum/contracts/sig-ci-001"
+cat > "$CANONICAL/.signum/contracts/index.json" <<'EOF'
+{
+  "activeContractId": null,
+  "contracts": [
+    {
+      "contractId": "sig-ci-001",
+      "status": "completed",
+      "directory": ".signum/contracts/sig-ci-001/"
+    }
+  ]
+}
+EOF
+cat > "$CANONICAL/.signum/contracts/sig-ci-001/proofpack.json" <<'EOF'
+{"runId":"sig-ci-001","decision":"AUTO_OK","confidence":{"overall":91}}
+EOF
+
+assert_equals "overlay resolver prefers canonical contract dir by contract id" \
+  "$(resolve_ci_artifact_root "$CANONICAL" "sig-ci-001")" \
+  "$CANONICAL/.signum/contracts/sig-ci-001"
+assert_equals "overlay proofpack resolver prefers canonical contract dir" \
+  "$(resolve_ci_proofpack_path "$CANONICAL" "sig-ci-001")" \
+  "$CANONICAL/.signum/contracts/sig-ci-001/proofpack.json"
+
+SINGLE_CANONICAL="$WORK/single-canonical"
+mkdir -p "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003"
+cat > "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003/proofpack.json" <<'EOF'
+{"runId":"sig-ci-003","decision":"AUTO_OK","confidence":{"overall":88}}
+EOF
+
+assert_equals "overlay resolver falls back to single canonical contract dir without index" \
+  "$(resolve_ci_artifact_root "$SINGLE_CANONICAL" "")" \
+  "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003"
+assert_equals "overlay proofpack resolver falls back to single canonical contract proofpack without index" \
+  "$(resolve_ci_proofpack_path "$SINGLE_CANONICAL" "")" \
+  "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003/proofpack.json"
+
+ROOT_FALLBACK="$WORK/root-fallback"
+mkdir -p "$ROOT_FALLBACK/.signum"
+cat > "$ROOT_FALLBACK/.signum/proofpack.json" <<'EOF'
+{"runId":"legacy","decision":"HUMAN_REVIEW","confidence":{"overall":50}}
+EOF
+
+assert_equals "overlay resolver keeps legacy root artifact dir as final fallback" \
+  "$(resolve_ci_artifact_root "$ROOT_FALLBACK" "")" \
+  "$ROOT_FALLBACK/.signum"
+assert_equals "overlay proofpack resolver keeps legacy root proofpack as final fallback" \
+  "$(resolve_ci_proofpack_path "$ROOT_FALLBACK" "")" \
+  "$ROOT_FALLBACK/.signum/proofpack.json"
 
 echo ""
 echo "=== Exit code mapping (direct test) ==="

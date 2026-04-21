@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [4.20.0] - 2026-04-21
+
+### Changed
+- Canonical contract-dir artifact root is now consistently reflected across runtime helpers, docs, prompts, overlay surfaces, and CI/template flows
+  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now treat `.signum/contracts/<contractId>/` as the canonical active artifact root throughout CONTRACT, EXECUTE, AUDIT, PACK, archive/finalize flows, and registry-first resume handling
+  - `lib/contract-dir.sh`, `lib/signum-ci.sh`, `lib/snapshot-tree.sh`, `lib/contract-injection-scan.sh`, `lib/proofpack-index.sh`, verifier helpers, anti-entropy helpers, and their overlay twins now prefer canonical contract-dir resolution before legacy root fallback
+  - core docs, quickstarts, architecture notes, skill docs, plan/research docs, and agent prompts now describe root `.signum/` as registry/state plus compatibility surface rather than the primary live artifact location
+  - new regression coverage locks down canonical path behavior and the remaining intentional compatibility mentions
+
 ## [4.19.2] - 2026-04-21
 
 ### Fixed
@@ -37,7 +46,7 @@
 ## [4.18.1] - 2026-04-10
 
 ### Fixed
-- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `.signum/anti_entropy_report.json`, advertises it in explain mode, syncs it to per-contract directories, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
+- Claude overlay PACK parity — `platforms/claude-code/commands/signum.md` now emits advisory `anti_entropy_report.json` under the active contract artifact root, advertises it in explain mode, and shows its summary in final output so `signumVersion` 4.18.x matches actual overlay behavior
 
 ## [4.18.0] - 2026-04-10
 
@@ -48,13 +57,13 @@
   - Brownfield-safe behavior: if `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves them and scaffolds only missing harness docs unless `--force` is also provided
 - Anti-entropy Stage 1 report-only flow
   - `lib/anti-entropy-report.sh` — aggregates follow-up findings from cleanup evidence, `modules.yaml`, doc parity reports, and metric-ratchet reports
-  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that always writes `.signum/anti_entropy_report.json` and never changes pipeline decision
+  - `lib/pack-anti-entropy.sh` — safe PACK wrapper that writes `anti_entropy_report.json` next to the active contract artifacts and never changes pipeline decision
   - `tests/test-anti-entropy-report.sh` and `tests/test-pack-anti-entropy.sh` — coverage for report generation and fallback artifact behavior
 
 ### Changed
 - `commands/init.md` — documents `--harness` mode for root Signum init flow
 - `platforms/claude-code/commands/init.md` — documents `--harness` mode for Claude overlay init flow; disallows `--actualize` + `--harness` in the MVP
-- `commands/signum.md` — root PACK now emits advisory `.signum/anti_entropy_report.json` after proofpack assembly and archives/cleans it with the rest of the working set
+- `commands/signum.md` — root PACK now emits advisory `anti_entropy_report.json` under the active contract artifact root after proofpack assembly and archives/cleans it with the rest of the working set
 
 ### Documentation
 - `docs/reference.md` — canonical source policy now states root `commands/signum.md` is the source of truth and platform variants are overlays
@@ -105,7 +114,7 @@
 ### Added
 - **Receipt chain** — deterministic phase-boundary enforcement with append-only receipts (issue #7)
   - `lib/snapshot-tree.sh` — workspace tree snapshot before each engineer launch, captures sorted manifest + tree hash
-  - `lib/boundary-verifier.sh` — runs AC verifiers via DSL runner after engineer returns, checks scope integrity (both out-of-scope and missing inScope), hashes artifacts, classifies evidence strength (observational/predicate/exit_only), writes append-only receipt to `.signum/runs/<run_id>/`
+  - `lib/boundary-verifier.sh` — runs AC verifiers via DSL runner after engineer returns, checks scope integrity (both out-of-scope and missing inScope), hashes artifacts, classifies evidence strength (observational/predicate/exit_only), writes append-only receipts under the active contract artifact root in `runs/<run_id>/`
   - `lib/transition-verifier.sh` — blocks execute→audit transition unless receipt is present, PASS, contract hash matches, artifact hashes valid, append-only chain intact, and all ACs have non-vacuous evidence
   - Orchestrator steps: 2.0.5 (pre-execute snapshot), 2.4.6 (scope existence gate), 2.5 (boundary verification), 2.6 (transition verification)
   - Iterative repair: fresh snapshot per attempt, boundary+transition verify per repair iteration, `RECEIPT_CHAIN_OK` flag prevents silent failure swallowing
@@ -116,7 +125,7 @@
 ### Changed
 - **Policy scanner** — `TODO:`, `FIXME:`, `HACK:`, `XXX:` upgraded from MINOR to CRITICAL `incomplete_implementation`. Added `panic("not implemented")`, `raise NotImplementedError`, `throw new Error("TODO")` patterns. Non-code files (markdown, json, yaml, docs, examples, tests) excluded from incomplete_implementation rules.
 - **Contractor prompt** — `verify.type: "manual"` forbidden. All ACs must use typed DSL with `steps`. Non-vacuous evidence required (must assert observable state via `expect.*` or predicates like `test`, `grep`, `jq -e`).
-- **Engineer prompt** — receipt-chain paths (`.signum/receipts/`, `.signum/runs/`, `.signum/snapshots/`) declared verifier-owned, forbidden for engineer writes.
+- **Engineer prompt** — receipt-chain paths (`receipts/`, `runs/`, `snapshots/`) under the active contract artifact root are verifier-owned and forbidden for engineer writes.
 - **Archive mode** — preserves execute receipt before purging receipt chain intermediates.
 - **`allowNewFilesUnder` scope strictness** — only permits file additions, not modifications or deletions of existing files under those paths.
 
@@ -171,7 +180,7 @@
 - **Context retrieval** (Step 3.2.0) — pre-review step gathers git history (last commit per file), issue refs (ID + title), and project.intent.md. Injected into Claude reviewer only — Codex/Gemini remain adversarially isolated.
   - `{review_context}` variable in `lib/prompts/review-template.md`
 - **Parallel repair lanes** (Step 3.6.2) — 2 parallel Engineers in git worktrees with different strategies (minimal fix vs root-cause). Mechanic+holdout on both, full review on winner only. Runner-up reviewed if winner gets MAJOR+.
-  - Lane artifacts in `.signum/iterations/NN/lanes/A|B/`
+  - Lane artifacts in `iterations/NN/lanes/A|B/` under the active contract artifact root
   - `selected_lane.json` for audit trail
   - Trap-based worktree cleanup, fallback to single-lane on failure
 - **Typed diagnostics** — extracted mechanic logic into `lib/mechanic-parser.sh` with hybrid output format: summary per check always + per-file findings when runner supports structured output.
@@ -231,7 +240,7 @@
 - `SIGNUM_AUDIT_MAX_ITERATIONS` env var for configurable iteration cap
 - `SIGNUM_CI_RELAXED` env var — HUMAN_REVIEW maps to exit 0 in relaxed mode
 - Engineer repair mode: reads `repair_brief.json` to fix specific findings
-- Per-iteration artifact storage in `.signum/iterations/NN/`
+- Per-iteration artifact storage in `iterations/NN/` under the active contract artifact root
 - `audit_iteration_log.json` for cross-iteration tracking
 - Best-of-N with rollback: pipeline keeps best candidate, not last attempt
 - Early stop: halts if no improvement for 2 consecutive iterations

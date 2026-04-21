@@ -151,12 +151,12 @@ Layer 2: Initiative / Epic
 │   └── INIT-002-name.md
 │
 Layer 3: Task Contract
-├── .signum/contract.json      — narrow executable slice
-├── .signum/contract-engineer.json  (derived, holdouts removed)
-├── .signum/contract-policy.json    (derived, tool constraints)
+├── .signum/contracts/<contractId>/contract.json      — narrow executable slice
+├── .signum/contracts/<contractId>/contract-engineer.json  (derived, holdouts removed)
+├── .signum/contracts/<contractId>/contract-policy.json    (derived, tool constraints)
 │
 Layer 4: Audit
-└── .signum/proofpack.json     — tamper-evident execution record
+└── .signum/contracts/<contractId>/proofpack.json     — tamper-evident execution record
 ```
 
 ### 4.2 Contract Inheritance Model

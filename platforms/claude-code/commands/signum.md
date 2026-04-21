@@ -10,7 +10,7 @@ arguments:
     required: false
 ---
 
-# Signum v4.19: Evidence-Driven Development Pipeline
+# Signum v4.20: Evidence-Driven Development Pipeline
 
 You are the Signum orchestrator. You drive a 4-phase evidence-driven pipeline:
 
@@ -47,7 +47,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.19.2",
+  "version": "4.20.0",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -82,7 +82,9 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
     "medium": {"reviews": "Claude + externals", "holdouts": "≥2", "cost": "~$0.50", "duration": "3-5 min"},
     "high": {"reviews": "Full 3-model panel", "holdouts": "≥5", "cost": "~$1.00", "duration": "5-10 min"}
   },
-  "artifacts": [".signum/contract.json", ".signum/combined.patch", ".signum/proofpack.json", ".signum/audit_summary.json", ".signum/anti_entropy_report.json"]
+  "artifactRoot": ".signum/contracts/<contractId>/",
+  "compatibilityRoot": ".signum/",
+  "artifacts": ["contract.json", "combined.patch", "proofpack.json", "audit_summary.json", "anti_entropy_report.json"]
 }
 ```
 
@@ -92,7 +94,7 @@ Do not proceed to Setup or any phase.
 
 If the user's task starts with `archive` (case-insensitive), do NOT run the pipeline. Instead, archive a completed contract.
 
-If a contract ID is provided (e.g., `archive sig-20260314-a1b2`), extract it from the user input. Otherwise, the active contract will be used.
+If a contract ID is provided (e.g., `archive sig-20260314-1030-a1b2`), extract it from the user input. Otherwise, the active contract will be used.
 
 Before running the Bash tool, parse the contract ID from the user's arguments (everything after `archive `). Pass it as `CONTRACT_ID_FROM_ARGS` environment variable. Use the Bash tool:
 
@@ -106,6 +108,11 @@ if [ -z "$CONTRACT_ID" ]; then
   exit 1
 fi
 
+WAS_ACTIVE=false
+if [ "$(get_active_contract 2>/dev/null || true)" = "$CONTRACT_ID" ]; then
+  WAS_ACTIVE=true
+fi
+
 DIR=$(contract_dir "$CONTRACT_ID")
 if [ ! -d "$DIR" ]; then
   echo "ERROR: Contract directory not found: $DIR" >&2
@@ -117,19 +124,7 @@ ARCHIVE_DIR=".signum/archive/${CONTRACT_ID}/"
 mkdir -p "$ARCHIVE_DIR"
 
 # Copy durable artifacts from the per-contract snapshot/history
-cp "${DIR}contract.json" "$ARCHIVE_DIR" 2>/dev/null || true
-cp "${DIR}proofpack.json" "$ARCHIVE_DIR" 2>/dev/null || true
-cp "${DIR}approval.json" "$ARCHIVE_DIR" 2>/dev/null || true
-
-# Copy audit summary if present
-cp "${DIR}audit_summary.json" "$ARCHIVE_DIR" 2>/dev/null || true
-cp "${DIR}anti_entropy_report.json" "$ARCHIVE_DIR" 2>/dev/null || true
-cp "${DIR}execution_context.json" "$ARCHIVE_DIR" 2>/dev/null || true
-
-# Copy receipt-chain artifacts needed for replay/verification
-cp -R "${DIR}receipts" "$ARCHIVE_DIR" 2>/dev/null || true
-cp -R "${DIR}runs" "$ARCHIVE_DIR" 2>/dev/null || true
-cp -R "${DIR}snapshots" "$ARCHIVE_DIR" 2>/dev/null || true
+archive_contract_artifacts "$CONTRACT_ID" "$ARCHIVE_DIR"
 
 # Purge intermediate artifacts (reviews, baseline, holdout, execute_log, prompts)
 rm -rf "${DIR}reviews/" 2>/dev/null || true
@@ -140,8 +135,10 @@ rm -f "${DIR}baseline.json" "${DIR}execute_log.json" "${DIR}holdout_report.json"
       "${DIR}contract-engineer.json" "${DIR}contract-policy.json" \
       "${DIR}policy_violations.json" "${DIR}spec_quality.json" \
       "${DIR}spec_validation.json" "${DIR}clover_report.json" \
+      "${DIR}repo_contract_baseline.json" "${DIR}repo_contract_violations.json" \
       "${DIR}contract-hash.txt" "${DIR}execution_context.json" \
       "${DIR}review_prompt_codex.txt" "${DIR}review_prompt_gemini.txt" \
+      "${DIR}review_context.json" \
       "${DIR}intent_check.json" \
       "${DIR}audit_iteration_log.json" "${DIR}repair_brief.json" "${DIR}flaky_tests.json" \
       "${DIR}policy_scan.json" 2>/dev/null || true
@@ -157,8 +154,12 @@ jq --arg id "$CONTRACT_ID" --arg ts "$ARCHIVED_AT" \
   .signum/contracts/index.json > .signum/contracts/index.json.tmp \
   && mv .signum/contracts/index.json.tmp .signum/contracts/index.json
 
+if [ "$WAS_ACTIVE" = "true" ]; then
+  purge_root_working_set_views >/dev/null 2>&1 || true
+fi
+
 echo "Archived: $CONTRACT_ID → $ARCHIVE_DIR"
-echo "Kept: contract.json, proofpack.json, approval.json, audit_summary.json, anti_entropy_report.json, execution_context.json, receipts/, runs/, snapshots/"
+echo "Kept: contract.json, proofpack.json, approval.json, audit_summary.json, anti_entropy_report.json, execution_context.json, optional reconcile_report.json + retro.json, receipts/, runs/, snapshots/"
 echo "Purged: intermediates (reviews, baseline, patches, prompts)"
 ```
 
@@ -168,7 +169,7 @@ Do not proceed to Setup or any phase.
 
 If the user's task starts with `close` (case-insensitive), do NOT run the pipeline. Instead, mark a contract as closed (abandoned, no proofpack).
 
-If a contract ID is provided (e.g., `close sig-20260314-a1b2`), extract it from user input. Otherwise, the active contract will be used.
+If a contract ID is provided (e.g., `close sig-20260314-1030-a1b2`), extract it from user input. Otherwise, the active contract will be used.
 
 Before running the Bash tool, parse the contract ID from the user's arguments (everything after `close `). Pass it as `CONTRACT_ID_FROM_ARGS` environment variable. Use the Bash tool:
 
@@ -182,6 +183,12 @@ if [ -z "$CONTRACT_ID" ]; then
   exit 1
 fi
 
+# Record whether this contract was the active one before closing.
+WAS_ACTIVE=false
+if [ "$(get_active_contract 2>/dev/null || true)" = "$CONTRACT_ID" ]; then
+  WAS_ACTIVE=true
+fi
+
 # Update status
 update_contract_status "$CONTRACT_ID" "closed"
 
@@ -193,11 +200,9 @@ jq --arg id "$CONTRACT_ID" --arg ts "$CLOSED_AT" \
   .signum/contracts/index.json > .signum/contracts/index.json.tmp \
   && mv .signum/contracts/index.json.tmp .signum/contracts/index.json
 
-# Clear active contract if this was the active one
-ACTIVE=$(get_active_contract)
-if [ "$ACTIVE" = "$CONTRACT_ID" ]; then
-  jq '.activeContractId = null' .signum/contracts/index.json > .signum/contracts/index.json.tmp \
-    && mv .signum/contracts/index.json.tmp .signum/contracts/index.json
+# update_contract_status() already clears activeContractId for terminal statuses.
+if [ "$WAS_ACTIVE" = "true" ]; then
+  purge_root_working_set_views >/dev/null 2>&1 || true
   echo "Cleared active contract (was $CONTRACT_ID)"
 fi
 
@@ -370,17 +375,85 @@ If either is empty, do NOT pass `--model` — let the CLI use its built-in defau
 
 Use the `PROJECT_ROOT` determined during Project Resolution. Verify we are in the correct directory:
 
-Check for an existing contract:
+Check for a resumable working set using `contracts/index.json` first. Root `.signum/contract.json` is only a legacy fallback during the migration:
 
 ```bash
-test -f .signum/contract.json && echo "EXISTS" || echo "NONE"
+source lib/contract-dir.sh
+
+RESUME_INFO=$(describe_active_contract_state)
+RESUME_STATE=$(printf '%s' "$RESUME_INFO" | jq -r '.state')
+RESUME_CONTRACT_ID=$(printf '%s' "$RESUME_INFO" | jq -r '.contractId // empty')
+RESUME_STATUS=$(printf '%s' "$RESUME_INFO" | jq -r '.status // empty')
+
+if [ "$RESUME_STATE" = "NONE" ] && [ -f .signum/contract.json ] && [ ! -L .signum/contract.json ]; then
+  if [ -f .signum/execution_context.json ] && [ ! -L .signum/execution_context.json ]; then
+    RESUME_STATE="LEGACY_RESUMABLE"
+  else
+    RESUME_STATE="LEGACY_CONTRACT_ONLY"
+  fi
+fi
+
+jq -n \
+  --arg state "$RESUME_STATE" \
+  --arg contractId "$RESUME_CONTRACT_ID" \
+  --arg status "$RESUME_STATUS" \
+  '{
+    state: $state,
+    contractId: (if $contractId == "" then null else $contractId end),
+    status: (if $status == "" then null else $status end)
+  }'
 ```
 
-If contract.json exists, ask the user: "A previous contract exists in .signum/contract.json. Resume from Phase 2, or restart from Phase 1 (discards existing contract)?"
+- If `.state == "RESUMABLE"`: an active contract exists in `contracts/index.json`. Ask the user: "Active contract `<contractId>` is in progress. Resume from Phase 2, or restart from Phase 1 (discards the active working set)?"
+- If `.state == "CONTRACT_ONLY"`: an active contract exists but execution has not started. Ask: "Active contract `<contractId>` exists but execution has not started. Resume from Phase 2, or restart from Phase 1 (new contract)?"
+- If `.state == "LEGACY_RESUMABLE"` or `.state == "LEGACY_CONTRACT_ONLY"`: a legacy root-based working set exists outside the contract registry. Ask: "A legacy `.signum/` working set was found. Resume by migrating it into `.signum/contracts/`, or restart from Phase 1?"
+- If `.state == "NONE"`: proceed to Phase 1.
+
+If the user chooses to resume a legacy root-based working set, migrate it into the canonical active contract directory before continuing:
+
+```bash
+source lib/contract-dir.sh
+
+LEGACY_CONTRACT_ID=$(jq -r '.contractId // empty' .signum/contract.json 2>/dev/null || true)
+if [ -z "$LEGACY_CONTRACT_ID" ] || [ "$LEGACY_CONTRACT_ID" = "null" ]; then
+  LEGACY_CONTRACT_ID="$(new_contract_id)"
+  jq --arg id "$LEGACY_CONTRACT_ID" '.contractId = $id' .signum/contract.json > .signum/contract.json.tmp \
+    && mv .signum/contract.json.tmp .signum/contract.json
+fi
+
+init_contract_dir "$LEGACY_CONTRACT_ID"
+register_contract "$LEGACY_CONTRACT_ID" "draft"
+set_active_contract "$LEGACY_CONTRACT_ID"
+
+for rel in \
+  contract.json \
+  spec_quality.json spec_validation.json clover_report.json intent_check.json approval.json \
+  contract-hash.txt contract-engineer.json contract-policy.json execution_context.json \
+  baseline.json combined.patch execute_log.json iteration_delta.patch mechanic_report.json \
+  holdout_report.json policy_violations.json policy_scan.json audit_iteration_log.json \
+  repair_brief.json flaky_tests.json audit_summary.json proofpack.json anti_entropy_report.json; do
+  if [ -e ".signum/$rel" ] || [ -L ".signum/$rel" ]; then
+    promote_root_artifact_to_active "$rel"
+  else
+    link_active_artifact "$rel"
+  fi
+done
+
+for rel in reviews iterations receipts runs snapshots; do
+  if [ -e ".signum/$rel" ] || [ -L ".signum/$rel" ]; then
+    promote_root_artifact_to_active "$rel"
+  else
+    ensure_active_artifact_dir "$rel"
+  fi
+done
+
+describe_active_contract_state
+```
 
 Wait for the user's answer before continuing. If restart, delete the existing artifacts:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
 rm -f .signum/contract.json .signum/execute_log.json .signum/combined.patch .signum/iteration_delta.patch \
        .signum/baseline.json .signum/mechanic_report.json \
        .signum/audit_summary.json .signum/proofpack.json \
@@ -390,13 +463,14 @@ rm -f .signum/contract.json .signum/execute_log.json .signum/combined.patch .sig
        .signum/spec_quality.json .signum/spec_validation.json \
        .signum/repo_contract_baseline.json .signum/repo_contract_violations.json \
        .signum/contract-hash.txt .signum/execution_context.json \
-       .signum/reviews/claude.json .signum/reviews/codex.json .signum/reviews/gemini.json \
        .signum/review_prompt_codex.txt .signum/review_prompt_gemini.txt \
-       .signum/reviews/codex_raw.txt .signum/reviews/gemini_raw.txt \
        .signum/clover_report.json .signum/approval.json \
        .signum/intent_check.json \
        .signum/audit_iteration_log.json .signum/flaky_tests.json .signum/repair_brief.json
-rm -rf .signum/iterations/
+for rel in reviews iterations receipts runs snapshots; do
+  remove_root_artifact_view "$rel" >/dev/null 2>&1 || true
+done
+clear_active_contract >/dev/null 2>&1 || true
 ```
 
 ---
@@ -407,13 +481,50 @@ rm -rf .signum/iterations/
 
 ### Step 1.1: Launch Contractor
 
-Use the Agent tool to launch the "contractor" agent with this prompt:
+Use the Bash tool once to pre-allocate the canonical active contract root for this run. If `SIGNUM_CONTRACT_PATH` is set, treat that file as the authoritative pre-approved contract and import it into the canonical root instead of launching the contractor:
+
+```bash
+source lib/contract-dir.sh
+
+FILE_CONTRACT_ID=""
+if [ -n "${SIGNUM_CONTRACT_PATH:-}" ] && [ -f "$SIGNUM_CONTRACT_PATH" ]; then
+  FILE_CONTRACT_ID="$(jq -r '.contractId // empty' "$SIGNUM_CONTRACT_PATH" 2>/dev/null || true)"
+fi
+
+CONTRACT_ID="${FILE_CONTRACT_ID:-$(new_contract_id)}"
+init_contract_dir "$CONTRACT_ID"
+register_contract "$CONTRACT_ID" "draft"
+set_active_contract "$CONTRACT_ID"
+
+ARTIFACT_ROOT="$(active_artifact_root)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+link_active_artifact "contract.json"
+
+if [ -n "${SIGNUM_CONTRACT_PATH:-}" ]; then
+  test -f "$SIGNUM_CONTRACT_PATH" || { echo "ERROR: SIGNUM_CONTRACT_PATH not found: $SIGNUM_CONTRACT_PATH"; exit 1; }
+  cp "$SIGNUM_CONTRACT_PATH" "$CONTRACT_PATH"
+  echo "CONTRACT_SOURCE=file"
+else
+  echo "CONTRACT_SOURCE=interactive"
+fi
+
+echo "CONTRACT_ID=$CONTRACT_ID"
+echo "ARTIFACT_ROOT=$ARTIFACT_ROOT"
+echo "CONTRACT_PATH=$CONTRACT_PATH"
+```
+
+If `SIGNUM_CONTRACT_PATH` is set, skip contractor launch and continue to Step 1.2 using the imported canonical contract above.
+
+Otherwise use the Agent tool to launch the "contractor" agent with this prompt:
 
 ```
 FEATURE_REQUEST: <the user's task from $ARGUMENTS>
 PROJECT_ROOT: <output of pwd>
+CONTRACT_ID: <value emitted above>
+CANONICAL_ARTIFACT_ROOT: <value emitted above>
 
-Scan the codebase, assess risk, and write .signum/contract.json.
+Scan the codebase, assess risk, and write `contract.json` to the canonical artifact root above.
+The `.signum/contract.json` compatibility path points there, but the canonical file is the one under the contract directory.
 ```
 
 ### Step 1.2: Validate contract
@@ -421,10 +532,15 @@ Scan the codebase, assess risk, and write .signum/contract.json.
 Use the Bash tool to verify the contract was written and has required fields:
 
 ```bash
-test -f .signum/contract.json || { echo "ERROR: contract.json not found"; exit 1; }
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+test -f "$CONTRACT_PATH" || { echo "ERROR: contract.json not found"; exit 1; }
 jq -e '.schemaVersion and .goal and .inScope and .acceptanceCriteria and .riskLevel' \
-  .signum/contract.json > /dev/null && echo "VALID" || echo "INVALID"
+  "$CONTRACT_PATH" > /dev/null && echo "VALID" || echo "INVALID"
 ```
+
+If `SIGNUM_CONTRACT_PATH` is set and the imported contract is missing or INVALID, stop immediately and report: "Pre-approved contract file is missing or invalid. Fix the file passed through SIGNUM_CONTRACT_PATH."
 
 If the file is missing, retry ONCE before failing:
 
@@ -432,9 +548,11 @@ If the file is missing, retry ONCE before failing:
 ```
 FEATURE_REQUEST: <same task from $ARGUMENTS>
 PROJECT_ROOT: <output of pwd>
+CONTRACT_ID: <value emitted above>
+CANONICAL_ARTIFACT_ROOT: <value emitted above>
 
 CRITICAL: The previous contractor run failed to produce contract.json.
-Stop scanning. Write .signum/contract.json NOW with whatever information you have.
+Stop scanning. Write `contract.json` to the canonical artifact root NOW with whatever information you have.
 If uncertain, use openQuestions array and set requiredInputsProvided: false.
 You MUST call the Write tool before finishing.
 ```
@@ -443,32 +561,64 @@ You MUST call the Write tool before finishing.
 
 If the file is STILL missing or INVALID after retry, stop and report: "Contractor agent failed to produce a valid contract.json after 2 attempts (haiku + sonnet). Check agent output for errors."
 
-### Step 1.2.5: Initialize per-contract durable directory
+### Step 1.2.5: Finalize canonical contract bootstrap
 
-After contractor creates `contract.json`, extract the `contractId` and set up a per-contract durable directory. This directory is **not** the live workspace for the current run. The live working set remains under `.signum/`; the per-contract directory is a mirrored snapshot/history surface for this contract.
+After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and expose the remaining Phase 1 compatibility views. Contract-owned artifacts, selected downstream file artifacts, and active run directories stay canonical under that active contract root.
 
 Use the Bash tool:
 
 ```bash
-# Source the contract-dir module
 source lib/contract-dir.sh
 
-# Extract contractId from contract.json
-CONTRACT_ID=$(jq -r '.contractId' .signum/contract.json)
-if [ -z "$CONTRACT_ID" ] || [ "$CONTRACT_ID" = "null" ]; then
-  echo "ERROR: contractId not found in contract.json"
-  exit 1
-fi
+CONTRACT_ID="$(get_active_contract)"
+ARTIFACT_ROOT="$(active_artifact_root)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+
+[ -n "$CONTRACT_ID" ] || { echo "ERROR: active contractId missing"; exit 1; }
+test -f "$CONTRACT_PATH" || { echo "ERROR: canonical contract.json not found"; exit 1; }
+
+jq --arg id "$CONTRACT_ID" '.contractId = $id' "$CONTRACT_PATH" > "${CONTRACT_PATH}.tmp" \
+  && mv "${CONTRACT_PATH}.tmp" "$CONTRACT_PATH"
 echo "contractId: $CONTRACT_ID"
 
-# Create per-contract durable directory
-init_contract_dir "$CONTRACT_ID"
-
-# Mirror the initial contract snapshot
-sync_contract_artifacts "$CONTRACT_ID" "contract.json"
-
-# Register contract in index.json
 register_contract "$CONTRACT_ID" "draft"
+
+# Expose Phase 1 artifact ownership through compatibility views.
+link_active_artifact "contract.json"
+link_active_artifact "spec_quality.json"
+link_active_artifact "spec_validation.json"
+link_active_artifact "clover_report.json"
+link_active_artifact "intent_check.json"
+link_active_artifact "approval.json"
+link_active_artifact "contract-hash.txt"
+link_active_artifact "contract-engineer.json"
+link_active_artifact "contract-policy.json"
+link_active_artifact "execution_context.json"
+link_active_artifact "baseline.json"
+link_active_artifact "combined.patch"
+link_active_artifact "execute_log.json"
+link_active_artifact "iteration_delta.patch"
+link_active_artifact "mechanic_report.json"
+link_active_artifact "holdout_report.json"
+link_active_artifact "policy_violations.json"
+link_active_artifact "policy_scan.json"
+link_active_artifact "repo_contract_baseline.json"
+link_active_artifact "repo_contract_violations.json"
+link_active_artifact "audit_iteration_log.json"
+link_active_artifact "repair_brief.json"
+link_active_artifact "flaky_tests.json"
+link_active_artifact "audit_summary.json"
+link_active_artifact "proofpack.json"
+link_active_artifact "anti_entropy_report.json"
+link_active_artifact "review_context.json"
+link_active_artifact "review_prompt_codex.txt"
+link_active_artifact "review_prompt_gemini.txt"
+ensure_active_artifact_dir "reviews"
+ensure_active_artifact_dir "iterations"
+ensure_active_artifact_dir "receipts"
+ensure_active_artifact_dir "runs"
+ensure_active_artifact_dir "snapshots"
+echo "ARTIFACT_ROOT=$ARTIFACT_ROOT"
 ```
 
 ### Step 1.2.7: Module lifecycle check (informational, non-blocking)
@@ -504,16 +654,20 @@ Module lifecycle warnings are informational — they do not block the pipeline. 
 Use the Bash tool:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+
 # Check 1: requiredInputsProvided (contractor cannot resolve ambiguity from codebase alone)
-REQ_OK=$(jq -r '.requiredInputsProvided // true' .signum/contract.json)
+REQ_OK=$(jq -r '.requiredInputsProvided // true' "$CONTRACT_PATH")
 if [ "$REQ_OK" = "false" ]; then
   echo "HARD STOP: requiredInputsProvided=false"
-  jq -r '"Contractor needs additional input:\n  - " + ((.openQuestions // []) | join("\n  - "))' .signum/contract.json
+  jq -r '"Contractor needs additional input:\n  - " + ((.openQuestions // []) | join("\n  - "))' "$CONTRACT_PATH"
 fi
 
 # Check 2: open questions (ambiguities requiring user clarification)
 jq -r 'if (.openQuestions | length) > 0 then "BLOCKED: " + (.openQuestions | join("\n  - ")) else "OK" end' \
-  .signum/contract.json
+  "$CONTRACT_PATH"
 ```
 
 If output contains `HARD STOP:` or starts with `BLOCKED:`, display the questions to the user and **STOP**. Do not proceed to Phase 2 until the user provides answers.
@@ -525,15 +679,20 @@ Do not proceed to Phase 2 until the user provides answers to every open question
 Use the Bash tool to score the contract on 7 dimensions. A score below 69 (grade D) means the contract is too vague for reliable autonomous execution.
 
 ```bash
-GOAL=$(jq -r '.goal' .signum/contract.json)
-AC_COUNT=$(jq '.acceptanceCriteria | length' .signum/contract.json)
-AC_WITH_VERIFY=$(jq '[.acceptanceCriteria[] | select((.verify.type and .verify.value) or .verify.steps)] | length' .signum/contract.json)
-INSCOPE_COUNT=$(jq '.inScope | length' .signum/contract.json)
-HAS_OUTOFSCOPE=$(jq 'if (.outOfScope | length) > 0 then 1 else 0 end' .signum/contract.json)
-HAS_ASSUMPTIONS=$(jq 'if (.assumptions | length) > 0 then 1 else 0 end' .signum/contract.json)
-HAS_HOLDOUTS=$(jq 'if ((.holdoutScenarios // []) | length) > 0 then 1 else 0 end' .signum/contract.json)
-REQ_OK=$(jq -r '.requiredInputsProvided // true' .signum/contract.json)
-OPEN_Q=$(jq '(.openQuestions | length)' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+
+GOAL=$(jq -r '.goal' "$CONTRACT_PATH")
+AC_COUNT=$(jq '.acceptanceCriteria | length' "$CONTRACT_PATH")
+AC_WITH_VERIFY=$(jq '[.acceptanceCriteria[] | select((.verify.type and .verify.value) or .verify.steps)] | length' "$CONTRACT_PATH")
+INSCOPE_COUNT=$(jq '.inScope | length' "$CONTRACT_PATH")
+HAS_OUTOFSCOPE=$(jq 'if (.outOfScope | length) > 0 then 1 else 0 end' "$CONTRACT_PATH")
+HAS_ASSUMPTIONS=$(jq 'if (.assumptions | length) > 0 then 1 else 0 end' "$CONTRACT_PATH")
+HAS_HOLDOUTS=$(jq 'if ((.holdoutScenarios // []) | length) > 0 then 1 else 0 end' "$CONTRACT_PATH")
+REQ_OK=$(jq -r '.requiredInputsProvided // true' "$CONTRACT_PATH")
+OPEN_Q=$(jq '(.openQuestions | length)' "$CONTRACT_PATH")
 
 # Testability (0-25): fraction of ACs with verify commands
 if [ "$AC_COUNT" -gt 0 ]; then
@@ -561,7 +720,7 @@ fi
 # Negative coverage (0-20): holdouts + negative-language ACs
 NEG_SCORE=0
 [ "$HAS_HOLDOUTS" -eq 1 ] && NEG_SCORE=$((NEG_SCORE + 10))
-NEG_ACS=$(jq '[.acceptanceCriteria[] | select(.description | test("must not|should not|\\bnever\\b|\\bprevent|reject|fail|invalid"; "i"))] | length' .signum/contract.json)
+NEG_ACS=$(jq '[.acceptanceCriteria[] | select(.description | test("must not|should not|\\bnever\\b|\\bprevent|reject|fail|invalid"; "i"))] | length' "$CONTRACT_PATH")
 [ "$NEG_ACS" -gt 0 ] && NEG_SCORE=$((NEG_SCORE + 10))
 
 # Clarity (0-20): goal length + absence of vague phrases
@@ -581,7 +740,7 @@ BOUNDARY=0
 # Sub-check 1: Vague verb detection (0-5)
 # Synonym map for terminology consistency (endpoint/route, function/method, test/spec,
 #   error/exception, config/configuration/settings, user/client, file/document)
-ALL_AC_TEXT=$(jq -r '[.acceptanceCriteria[].description] | join(" ")' .signum/contract.json)
+ALL_AC_TEXT=$(jq -r '[.acceptanceCriteria[].description] | join(" ")' "$CONTRACT_PATH")
 VAGUE_VERBS_PATTERN="handle|process|manage|support|ensure|implement|perform|utilize|leverage|facilitate"
 VAGUE_VERBS_FOUND=$(echo "$ALL_AC_TEXT $GOAL" | grep -ciE "\b($VAGUE_VERBS_PATTERN)\b" 2>/dev/null || echo 0)
 if [ "$VAGUE_VERBS_FOUND" -eq 0 ]; then VAGUE_VERB_PTS=5; else VAGUE_VERB_PTS=0; fi
@@ -612,7 +771,7 @@ if [ "$SYNONYM_INCONSISTENT" -eq 0 ]; then TERM_PTS=5; else TERM_PTS=0; fi
 
 # Sub-check 3: AC contradiction detection (0-5)
 # Check pairs of AC descriptions for negation contradictions (must X vs must not X, allow Y vs prevent Y)
-AC_TEXTS=$(jq -r '.acceptanceCriteria[].description' .signum/contract.json 2>/dev/null || echo "")
+AC_TEXTS=$(jq -r '.acceptanceCriteria[].description' "$CONTRACT_PATH" 2>/dev/null || echo "")
 CONTRADICTION_FOUND=0
 while IFS= read -r ac_line; do
   pos=$(echo "$ac_line" | grep -oi "must [a-z]*\|allow [a-z]*\|enable [a-z]*" 2>/dev/null | grep -vi "must not" | head -5)
@@ -672,7 +831,7 @@ jq -n --argjson total "$TOTAL" --arg grade "$GRADE" \
                    clarity: $clarity, scope_boundedness: $scope,
                    completeness: $completeness, boundary_system: $boundary,
                    nl_consistency: $nl_consistency } }' \
-  > .signum/spec_quality.json
+  > "$SPEC_QUALITY_PATH"
 ```
 
 #### Prose quality check (informational, non-blocking)
@@ -681,17 +840,21 @@ Use the Bash tool to run the prose quality gate on the contract. This check is *
 
 ```bash
 PROSE_REPORT=""
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
 if [ -f lib/prose-check.sh ]; then
-  PROSE_REPORT=$(lib/prose-check.sh .signum/contract.json 2>/dev/null || echo '{}')
+  PROSE_REPORT=$(lib/prose-check.sh "$CONTRACT_PATH" 2>/dev/null || echo '{}')
   PROSE_TOTAL=$(echo "$PROSE_REPORT" | jq '.total_findings // 0')
   PROSE_PASS=$(echo "$PROSE_REPORT" | jq -r '.pass // "true"')
   echo "Prose quality: $PROSE_TOTAL finding(s), pass=$PROSE_PASS"
 
   # Merge prose_warnings into spec_quality.json (non-blocking)
-  if [ -f .signum/spec_quality.json ]; then
+  if [ -f "$SPEC_QUALITY_PATH" ]; then
     jq --argjson prose "$PROSE_REPORT" '. + {prose_warnings: $prose}' \
-      .signum/spec_quality.json > .signum/spec_quality_tmp.json \
-      && mv .signum/spec_quality_tmp.json .signum/spec_quality.json
+      "$SPEC_QUALITY_PATH" > "${SPEC_QUALITY_PATH}.tmp" \
+      && mv "${SPEC_QUALITY_PATH}.tmp" "$SPEC_QUALITY_PATH"
   fi
 fi
 ```
@@ -701,12 +864,16 @@ fi
 Run the glossary_check: scan goal, inScope items, and AC descriptions for forbidden synonyms from `project.glossary.json` aliases. This check is **non-blocking** — it never fails the pipeline or reduces the numeric spec quality score. Warnings are written only to `glossary_warnings` in `spec_quality.json`.
 
 ```bash
-GLOSSARY_RESULT=$(lib/glossary-check.sh .signum/contract.json \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+GLOSSARY_RESULT=$(lib/glossary-check.sh "$CONTRACT_PATH" \
   --glossary "${PROJECT_ROOT:-$PWD}/project.glossary.json" 2>/dev/null || echo '{}')
 jq --argjson r "$GLOSSARY_RESULT" \
   '. + {glossary_warnings: ($r.findings // []), glossary_version: ($r.glossary_version // ""), glossary_terms: ($r.glossary_terms // 0)}' \
-  .signum/spec_quality.json > .signum/spec_quality_tmp.json \
-  && mv .signum/spec_quality_tmp.json .signum/spec_quality.json
+  "$SPEC_QUALITY_PATH" > "${SPEC_QUALITY_PATH}.tmp" \
+  && mv "${SPEC_QUALITY_PATH}.tmp" "$SPEC_QUALITY_PATH"
 ```
 
 #### Terminology consistency check (terminology_consistency_check — informational, non-blocking)
@@ -714,13 +881,17 @@ jq --argjson r "$GLOSSARY_RESULT" \
 Run the terminology_consistency_check: read `.signum/contracts/index.json`, extract goal text from active contracts, and emit WARN on synonym proliferation (same concept appearing under two different terms across contracts). This check is **non-blocking**.
 
 ```bash
-TERMINOLOGY_RESULT=$(lib/terminology-check.sh .signum/contract.json \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+TERMINOLOGY_RESULT=$(lib/terminology-check.sh "$CONTRACT_PATH" \
   --index .signum/contracts/index.json \
   --glossary "${PROJECT_ROOT:-$PWD}/project.glossary.json" 2>/dev/null || echo '{}')
 jq --argjson r "$TERMINOLOGY_RESULT" \
   '. + {terminology_warnings: ($r.findings // [])}' \
-  .signum/spec_quality.json > .signum/spec_quality_tmp.json \
-  && mv .signum/spec_quality_tmp.json .signum/spec_quality.json
+  "$SPEC_QUALITY_PATH" > "${SPEC_QUALITY_PATH}.tmp" \
+  && mv "${SPEC_QUALITY_PATH}.tmp" "$SPEC_QUALITY_PATH"
 ```
 
 #### Cross-contract overlap check (cross_contract_overlap_check — informational, non-blocking)
@@ -728,12 +899,16 @@ jq --argjson r "$TERMINOLOGY_RESULT" \
 Run the cross_contract_overlap_check: read `.signum/contracts/index.json`, compare inScope arrays of active contracts against the new contract's inScope, and emit overlap warnings. This check is **non-blocking** — it never fails the pipeline or reduces the numeric spec quality score. Warnings are written only to `overlap_warnings` in `spec_quality.json`.
 
 ```bash
-OVERLAP_RESULT=$(lib/overlap-check.sh .signum/contract.json \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+OVERLAP_RESULT=$(lib/overlap-check.sh "$CONTRACT_PATH" \
   --index .signum/contracts/index.json 2>/dev/null || echo '{}')
 jq --argjson r "$OVERLAP_RESULT" \
   '. + {overlap_warnings: ($r.findings // [])}' \
-  .signum/spec_quality.json > .signum/spec_quality_tmp.json \
-  && mv .signum/spec_quality_tmp.json .signum/spec_quality.json
+  "$SPEC_QUALITY_PATH" > "${SPEC_QUALITY_PATH}.tmp" \
+  && mv "${SPEC_QUALITY_PATH}.tmp" "$SPEC_QUALITY_PATH"
 ```
 
 #### Assumption contradiction check (assumption_contradiction_check — informational, non-blocking)
@@ -741,12 +916,16 @@ jq --argjson r "$OVERLAP_RESULT" \
 Run the assumption_contradiction_check: read assumptions from each related contract in index.json (parentContractId, relatedContractIds), compare assumption text pairs for direct contradiction keywords, and emit contradiction warnings. This check is **non-blocking** — it does not block the pipeline.
 
 ```bash
-ASSUMPTION_RESULT=$(lib/assumption-check.sh .signum/contract.json \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+ASSUMPTION_RESULT=$(lib/assumption-check.sh "$CONTRACT_PATH" \
   --index .signum/contracts/index.json 2>/dev/null || echo '{}')
 jq --argjson r "$ASSUMPTION_RESULT" \
   '. + {assumption_warnings: ($r.findings // [])}' \
-  .signum/spec_quality.json > .signum/spec_quality_tmp.json \
-  && mv .signum/spec_quality_tmp.json .signum/spec_quality.json
+  "$SPEC_QUALITY_PATH" > "${SPEC_QUALITY_PATH}.tmp" \
+  && mv "${SPEC_QUALITY_PATH}.tmp" "$SPEC_QUALITY_PATH"
 ```
 
 #### ADR relevance check (adr_relevance_check — informational, non-blocking)
@@ -754,12 +933,16 @@ jq --argjson r "$ASSUMPTION_RESULT" \
 Run the adr_relevance_check: scan `docs/adr/` and `docs/decisions/` for `*.md` files, match their filenames against inScope paths using glob-style prefix matching, and emit a WARN when relevant ADRs exist but the contract's `adrRefs` field is absent or empty. This check is **non-blocking** and degrades gracefully to a no-op when neither directory exists.
 
 ```bash
-ADR_RESULT=$(lib/adr-check.sh .signum/contract.json \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+ADR_RESULT=$(lib/adr-check.sh "$CONTRACT_PATH" \
   --project-root "${PROJECT_ROOT:-$PWD}" 2>/dev/null || echo '{}')
 jq --argjson r "$ADR_RESULT" \
   '. + {adr_warnings: ($r.findings // [])}' \
-  .signum/spec_quality.json > .signum/spec_quality_tmp.json \
-  && mv .signum/spec_quality_tmp.json .signum/spec_quality.json
+  "$SPEC_QUALITY_PATH" > "${SPEC_QUALITY_PATH}.tmp" \
+  && mv "${SPEC_QUALITY_PATH}.tmp" "$SPEC_QUALITY_PATH"
 ```
 
 #### Upstream staleness check (upstream_staleness_check — blocking when stalenessPolicy is "block")
@@ -767,19 +950,22 @@ jq --argjson r "$ADR_RESULT" \
 Run the upstream_staleness_check: recompute SHA-256 over all files listed in `contextInheritance.staleIfChanged`, compare to `contextInheritance.contextSnapshotHash`, and emit BLOCK or WARN when the hash differs. This check is **skipped** when `staleIfChanged` is absent or empty.
 
 ```bash
-STALENESS_RESULT=$(lib/staleness-check.sh .signum/contract.json \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+STALENESS_RESULT=$(lib/staleness-check.sh "$CONTRACT_PATH" \
   --project-root "${PROJECT_ROOT:-$PWD}" 2>/dev/null || echo '{"check":"staleness","status":"error"}')
 STALENESS_STATUS=$(echo "$STALENESS_RESULT" | jq -r '.status // "error"')
 # Apply stalenessStatus mutation to contract.json based on check result
 if [ "$STALENESS_STATUS" = "fresh" ]; then
-  jq '.contextInheritance.stalenessStatus = "fresh"' .signum/contract.json > .signum/contract.json.tmp \
-    && mv .signum/contract.json.tmp .signum/contract.json
+  jq '.contextInheritance.stalenessStatus = "fresh"' "$CONTRACT_PATH" > "${CONTRACT_PATH}.tmp" \
+    && mv "${CONTRACT_PATH}.tmp" "$CONTRACT_PATH"
 elif [ "$STALENESS_STATUS" = "warn" ]; then
-  jq '.contextInheritance.stalenessStatus = "warning"' .signum/contract.json > .signum/contract.json.tmp \
-    && mv .signum/contract.json.tmp .signum/contract.json
+  jq '.contextInheritance.stalenessStatus = "warning"' "$CONTRACT_PATH" > "${CONTRACT_PATH}.tmp" \
+    && mv "${CONTRACT_PATH}.tmp" "$CONTRACT_PATH"
 elif [ "$STALENESS_STATUS" = "block" ]; then
-  jq '.contextInheritance.stalenessStatus = "stale"' .signum/contract.json > .signum/contract.json.tmp \
-    && mv .signum/contract.json.tmp .signum/contract.json
+  jq '.contextInheritance.stalenessStatus = "stale"' "$CONTRACT_PATH" > "${CONTRACT_PATH}.tmp" \
+    && mv "${CONTRACT_PATH}.tmp" "$CONTRACT_PATH"
   echo "BLOCK: upstream artifacts changed (stalenessPolicy=block). Re-run Contractor agent to refresh."
   exit 1
 fi
@@ -792,8 +978,11 @@ fi
 Check if contract has a project intent reference:
 
 ```bash
-PROJECT_REF=$(jq -r '.contextInheritance.projectRef // "absent"' .signum/contract.json)
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+PROJECT_REF=$(jq -r '.contextInheritance.projectRef // "absent"' "$CONTRACT_PATH")
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
 if [ "$RISK" = "low" ] || [ "$PROJECT_REF" = "absent" ] || [ "$PROJECT_REF" = "null" ] || [ "$PROJECT_REF" = "not_found" ]; then
   echo "Intent alignment check: skipped (risk=$RISK, projectRef=$PROJECT_REF)"
 else
@@ -830,7 +1019,7 @@ Output JSON only:
 Parse the subagent response as JSON. If parsing fails, write safe default:
 `{"aligned": null, "concerns": [], "glossary_violations": [], "parse_error": true}`
 
-Write result to `.signum/intent_check.json`.
+Write result to `intent_check.json` under the canonical artifact root.
 
 ### Step 1.3.7: Multi-model spec validation (optional, if providers available)
 
@@ -849,9 +1038,13 @@ If both are UNAVAILABLE, skip to Step 1.4.
 If at least one is available: read the contract to build validation context:
 
 ```bash
-SPEC_CONTEXT=$(python3 -c "
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_CONTEXT=$(python3 - "$CONTRACT_PATH" <<'PY'
 import json
-c = json.load(open('.signum/contract.json'))
+import sys
+c = json.load(open(sys.argv[1]))
 acs = '\n'.join(f'  - [{a[\"id\"]}] {a[\"description\"]}' for a in c.get('acceptanceCriteria', []))
 inscope = ', '.join(c.get('inScope', []))
 print(f'''Goal: {c[\"goal\"]}
@@ -862,7 +1055,8 @@ Acceptance criteria:
 Assumptions: {', '.join(c.get('assumptions', ['none']))}
 Out of scope: {', '.join(c.get('outOfScope', ['not specified']))}
 ''')
-")
+PY
+)
 echo "$SPEC_CONTEXT"
 ```
 
@@ -931,9 +1125,12 @@ Save the task ID as GEMINI_SPEC_TASK_ID.
 
 Use the TaskOutput tool with `block: true` to wait for CODEX_SPEC_TASK_ID (if launched). Then use the TaskOutput tool with `block: true` to wait for GEMINI_SPEC_TASK_ID (if launched).
 
-Write collected findings to `.signum/spec_validation.json`:
+Write collected findings to `spec_validation.json` under the canonical artifact root:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+SPEC_VALIDATION_PATH="${ARTIFACT_ROOT}spec_validation.json"
 jq -n \
   --arg codex_out "$CODEX_SPEC_OUT" \
   --arg gemini_out "$GEMINI_SPEC_OUT" \
@@ -942,8 +1139,8 @@ jq -n \
   '{
     codex: { available: ($codex_avail == "yes"), findings: $codex_out },
     gemini: { available: ($gemini_avail == "yes"), findings: $gemini_out }
-  }' > .signum/spec_validation.json
-echo "Spec validation written to .signum/spec_validation.json"
+  }' > "$SPEC_VALIDATION_PATH"
+echo "Spec validation written to $SPEC_VALIDATION_PATH"
 ```
 
 ### Step 1.3.8: Clover reconstruction test
@@ -957,7 +1154,7 @@ You are given ONLY the acceptance criteria below. You have NOT seen the original
 Reconstruct what the goal/task likely was based solely on these ACs.
 
 Acceptance criteria:
-<ACs from .signum/contract.json — list each AC id + description, but do NOT include the goal>
+<ACs from contract.json under the canonical artifact root - list each AC id + description, but do NOT include the goal>
 
 Write your reconstructed goal as a single paragraph (2-3 sentences max).
 Then write a JSON object:
@@ -972,7 +1169,11 @@ Output ONLY the JSON object, no other text.
 After the agent returns, use the Bash tool to compare:
 
 ```bash
-ORIGINAL_GOAL=$(jq -r '.goal' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CLOVER_REPORT_PATH="${ARTIFACT_ROOT}clover_report.json"
+ORIGINAL_GOAL=$(jq -r '.goal' "$CONTRACT_PATH")
 RECONSTRUCTED=$(echo '<agent output>' | jq -r '.reconstructed_goal // empty')
 CONFIDENCE=$(echo '<agent output>' | jq -r '.confidence // 0')
 GAPS=$(echo '<agent output>' | jq -r '.coverage_gaps | length')
@@ -986,11 +1187,11 @@ jq -n \
   --argjson gaps "$(echo '<agent output>' | jq '.coverage_gaps')" \
   '{original_goal: $original, reconstructed_goal: $reconstructed,
     confidence: $confidence, coverage_gaps: $gaps, gap_count: $gap_count,
-    pass: ($confidence >= 0.7 and $gap_count <= 2)}' > .signum/clover_report.json
+    pass: ($confidence >= 0.7 and $gap_count <= 2)}' > "$CLOVER_REPORT_PATH"
 
-if [ "$(jq '.pass' .signum/clover_report.json)" = "false" ]; then
+if [ "$(jq '.pass' "$CLOVER_REPORT_PATH")" = "false" ]; then
   echo "CLOVER WARNING: ACs may not fully capture the goal (confidence=$CONFIDENCE, gaps=$GAPS)"
-  jq -r '.coverage_gaps[]' .signum/clover_report.json | sed 's/^/  - /'
+  jq -r '.coverage_gaps[]' "$CLOVER_REPORT_PATH" | sed 's/^/  - /'
   echo "Consider adding ACs to cover the gaps above."
 else
   echo "Clover test: PASS (confidence=$CONFIDENCE)"
@@ -1004,29 +1205,36 @@ Clover failure is informational — it does not block the pipeline. Display warn
 **Data collection:** Use a single Bash call to extract all values into shell variables:
 
 ```bash
-CONTRACT_ID=$(jq -r '.contractId' .signum/contract.json)
-GOAL=$(jq -r '.goal' .signum/contract.json)
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
-INSCOPE=$(jq -r '.inScope | join(", ")' .signum/contract.json)
-AC_COUNT=$(jq '.acceptanceCriteria | length' .signum/contract.json)
-HOLDOUT_COUNT=$(jq '((.holdoutScenarios // []) | length) + ([.acceptanceCriteria[] | select(.visibility == "holdout")] | length)' .signum/contract.json)
-VISIBLE_AC=$((AC_COUNT - $(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' .signum/contract.json)))
-SPEC_TOTAL=$(jq -r '.total // "?"' .signum/spec_quality.json 2>/dev/null || echo "?")
-SPEC_GRADE=$(jq -r '.grade // "?"' .signum/spec_quality.json 2>/dev/null || echo "?")
-CLOVER=$(jq -r 'if .pass then "PASS (" + (.confidence | tostring) + ")" else "WARN (" + (.confidence | tostring) + ")" end' .signum/clover_report.json 2>/dev/null || echo "skipped")
-INTENT=$(jq -r 'if .aligned then "aligned" elif .aligned == false then "MISALIGNED" else "skipped" end' .signum/intent_check.json 2>/dev/null || echo "skipped")
-RISK_SIGNALS=$(jq -r 'if .riskLevel == "high" then (.riskSignals // [] | join(", ")) else "" end' .signum/contract.json)
-READINESS=$(jq -r '.readinessForPlanning.verdict // "absent"' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SPEC_QUALITY_PATH="${ARTIFACT_ROOT}spec_quality.json"
+CLOVER_REPORT_PATH="${ARTIFACT_ROOT}clover_report.json"
+INTENT_CHECK_PATH="${ARTIFACT_ROOT}intent_check.json"
+
+CONTRACT_ID=$(jq -r '.contractId' "$CONTRACT_PATH")
+GOAL=$(jq -r '.goal' "$CONTRACT_PATH")
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
+INSCOPE=$(jq -r '.inScope | join(", ")' "$CONTRACT_PATH")
+AC_COUNT=$(jq '.acceptanceCriteria | length' "$CONTRACT_PATH")
+HOLDOUT_COUNT=$(jq '((.holdoutScenarios // []) | length) + ([.acceptanceCriteria[] | select(.visibility == "holdout")] | length)' "$CONTRACT_PATH")
+VISIBLE_AC=$((AC_COUNT - $(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' "$CONTRACT_PATH")))
+SPEC_TOTAL=$(jq -r '.total // "?"' "$SPEC_QUALITY_PATH" 2>/dev/null || echo "?")
+SPEC_GRADE=$(jq -r '.grade // "?"' "$SPEC_QUALITY_PATH" 2>/dev/null || echo "?")
+CLOVER=$(jq -r 'if .pass then "PASS (" + (.confidence | tostring) + ")" else "WARN (" + (.confidence | tostring) + ")" end' "$CLOVER_REPORT_PATH" 2>/dev/null || echo "skipped")
+INTENT=$(jq -r 'if .aligned then "aligned" elif .aligned == false then "MISALIGNED" else "skipped" end' "$INTENT_CHECK_PATH" 2>/dev/null || echo "skipped")
+RISK_SIGNALS=$(jq -r 'if .riskLevel == "high" then (.riskSignals // [] | join(", ")) else "" end' "$CONTRACT_PATH")
+READINESS=$(jq -r '.readinessForPlanning.verdict // "absent"' "$CONTRACT_PATH")
 
 # Warnings (collect into array for display)
 WARNINGS=""
-if [ -f .signum/clover_report.json ] && [ "$(jq '.pass' .signum/clover_report.json)" = "false" ]; then
+if [ -f "$CLOVER_REPORT_PATH" ] && [ "$(jq '.pass' "$CLOVER_REPORT_PATH")" = "false" ]; then
   WARNINGS="${WARNINGS}\n- Clover: ACs may not fully capture the goal"
-  WARNINGS="${WARNINGS}\n$(jq -r '.coverage_gaps[] | "  - " + .' .signum/clover_report.json)"
+  WARNINGS="${WARNINGS}\n$(jq -r '.coverage_gaps[] | "  - " + .' "$CLOVER_REPORT_PATH")"
 fi
-if [ -f .signum/intent_check.json ] && [ "$(jq '.concerns | length' .signum/intent_check.json)" -gt 0 ]; then
+if [ -f "$INTENT_CHECK_PATH" ] && [ "$(jq '.concerns | length' "$INTENT_CHECK_PATH")" -gt 0 ]; then
   WARNINGS="${WARNINGS}\n- Intent alignment concerns:"
-  WARNINGS="${WARNINGS}\n$(jq -r '.concerns[] | "  - " + .' .signum/intent_check.json)"
+  WARNINGS="${WARNINGS}\n$(jq -r '.concerns[] | "  - " + .' "$INTENT_CHECK_PATH")"
 fi
 if [ "$READINESS" = "no-go" ]; then
   WARNINGS="${WARNINGS}\n- Contractor self-critique returned no-go"
@@ -1102,9 +1310,12 @@ Phase 2 will NOT be entered until all checklist items are approved.
 
 **STOP. Do not proceed to Phase 2.**
 
-If ALL items are answered "yes", write `.signum/approval.json`:
+If ALL items are answered "yes", write `approval.json` under the canonical artifact root:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+APPROVAL_PATH="${ARTIFACT_ROOT}approval.json"
 APPROVAL_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 jq -n --arg ts "$APPROVAL_TS" \
   '{
@@ -1117,18 +1328,21 @@ jq -n --arg ts "$APPROVAL_TS" \
       assumptions_valid: true,
       risk_appropriate: true
     }
-  }' > .signum/approval.json
+  }' > "$APPROVAL_PATH"
 echo "approval.json written at $APPROVAL_TS"
 ```
 
 After writing approval.json, transition the contract status from `draft` to `active` and record the `activatedAt` timestamp:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
 ACTIVATED_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 jq --arg ts "$ACTIVATED_TS" \
   '.status = "active" | .timestamps.activatedAt = $ts' \
-  .signum/contract.json > .signum/contract-tmp.json && \
-  mv .signum/contract-tmp.json .signum/contract.json
+  "$CONTRACT_PATH" > "${CONTRACT_PATH}.tmp" && \
+  mv "${CONTRACT_PATH}.tmp" "$CONTRACT_PATH"
 echo "Contract status: draft → active at $ACTIVATED_TS"
 ```
 
@@ -1139,20 +1353,25 @@ After the user confirms, anchor the approved contract with a SHA-256 hash and ti
 Use the Bash tool:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CONTRACT_HASH_PATH="${ARTIFACT_ROOT}contract-hash.txt"
+
 if command -v sha256sum >/dev/null 2>&1; then
-  CONTRACT_HASH=$(sha256sum .signum/contract.json | awk '{print $1}')
+  CONTRACT_HASH=$(sha256sum "$CONTRACT_PATH" | awk '{print $1}')
 elif command -v shasum >/dev/null 2>&1; then
-  CONTRACT_HASH=$(shasum -a 256 .signum/contract.json | awk '{print $1}')
+  CONTRACT_HASH=$(shasum -a 256 "$CONTRACT_PATH" | awk '{print $1}')
 else
   CONTRACT_HASH="unavailable"
 fi
 
 APPROVAL_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-cat > .signum/contract-hash.txt <<EOF
+cat > "$CONTRACT_HASH_PATH" <<EOF
 contract_sha256: $CONTRACT_HASH
 approved_at: $APPROVAL_TS
-contract_file: .signum/contract.json
+contract_file: $CONTRACT_PATH
 EOF
 
 echo "Audit chain anchored: $CONTRACT_HASH at $APPROVAL_TS"
@@ -1163,32 +1382,40 @@ echo "Audit chain anchored: $CONTRACT_HASH at $APPROVAL_TS"
 Use the Bash tool to create a contract stripped of holdout scenarios and holdout ACs (data-level isolation):
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CONTRACT_ENGINEER_PATH="${ARTIFACT_ROOT}contract-engineer.json"
+
 # Create engineer contract: remove holdouts + holdoutScenarios
 jq '{
   schemaVersion, contractId, status, timestamps, goal, inScope, allowNewFilesUnder, outOfScope,
   acceptanceCriteria: [.acceptanceCriteria[] | select(.visibility != "holdout")],
   assumptions, openQuestions, riskLevel, riskSignals, requiredInputsProvided,
   contextInheritance
-} | with_entries(select(.value != null))' .signum/contract.json > .signum/contract-engineer.json
+} | with_entries(select(.value != null))' "$CONTRACT_PATH" > "$CONTRACT_ENGINEER_PATH"
 
 # Generate holdout manifest for committed spec
-HOLDOUT_COUNT=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' .signum/contract.json)
+HOLDOUT_COUNT=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' "$CONTRACT_PATH")
 if [ "$HOLDOUT_COUNT" -gt 0 ]; then
-  HOLDOUT_HASH=$(jq -c '[.acceptanceCriteria[] | select(.visibility == "holdout")]' .signum/contract.json | shasum -a 256 | cut -c1-16)
+  HOLDOUT_HASH=$(jq -c '[.acceptanceCriteria[] | select(.visibility == "holdout")]' "$CONTRACT_PATH" | shasum -a 256 | cut -c1-16)
   jq --argjson count "$HOLDOUT_COUNT" --arg hash "sha256:$HOLDOUT_HASH" \
-    '. + {holdoutManifest: {count: $count, hash: $hash}}' .signum/contract-engineer.json > .signum/contract-engineer-tmp.json
-  mv .signum/contract-engineer-tmp.json .signum/contract-engineer.json
+    '. + {holdoutManifest: {count: $count, hash: $hash}}' "$CONTRACT_ENGINEER_PATH" > "${CONTRACT_ENGINEER_PATH}.tmp"
+  mv "${CONTRACT_ENGINEER_PATH}.tmp" "$CONTRACT_ENGINEER_PATH"
 fi
 
-AC_VISIBLE=$(jq '[.acceptanceCriteria[] | select(.visibility != "holdout")] | length' .signum/contract.json)
+AC_VISIBLE=$(jq '[.acceptanceCriteria[] | select(.visibility != "holdout")] | length' "$CONTRACT_PATH")
 echo "contract-engineer.json written ($AC_VISIBLE visible ACs, $HOLDOUT_COUNT holdouts redacted)"
 ```
 
 After writing `contract-engineer.json`, validate holdout count against risk level:
 
 ```bash
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
-HOLDOUT_COUNT=$(jq '([.acceptanceCriteria[] | select(.visibility == "holdout")] | length) + ((.holdoutScenarios // []) | length)' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
+HOLDOUT_COUNT=$(jq '([.acceptanceCriteria[] | select(.visibility == "holdout")] | length) + ((.holdoutScenarios // []) | length)' "$CONTRACT_PATH")
 
 # Minimum holdout requirements by risk level
 MIN_HOLDOUTS=0
@@ -1224,9 +1451,16 @@ Derive `contract-policy.json` from the contract. This file defines what the Engi
 Use the Bash tool:
 
 ```bash
-python3 -c "
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CONTRACT_POLICY_PATH="${ARTIFACT_ROOT}contract-policy.json"
+python3 - "$CONTRACT_PATH" "$CONTRACT_POLICY_PATH" <<'PY'
 import json
-with open('.signum/contract.json') as f:
+import sys
+contract_path = sys.argv[1]
+policy_path = sys.argv[2]
+with open(contract_path) as f:
     c = json.load(f)
 risk = c.get('riskLevel', 'low')
 in_scope = c.get('inScope', [])
@@ -1250,10 +1484,10 @@ policy = {
     'max_files_changed': max_files,
     'network_access': False,
 }
-with open('.signum/contract-policy.json', 'w') as f:
+with open(policy_path, 'w') as f:
     json.dump(policy, f, indent=2)
 print(f'contract-policy.json written (risk={risk}, allowed_paths={len(in_scope)}, max_files={max_files})')
-"
+PY
 ```
 
 ---
@@ -1267,16 +1501,22 @@ print(f'contract-policy.json written (risk={risk}, allowed_paths={len(in_scope)}
 Use the Bash tool to record the current commit SHA (audit chain: this is where the Engineer starts from) and run project checks BEFORE the engineer touches anything:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+BASELINE_PATH="${ARTIFACT_ROOT}baseline.json"
+
 # Record base commit for audit chain
 BASE_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "no-git")
 EXECUTE_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-echo "{\"base_commit\":\"$BASE_COMMIT\",\"started_at\":\"$EXECUTE_START\"}" > .signum/execution_context.json
+echo "{\"base_commit\":\"$BASE_COMMIT\",\"started_at\":\"$EXECUTE_START\"}" > "$EXECUTION_CONTEXT_PATH"
 echo "Execution context: base_commit=$BASE_COMMIT"
 
 # Set run_id for receipt chain and capture pre-execute snapshot
-RUN_ID=$(jq -r '.contractId // "signum-run"' .signum/contract.json)
-jq --arg rid "$RUN_ID" '. + {run_id:$rid}' .signum/execution_context.json > .signum/execution_context.json.tmp \
-  && mv .signum/execution_context.json.tmp .signum/execution_context.json
+RUN_ID=$(jq -r '.contractId // "signum-run"' "$CONTRACT_PATH")
+jq --arg rid "$RUN_ID" '. + {run_id:$rid}' "$EXECUTION_CONTEXT_PATH" > "${EXECUTION_CONTEXT_PATH}.tmp" \
+  && mv "${EXECUTION_CONTEXT_PATH}.tmp" "$EXECUTION_CONTEXT_PATH"
 
 # Lint
 if [ -f "pyproject.toml" ] && grep -q "ruff" pyproject.toml 2>/dev/null; then
@@ -1318,17 +1558,25 @@ jq -n \
   --argjson type "$BL_TYPE_EXIT" \
   --argjson test "$BL_TEST_EXIT" \
   --argjson failing "$BL_TEST_FAILING" \
-  '{ lint: $lint, typecheck: $type, tests: { exit_code: $test, failing: $failing } }' > .signum/baseline.json
+  '{ lint: $lint, typecheck: $type, tests: { exit_code: $test, failing: $failing } }' > "$BASELINE_PATH"
 
 echo "Baseline captured: lint=$BL_LINT_EXIT type=$BL_TYPE_EXIT test=$BL_TEST_EXIT"
 ```
 
-If `repo-contract.json` exists in the project root, also capture invariant baseline:
+If `repo-contract.json` exists in the project root, also capture invariant baseline to `repo_contract_baseline.json` under the canonical artifact root:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REPO_CONTRACT_BASELINE_PATH="${ARTIFACT_ROOT}repo_contract_baseline.json"
+
 if [ -f "repo-contract.json" ]; then
-  python3 -c "
-import json, subprocess
+  python3 - "$REPO_CONTRACT_BASELINE_PATH" <<'PY'
+import json
+import subprocess
+import sys
+
+output_path = sys.argv[1]
 with open('repo-contract.json') as f:
     rc = json.load(f)
 results = {}
@@ -1341,20 +1589,24 @@ for inv in rc.get('invariants', []):
         'exit_code': r.returncode,
         'passed': r.returncode == 0,
     }
-with open('.signum/repo_contract_baseline.json', 'w') as f:
+with open(output_path, 'w') as f:
     json.dump(results, f, indent=2)
 total = len(results)
 passed = sum(1 for v in results.values() if v['passed'])
 print(f'Repo-contract baseline: {passed}/{total} invariants passing')
-"
+PY
 fi
 ```
 
 ### Step 2.0.5: Capture pre-execute snapshot (receipt chain)
 
-Use the Bash tool to capture a deterministic workspace snapshot before the engineer runs. This snapshot anchors the receipt chain — `base_tree_hash` in the execute receipt will reference this snapshot.
+Use the Bash tool to capture a deterministic workspace snapshot before the engineer runs. This snapshot anchors the receipt chain, and it is written under the canonical artifact root so `base_tree_hash` in the execute receipt references the active contract's snapshot.
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+SNAPSHOT_PATH="${ARTIFACT_ROOT}snapshots/execute-attempt-01.json"
+
 # Resolve snapshot-tree.sh from known trusted Signum install roots only.
 _SIGNUM_SNAPSHOT=""
 for _d in \
@@ -1369,7 +1621,7 @@ if [ -z "$_SIGNUM_SNAPSHOT" ]; then
   echo "ERROR: snapshot-tree.sh not found in Signum plugin directories — receipt chain cannot be disabled" >&2
   exit 1
 fi
-bash "$_SIGNUM_SNAPSHOT" execute-attempt-01
+bash "$_SIGNUM_SNAPSHOT" execute-attempt-01 --workspace-root "$PWD" --signum-dir "$ARTIFACT_ROOT"
 echo "Pre-execute snapshot captured"
 ```
 
@@ -1378,10 +1630,10 @@ echo "Pre-execute snapshot captured"
 Use the Agent tool to launch the "engineer" agent with this prompt:
 
 ```
-Read .signum/contract-engineer.json and implement the required changes.
-Read .signum/baseline.json for pre-existing check state.
+The canonical artifact root for this execute phase is `.signum/contracts/<activeContractId>/`.
+Read `contract-engineer.json` and `baseline.json` from that canonical artifact root.
 Implement, run the repair loop (max 3 attempts), save artifacts.
-Write .signum/combined.patch and .signum/execute_log.json.
+Write `combined.patch` and `execute_log.json` to that same canonical artifact root.
 ```
 
 ### Step 2.2: Check result
@@ -1389,15 +1641,18 @@ Write .signum/combined.patch and .signum/execute_log.json.
 Use the Bash tool:
 
 ```bash
-test -f .signum/execute_log.json || { echo "ERROR: execute_log.json not found"; exit 1; }
-STATUS=$(jq -r '.status' .signum/execute_log.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+test -f "$EXECUTE_LOG_PATH" || { echo "ERROR: execute_log.json not found"; exit 1; }
+STATUS=$(jq -r '.status' "$EXECUTE_LOG_PATH")
 if [ "$STATUS" != "SUCCESS" ]; then
   echo "ERROR: Execute status is '$STATUS' (expected SUCCESS)"
   jq -r '"Attempt failures:",
          (.attempts[] | "  Attempt " + (.number | tostring) + ": " +
            (.checks | to_entries[] | select(.value.passed == false) |
              "  " + .key + " failed: " + (.value.error // "no error message")))' \
-    .signum/execute_log.json 2>/dev/null || jq . .signum/execute_log.json
+    "$EXECUTE_LOG_PATH" 2>/dev/null || jq . "$EXECUTE_LOG_PATH"
   exit 1
 fi
 ```
@@ -1407,7 +1662,10 @@ If exit code is non-zero, report: "Engineer agent failed after all attempts. Fix
 Verify the patch exists:
 
 ```bash
-test -f .signum/combined.patch && wc -l .signum/combined.patch || echo "WARNING: combined.patch missing"
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+test -f "$COMBINED_PATCH_PATH" && wc -l "$COMBINED_PATCH_PATH" || echo "WARNING: combined.patch missing"
 ```
 
 ### Step 2.3: Display execution summary
@@ -1415,10 +1673,13 @@ test -f .signum/combined.patch && wc -l .signum/combined.patch || echo "WARNING:
 Use the Bash tool:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
 jq -r '"Attempts used: " + (.totalAttempts | tostring) + "/" + (.maxAttempts | tostring),
        "Acceptance criteria passed: " +
          ([.attempts[-1].checks | to_entries[] | select(.value.passed == true)] | length | tostring)' \
-  .signum/execute_log.json
+  "$EXECUTE_LOG_PATH"
 ```
 
 ### Step 2.4: Scope gate
@@ -1426,11 +1687,18 @@ jq -r '"Attempts used: " + (.totalAttempts | tostring) + "/" + (.maxAttempts | t
 Use the Bash tool to verify no out-of-scope files were modified:
 
 ```bash
-python3 -c "
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+
+python3 - "$CONTRACT_PATH" <<'PY'
 import json, subprocess
+import sys
+
+contract_path = sys.argv[1]
 changed = subprocess.run(['git', 'diff', '--name-only'], capture_output=True, text=True).stdout.strip().split('\n')
 changed = [f for f in changed if f]
-with open('.signum/contract.json') as f:
+with open(contract_path) as f:
     contract = json.load(f)
 in_scope = contract.get('inScope', [])
 allow_new = contract.get('allowNewFilesUnder', [])
@@ -1458,7 +1726,7 @@ if violations:
     exit(1)
 else:
     print(f'Scope check: PASS ({len(changed)} files, all within inScope)')
-"
+PY
 ```
 
 If scope violation, **STOP**. Do not proceed to Phase 3.
@@ -1468,12 +1736,17 @@ If scope violation, **STOP**. Do not proceed to Phase 3.
 Use the Bash tool to verify the Engineer's changes comply with `contract-policy.json`:
 
 ```bash
-if [ ! -f ".signum/contract-policy.json" ]; then
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_POLICY_PATH="${ARTIFACT_ROOT}contract-policy.json"
+POLICY_VIOLATIONS_PATH="${ARTIFACT_ROOT}policy_violations.json"
+
+if [ ! -f "$CONTRACT_POLICY_PATH" ]; then
   echo "contract-policy.json not found, skipping policy check"
-  echo '{"violations":[]}' > .signum/policy_violations.json
+  echo '{"violations":[]}' > "$POLICY_VIOLATIONS_PATH"
 else
   FILE_COUNT=$(git diff --name-only | wc -l | tr -d '[:space:]')
-  MAX_FILES=$(jq '.max_files_changed' .signum/contract-policy.json)
+  MAX_FILES=$(jq '.max_files_changed' "$CONTRACT_POLICY_PATH")
 
   VIOLS='[]'
 
@@ -1489,9 +1762,9 @@ else
     if printf '%s' "$DIFF" | grep -qE "$pat" 2>/dev/null; then
       VIOLS=$(printf '%s' "$VIOLS" | jq --arg v "DENIED_PATTERN in diff: $pat" '. + [$v]')
     fi
-  done < <(jq -r '.bash_deny_patterns[]' .signum/contract-policy.json)
+  done < <(jq -r '.bash_deny_patterns[]' "$CONTRACT_POLICY_PATH")
 
-  printf '%s' "$VIOLS" | jq '{violations: .}' > .signum/policy_violations.json
+  printf '%s' "$VIOLS" | jq '{violations: .}' > "$POLICY_VIOLATIONS_PATH"
   VIOL_COUNT=$(printf '%s' "$VIOLS" | jq 'length')
 
   if [ "$VIOL_COUNT" -gt 0 ]; then
@@ -1511,6 +1784,10 @@ If output contains `AUTO_BLOCK`, **STOP**. Do not proceed to Phase 3.
 Use the Bash tool to verify all non-glob `inScope` paths exist after the engineer ran. This catches the class of failure where files were promised but never created:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+
 MISSING_SCOPE=""
 while IFS= read -r scoped; do
   scoped=$(printf '%s' "$scoped" | sed 's/ (.*$//')
@@ -1521,7 +1798,7 @@ while IFS= read -r scoped; do
   if [ ! -e "$scoped" ]; then
     MISSING_SCOPE="$MISSING_SCOPE\n  $scoped"
   fi
-done < <(jq -r '.inScope[]' .signum/contract.json)
+done < <(jq -r '.inScope[]' "$CONTRACT_PATH")
 if [ -n "$MISSING_SCOPE" ]; then
   echo "SCOPE MISSING: expected inScope paths do not exist:$MISSING_SCOPE"
   exit 1
@@ -1537,6 +1814,12 @@ If scope existence fails, **STOP**. Do not proceed to Phase 3.
 Use the Bash tool to run deterministic boundary verification. This runs AFTER the engineer completes and verifies AC evidence, scope integrity, and artifact hashes. The boundary verifier generates the execute receipt — the engineer does NOT write its own receipt.
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_ENGINEER_PATH="${ARTIFACT_ROOT}contract-engineer.json"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+SNAPSHOT_PATH="${ARTIFACT_ROOT}snapshots/execute-attempt-01.json"
 _SIGNUM_BOUNDARY=""
 for _d in \
   "${_REAL_HOME:=$HOME}/.claude/plugins/signum/platforms/claude-code" \
@@ -1551,7 +1834,12 @@ if [ -z "$_SIGNUM_BOUNDARY" ]; then
   exit 1
 fi
 bash "$_SIGNUM_BOUNDARY" execute \
-  --snapshot .signum/snapshots/execute-attempt-01.json
+  --workspace-root "$PWD" \
+  --signum-dir "$ARTIFACT_ROOT" \
+  --contract "$CONTRACT_ENGINEER_PATH" \
+  --contract-full "$CONTRACT_PATH" \
+  --execution-context "$EXECUTION_CONTEXT_PATH" \
+  --snapshot "$SNAPSHOT_PATH"
 ```
 
 If boundary verifier exits non-zero, **STOP**. Do not proceed to Phase 3.
@@ -1561,6 +1849,11 @@ If boundary verifier exits non-zero, **STOP**. Do not proceed to Phase 3.
 Use the Bash tool to verify the execute → audit transition gate. This checks receipt integrity, contract hash chain, artifact hashes, and AC evidence completeness.
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_ENGINEER_PATH="${ARTIFACT_ROOT}contract-engineer.json"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+SNAPSHOT_PATH="${ARTIFACT_ROOT}snapshots/execute-attempt-01.json"
 _SIGNUM_TRANSITION=""
 for _d in \
   "${_REAL_HOME:=$HOME}/.claude/plugins/signum/platforms/claude-code" \
@@ -1575,7 +1868,11 @@ if [ -z "$_SIGNUM_TRANSITION" ]; then
   exit 1
 fi
 bash "$_SIGNUM_TRANSITION" execute audit \
-  --snapshot .signum/snapshots/execute-attempt-01.json
+  --workspace-root "$PWD" \
+  --signum-dir "$ARTIFACT_ROOT" \
+  --contract "$CONTRACT_ENGINEER_PATH" \
+  --contract-full "$CONTRACT_PATH" \
+  --snapshot "$SNAPSHOT_PATH"
 ```
 
 If transition verifier exits non-zero, **STOP**. Do not proceed to Phase 3.
@@ -1607,7 +1904,10 @@ Read the contract's `riskLevel` and apply the matching ceremony profile. Steps m
 Use the Bash tool to read the risk level and save it for conditional checks:
 
 ```bash
-RISK_LEVEL=$(jq -r '.riskLevel' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+RISK_LEVEL=$(jq -r '.riskLevel' "$CONTRACT_PATH")
 echo "RISK_LEVEL=$RISK_LEVEL"
 ```
 
@@ -1615,15 +1915,25 @@ Save `RISK_LEVEL` for use in all subsequent steps.
 
 ### Step 3.0.5: Repo-contract invariant check
 
-If `repo-contract.json` and `.signum/repo_contract_baseline.json` both exist, re-run invariants and detect regressions:
+If `repo-contract.json` and `repo_contract_baseline.json` under the canonical artifact root both exist, re-run invariants and detect regressions:
 
 ```bash
-if [ -f "repo-contract.json" ] && [ -f ".signum/repo_contract_baseline.json" ]; then
-  python3 -c "
-import json, subprocess
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REPO_CONTRACT_BASELINE_PATH="${ARTIFACT_ROOT}repo_contract_baseline.json"
+REPO_CONTRACT_VIOLATIONS_PATH="${ARTIFACT_ROOT}repo_contract_violations.json"
+
+if [ -f "repo-contract.json" ] && [ -f "$REPO_CONTRACT_BASELINE_PATH" ]; then
+  python3 - "$REPO_CONTRACT_BASELINE_PATH" "$REPO_CONTRACT_VIOLATIONS_PATH" <<'PY'
+import json
+import subprocess
+import sys
+
+baseline_path = sys.argv[1]
+violations_path = sys.argv[2]
 with open('repo-contract.json') as f:
     rc = json.load(f)
-with open('.signum/repo_contract_baseline.json') as f:
+with open(baseline_path) as f:
     baseline = json.load(f)
 regressions = []
 results = {}
@@ -1643,8 +1953,8 @@ for inv in rc.get('invariants', []):
         'regressed': regressed,
     }
     if regressed:
-        regressions.append(f'{iid} ({inv[\"severity\"]}): {inv[\"description\"]}')
-with open('.signum/repo_contract_violations.json', 'w') as f:
+        regressions.append(f'{iid} ({inv["severity"]}): {inv["description"]}')
+with open(violations_path, 'w') as f:
     json.dump({'invariants': results, 'regressions': regressions}, f, indent=2)
 if regressions:
     print('INVARIANT REGRESSIONS:')
@@ -1655,7 +1965,7 @@ else:
     total = len(results)
     passed = sum(1 for v in results.values() if v['passed'])
     print(f'Repo-contract: PASS ({passed}/{total} invariants holding)')
-"
+PY
 fi
 ```
 
@@ -1685,16 +1995,23 @@ if [ -z "$_SIGNUM_MECHANIC" ]; then
   echo "ERROR: mechanic-parser.sh not found in Signum plugin directories" >&2
   exit 1
 fi
-bash "$_SIGNUM_MECHANIC" .signum/baseline.json
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+BASELINE_PATH="${ARTIFACT_ROOT}baseline.json"
+bash "$_SIGNUM_MECHANIC" "$BASELINE_PATH"
 ```
 
 If any check has a NEW regression, continue to reviews — mechanic regression influences the final decision but does not block the audit.
 
 ### Step 3.1.3: Policy scanner (bash, zero LLM cost)
 
-Run the deterministic policy scanner on `.signum/combined.patch`. This step scans addition lines only for security, unsafe, and dependency patterns. Use the Bash tool:
+Run the deterministic policy scanner on `combined.patch` under the canonical artifact root. This step scans addition lines only for security, unsafe, and dependency patterns. Use the Bash tool:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+
 # Resolve policy-scanner.sh from known trusted Signum install roots only.
 # SIGNUM_PLUGIN_DIR env var is intentionally excluded to prevent environment
 # hijacking — only fixed install paths derived from $HOME are trusted.
@@ -1711,34 +2028,42 @@ if [ -z "$_SIGNUM_SCANNER" ]; then
   echo "ERROR: policy-scanner.sh not found in Signum plugin directories" >&2
   exit 1
 fi
-bash "$_SIGNUM_SCANNER" .signum/combined.patch
+bash "$_SIGNUM_SCANNER" "$COMBINED_PATCH_PATH"
 ```
 
-This writes `.signum/policy_scan.json` with fields: `scannedAt`, `patchFile`, `findings` (array), and `summaryCounts` ({critical, major, minor, total}).
+This writes `policy_scan.json` under the canonical artifact root with fields: `scannedAt`, `patchFile`, `findings` (array), and `summaryCounts` ({critical, major, minor, total}).
 
 Check for CRITICAL findings:
 
 ```bash
-POLICY_CRITICAL=$(jq -r '.summaryCounts.critical // 0' .signum/policy_scan.json)
-echo "Policy scan: critical=$POLICY_CRITICAL findings total=$(jq -r '.summaryCounts.total' .signum/policy_scan.json)"
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+POLICY_SCAN_PATH="${ARTIFACT_ROOT}policy_scan.json"
+POLICY_CRITICAL=$(jq -r '.summaryCounts.critical // 0' "$POLICY_SCAN_PATH")
+echo "Policy scan: critical=$POLICY_CRITICAL findings total=$(jq -r '.summaryCounts.total' "$POLICY_SCAN_PATH")"
 ```
 
 If `POLICY_CRITICAL` is greater than 0, the synthesizer will AUTO_BLOCK. Continue to reviews — the synthesizer reads `policy_scan.json` and applies the block rule deterministically.
 
 ### Step 3.1.5: Holdout validation
 
-**Skip if `RISK_LEVEL` is `low`.** Write an empty holdout report and proceed to Step 3.2.
+**Skip if `RISK_LEVEL` is `low`.** Write an empty holdout report under the canonical artifact root and proceed to Step 3.2.
 
 Otherwise, run holdout verification using the typed DSL runner. Supports both new format (`acceptanceCriteria` with `visibility: "holdout"`) and legacy `holdoutScenarios`:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+
 if [ "$RISK_LEVEL" = "low" ]; then
-  echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > .signum/holdout_report.json
+  echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > "$HOLDOUT_REPORT_PATH"
   echo "Holdout validation skipped (low risk)"
 else
 # Count holdouts: new format (visibility=holdout) + legacy (holdoutScenarios)
-HOLDOUT_ACS=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' .signum/contract.json)
-LEGACY_HOLDOUTS=$(jq '.holdoutScenarios // [] | length' .signum/contract.json)
+HOLDOUT_ACS=$(jq '[.acceptanceCriteria[] | select(.visibility == "holdout")] | length' "$CONTRACT_PATH")
+LEGACY_HOLDOUTS=$(jq '.holdoutScenarios // [] | length' "$CONTRACT_PATH")
 TOTAL_HOLDOUTS=$((HOLDOUT_ACS + LEGACY_HOLDOUTS))
 
 if [ "$TOTAL_HOLDOUTS" -gt 0 ]; then
@@ -1747,11 +2072,11 @@ if [ "$TOTAL_HOLDOUTS" -gt 0 ]; then
 
   # New format: AC with visibility=holdout
   for i in $(seq 0 $((HOLDOUT_ACS - 1))); do
-    ID=$(jq -r "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].id" .signum/contract.json)
-    DESC=$(jq -r "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].description" .signum/contract.json)
+    ID=$(jq -r "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].id" "$CONTRACT_PATH")
+    DESC=$(jq -r "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].description" "$CONTRACT_PATH")
 
     VERIFY_FILE=$(mktemp)
-    jq "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].verify" .signum/contract.json > "$VERIFY_FILE"
+    jq "[.acceptanceCriteria[] | select(.visibility == \"holdout\")][$i].verify" "$CONTRACT_PATH" > "$VERIFY_FILE"
 
     if ! bash lib/dsl-runner.sh validate "$VERIFY_FILE" > /dev/null 2>&1; then
       ERRORS=$((ERRORS + 1))
@@ -1777,12 +2102,12 @@ if [ "$TOTAL_HOLDOUTS" -gt 0 ]; then
 
   # Legacy format: holdoutScenarios (backward compat)
   for i in $(seq 0 $((LEGACY_HOLDOUTS - 1))); do
-    ID=$(jq -r ".holdoutScenarios[$i].id // \"HO$((i+1))\"" .signum/contract.json)
-    DESC=$(jq -r ".holdoutScenarios[$i].description" .signum/contract.json)
-    HAS_STEPS=$(jq ".holdoutScenarios[$i].verify | has(\"steps\")" .signum/contract.json)
+    ID=$(jq -r ".holdoutScenarios[$i].id // \"HO$((i+1))\"" "$CONTRACT_PATH")
+    DESC=$(jq -r ".holdoutScenarios[$i].description" "$CONTRACT_PATH")
+    HAS_STEPS=$(jq ".holdoutScenarios[$i].verify | has(\"steps\")" "$CONTRACT_PATH")
     if [ "$HAS_STEPS" = "true" ]; then
       VERIFY_FILE=$(mktemp)
-      jq ".holdoutScenarios[$i].verify" .signum/contract.json > "$VERIFY_FILE"
+      jq ".holdoutScenarios[$i].verify" "$CONTRACT_PATH" > "$VERIFY_FILE"
       if bash lib/dsl-runner.sh validate "$VERIFY_FILE" > /dev/null 2>&1; then
         REPORT=$(bash lib/dsl-runner.sh run "$VERIFY_FILE" 2>&1) || true
         STATUS=$(echo "$REPORT" | jq -r '.status // "ERROR"')
@@ -1802,10 +2127,10 @@ if [ "$TOTAL_HOLDOUTS" -gt 0 ]; then
 
   echo "$RESULTS" | jq --argjson pass "$PASS" --argjson fail "$FAIL" --argjson err "$ERRORS" \
     '{total: ($pass + $fail + $err), passed: $pass, failed: $fail, errors: $err, results: .}' \
-    > .signum/holdout_report.json
+    > "$HOLDOUT_REPORT_PATH"
   echo "Holdout: $PASS passed, $FAIL failed, $ERRORS errors"
 else
-  echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > .signum/holdout_report.json
+  echo '{"total":0,"passed":0,"failed":0,"errors":0,"results":[]}' > "$HOLDOUT_REPORT_PATH"
   echo "No holdout scenarios"
 fi
 fi
@@ -1815,15 +2140,22 @@ If any holdout fails, continue to reviews but synthesizer treats it as regressio
 
 ### Step 3.2.0: Gather review context
 
-Run a single Bash block to build `.signum/review_context.json`. This file provides git history for changed files and issue references extracted from commit messages — used later to enrich the Claude reviewer prompt.
+Run a single Bash block to build `review_context.json` under the canonical artifact root. This file provides git history for changed files and issue references extracted from commit messages and is used later to enrich the Claude reviewer prompt.
 
 ```bash
-python3 - << 'PYEOF'
-import json, os, subprocess, re
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+REVIEW_CONTEXT_PATH="${ARTIFACT_ROOT}review_context.json"
+
+python3 - "$PATCH_PATH" "$REVIEW_CONTEXT_PATH" << 'PYEOF'
+import json, os, re, subprocess, sys
+
+patch_path = sys.argv[1]
+review_context_path = sys.argv[2]
 
 # --- git_history: one entry per file changed in combined.patch ---
 git_history = []
-patch_path = '.signum/combined.patch'
 if os.path.exists(patch_path):
     with open(patch_path) as f:
         patch = f.read()
@@ -1899,7 +2231,7 @@ result = {
     'issue_refs': issue_refs,
     'project_intent': project_intent,
 }
-with open('.signum/review_context.json', 'w') as f:
+with open(review_context_path, 'w') as f:
     json.dump(result, f, indent=2)
 print(f"review_context.json written: {len(git_history)} file(s), {len(issue_refs)} issue ref(s), intent={'yes' if project_intent else 'null'}")
 PYEOF
@@ -1911,37 +2243,51 @@ If the patch does not exist or contains no file paths, `git_history` and `issue_
 
 **If `RISK_LEVEL` is `low`:** skip this step entirely (no external prompts needed). Set `CODEX_AVAILABLE=false` and `GEMINI_AVAILABLE=false`, then proceed directly to Step 3.2.5 (Claude-only).
 
-Otherwise, in a single Bash block, check both codex and gemini availability, build both prompts (security-focused for codex, performance-focused for gemini), and save as `.signum/review_prompt_codex.txt` and `.signum/review_prompt_gemini.txt`:
+Otherwise, in a single Bash block, check both codex and gemini availability, build both prompts (security-focused for codex, performance-focused for gemini), and save them under the canonical artifact root as `review_prompt_codex.txt` and `review_prompt_gemini.txt`:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+DELTA_PATCH_PATH="${ARTIFACT_ROOT}iteration_delta.patch"
+REVIEW_PROMPT_CODEX_PATH="${ARTIFACT_ROOT}review_prompt_codex.txt"
+REVIEW_PROMPT_GEMINI_PATH="${ARTIFACT_ROOT}review_prompt_gemini.txt"
+
 which codex > /dev/null 2>&1 && CODEX_AVAILABLE=true || CODEX_AVAILABLE=false
 which gemini > /dev/null 2>&1 && GEMINI_AVAILABLE=true || GEMINI_AVAILABLE=false
 
 if [ "$CODEX_AVAILABLE" = "true" ]; then
-  python3 -c "
-import json, sys, os
-goal = json.load(open('.signum/contract.json'))['goal']
-diff = open('.signum/combined.patch').read()
-delta_path = '.signum/iteration_delta.patch'
+  python3 - "$CONTRACT_PATH" "$PATCH_PATH" "$DELTA_PATCH_PATH" "lib/prompts/review-template-security.md" <<'PY' > "$REVIEW_PROMPT_CODEX_PATH"
+import json
+import os
+import sys
+
+contract_path, patch_path, delta_path, template_path = sys.argv[1:]
+goal = json.load(open(contract_path))['goal']
+diff = open(patch_path).read()
 delta = open(delta_path).read() if os.path.exists(delta_path) else ''
-tmpl = open('lib/prompts/review-template-security.md').read()
+tmpl = open(template_path).read()
 print(tmpl.replace('{goal}', goal).replace('{diff}', diff).replace('{iteration_delta}', delta))
-" > .signum/review_prompt_codex.txt
+PY
   echo "codex: AVAILABLE, prompt written"
 else
   echo "codex: UNAVAILABLE"
 fi
 
 if [ "$GEMINI_AVAILABLE" = "true" ]; then
-  python3 -c "
-import json, sys, os
-goal = json.load(open('.signum/contract.json'))['goal']
-diff = open('.signum/combined.patch').read()
-delta_path = '.signum/iteration_delta.patch'
+  python3 - "$CONTRACT_PATH" "$PATCH_PATH" "$DELTA_PATCH_PATH" "lib/prompts/review-template-performance.md" <<'PY' > "$REVIEW_PROMPT_GEMINI_PATH"
+import json
+import os
+import sys
+
+contract_path, patch_path, delta_path, template_path = sys.argv[1:]
+goal = json.load(open(contract_path))['goal']
+diff = open(patch_path).read()
 delta = open(delta_path).read() if os.path.exists(delta_path) else ''
-tmpl = open('lib/prompts/review-template-performance.md').read()
+tmpl = open(template_path).read()
 print(tmpl.replace('{goal}', goal).replace('{diff}', diff).replace('{iteration_delta}', delta))
-" > .signum/review_prompt_gemini.txt
+PY
   echo "gemini: AVAILABLE, prompt written"
 else
   echo "gemini: UNAVAILABLE"
@@ -1962,33 +2308,42 @@ For medium/high risk, launch the reviewer-claude Agent with `run_in_background: 
 
 **Claude (Agent tool, `run_in_background: true`):**
 
-Before launching the Claude reviewer Agent, read `.signum/review_context.json` and serialize it to a string. Then construct the agent prompt as follows (inject the review_context JSON content inline, not as a file path):
+Before launching the Claude reviewer Agent, read `review_context.json` under the canonical artifact root and serialize it to a string. Then construct the agent prompt as follows (inject the review_context JSON content inline, not as a file path):
 
 ```
-Read .signum/contract.json, .signum/combined.patch, and .signum/mechanic_report.json.
-Also read .signum/iteration_delta.patch if it exists.
+The canonical artifact root for this review is `.signum/contracts/<activeContractId>/`.
+Read `contract.json`, `combined.patch`, and `mechanic_report.json` from that canonical artifact root.
+Also read `iteration_delta.patch` from that same root if it exists.
 The review_context for this review is: <REVIEW_CONTEXT_JSON>
-Follow lib/prompts/review-template.md and write your review to .signum/reviews/claude.json.
+Follow lib/prompts/review-template.md and write your review to `reviews/claude.json` under that same canonical artifact root.
 Use the review_context above to fill in the {review_context} placeholder in the template.
 Write ONLY the JSON object, no markers, no markdown.
 ```
 
-Replace `<REVIEW_CONTEXT_JSON>` with the full JSON content of `.signum/review_context.json` read in the previous step.
+Replace `<REVIEW_CONTEXT_JSON>` with the full JSON content of `review_context.json` from the canonical artifact root read in the previous step.
 
 **Codex (Bash tool, `run_in_background: true`, only if CODEX_AVAILABLE):**
 
 ```bash
-PROMPT=$(cat .signum/review_prompt_codex.txt)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+REVIEW_PROMPT_CODEX_PATH="${ARTIFACT_ROOT}review_prompt_codex.txt"
+CODEX_STDOUT_PATH="${REVIEWS_DIR}/codex_stdout.txt"
+CODEX_EXIT_PATH="${REVIEWS_DIR}/codex_exit_code.txt"
+CODEX_RAW_PATH="${REVIEWS_DIR}/codex_raw.txt"
+PROMPT=$(cat "$REVIEW_PROMPT_CODEX_PATH")
 OUT=$(mktemp)
 CODEX_MODEL_FLAG=""
 [ -n "$SIGNUM_CODEX_MODEL" ] && CODEX_MODEL_FLAG="--model $SIGNUM_CODEX_MODEL"
 CODEX_PROFILE_FLAG=""
 [ -n "$SIGNUM_CODEX_PROFILE" ] && CODEX_PROFILE_FLAG="-p $SIGNUM_CODEX_PROFILE"
+mkdir -p "$REVIEWS_DIR"
 codex exec --ephemeral -C "$PWD" $CODEX_PROFILE_FLAG $CODEX_MODEL_FLAG --output-last-message "$OUT" "$PROMPT" \
-  > .signum/reviews/codex_stdout.txt 2>&1
-echo $? > .signum/reviews/codex_exit_code.txt
-cp "$OUT" .signum/reviews/codex_raw.txt 2>/dev/null || \
-  cp .signum/reviews/codex_stdout.txt .signum/reviews/codex_raw.txt
+  > "$CODEX_STDOUT_PATH" 2>&1
+echo $? > "$CODEX_EXIT_PATH"
+cp "$OUT" "$CODEX_RAW_PATH" 2>/dev/null || \
+  cp "$CODEX_STDOUT_PATH" "$CODEX_RAW_PATH"
 rm -f "$OUT"
 echo "CODEX_DONE"
 ```
@@ -1996,11 +2351,18 @@ echo "CODEX_DONE"
 **Gemini (Bash tool, `run_in_background: true`, only if GEMINI_AVAILABLE):**
 
 ```bash
-PROMPT=$(cat .signum/review_prompt_gemini.txt)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+REVIEW_PROMPT_GEMINI_PATH="${ARTIFACT_ROOT}review_prompt_gemini.txt"
+GEMINI_RAW_PATH="${REVIEWS_DIR}/gemini_raw.txt"
+GEMINI_EXIT_PATH="${REVIEWS_DIR}/gemini_exit_code.txt"
+PROMPT=$(cat "$REVIEW_PROMPT_GEMINI_PATH")
 GEMINI_MODEL_FLAG=""
 [ -n "$SIGNUM_GEMINI_MODEL" ] && GEMINI_MODEL_FLAG="--model $SIGNUM_GEMINI_MODEL"
-gemini $GEMINI_MODEL_FLAG -p "$PROMPT" > .signum/reviews/gemini_raw.txt 2>&1
-echo $? > .signum/reviews/gemini_exit_code.txt
+mkdir -p "$REVIEWS_DIR"
+gemini $GEMINI_MODEL_FLAG -p "$PROMPT" > "$GEMINI_RAW_PATH" 2>&1
+echo $? > "$GEMINI_EXIT_PATH"
 echo "GEMINI_DONE"
 ```
 
@@ -2013,7 +2375,11 @@ Use the TaskOutput tool with `block: true` to wait for CLAUDE_TASK_ID. Then use 
 After all complete (or if they were never launched), verify the claude output:
 
 ```bash
-test -f .signum/reviews/claude.json && jq -e '.verdict' .signum/reviews/claude.json > /dev/null \
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+CLAUDE_REVIEW_PATH="${REVIEWS_DIR}/claude.json"
+test -f "$CLAUDE_REVIEW_PATH" && jq -e '.verdict' "$CLAUDE_REVIEW_PATH" > /dev/null \
   && echo "claude review OK" || echo "WARNING: claude.json missing or invalid"
 ```
 
@@ -2021,44 +2387,52 @@ test -f .signum/reviews/claude.json && jq -e '.verdict' .signum/reviews/claude.j
 
 After collection, parse codex output and parse gemini output.
 
-If CODEX_AVAILABLE: check exit code first, then attempt 3-level parsing of `.signum/reviews/codex_raw.txt`:
+If CODEX_AVAILABLE: check exit code first, then attempt 3-level parsing of `reviews/codex_raw.txt` under the canonical artifact root:
 
 ```bash
-CODEX_EXIT=$(cat .signum/reviews/codex_exit_code.txt 2>/dev/null || echo "1")
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+CODEX_EXIT_PATH="${REVIEWS_DIR}/codex_exit_code.txt"
+CODEX_STDOUT_PATH="${REVIEWS_DIR}/codex_stdout.txt"
+CODEX_RAW_PATH="${REVIEWS_DIR}/codex_raw.txt"
+CODEX_JSON_PATH="${REVIEWS_DIR}/codex.json"
+CODEX_EXTRACTED_PATH="${ARTIFACT_ROOT}codex_extracted.json"
+CODEX_EXIT=$(cat "$CODEX_EXIT_PATH" 2>/dev/null || echo "1")
 if [ "$CODEX_EXIT" != "0" ]; then
   # Crash → UNAVAILABLE (not CONDITIONAL)
-  RAW=$(head -c 2000 .signum/reviews/codex_stdout.txt 2>/dev/null)
+  RAW=$(head -c 2000 "$CODEX_STDOUT_PATH" 2>/dev/null)
   jq -n --arg raw "$RAW" --arg code "$CODEX_EXIT" \
     '{"verdict":"UNAVAILABLE","findings":[],"summary":("Codex invocation failed (exit " + $code + ")"),"available":false,"raw":$raw}' \
-    > .signum/reviews/codex.json
+    > "$CODEX_JSON_PATH"
   echo "codex: invocation failed (exit $CODEX_EXIT), marked UNAVAILABLE"
 
 # Level 1: valid JSON directly
-elif jq -e '.verdict' .signum/reviews/codex_raw.txt > /dev/null 2>&1; then
-  cp .signum/reviews/codex_raw.txt .signum/reviews/codex.json
+elif jq -e '.verdict' "$CODEX_RAW_PATH" > /dev/null 2>&1; then
+  cp "$CODEX_RAW_PATH" "$CODEX_JSON_PATH"
   echo "codex: parsed as direct JSON"
 
 # Level 2: extract between markers
-elif grep -q '###SIGNUM_REVIEW_START###' .signum/reviews/codex_raw.txt; then
-  sed -n '/###SIGNUM_REVIEW_START###/,/###SIGNUM_REVIEW_END###/p' .signum/reviews/codex_raw.txt \
-    | grep -v '###SIGNUM_REVIEW' > .signum/codex_extracted.json
-  if jq -e '.verdict' .signum/codex_extracted.json > /dev/null 2>&1; then
-    cp .signum/codex_extracted.json .signum/reviews/codex.json
+elif grep -q '###SIGNUM_REVIEW_START###' "$CODEX_RAW_PATH"; then
+  sed -n '/###SIGNUM_REVIEW_START###/,/###SIGNUM_REVIEW_END###/p' "$CODEX_RAW_PATH" \
+    | grep -v '###SIGNUM_REVIEW' > "$CODEX_EXTRACTED_PATH"
+  if jq -e '.verdict' "$CODEX_EXTRACTED_PATH" > /dev/null 2>&1; then
+    cp "$CODEX_EXTRACTED_PATH" "$CODEX_JSON_PATH"
     echo "codex: parsed via markers"
   else
-    RAW=$(cat .signum/reviews/codex_raw.txt | head -c 2000)
+    RAW=$(head -c 2000 "$CODEX_RAW_PATH")
     jq -n --arg raw "$RAW" \
       '{"verdict":"CONDITIONAL","findings":[],"summary":"Could not parse codex output","parseOk":false,"raw":$raw}' \
-      > .signum/reviews/codex.json
+      > "$CODEX_JSON_PATH"
     echo "codex: marker extraction failed, saved raw"
   fi
 
 # Level 3: save raw, mark unparseable
 else
-  RAW=$(cat .signum/reviews/codex_raw.txt | head -c 2000)
+  RAW=$(head -c 2000 "$CODEX_RAW_PATH")
   jq -n --arg raw "$RAW" \
     '{"verdict":"CONDITIONAL","findings":[],"summary":"Could not parse codex output","parseOk":false,"raw":$raw}' \
-    > .signum/reviews/codex.json
+    > "$CODEX_JSON_PATH"
   echo "codex: no markers found, saved raw"
 fi
 ```
@@ -2066,55 +2440,67 @@ fi
 If CODEX_UNAVAILABLE:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+CODEX_JSON_PATH="${REVIEWS_DIR}/codex.json"
 echo '{"verdict":"UNAVAILABLE","findings":[],"summary":"Codex CLI not installed","available":false}' \
-  > .signum/reviews/codex.json
+  > "$CODEX_JSON_PATH"
 ```
 
 Parse gemini output:
 
-If GEMINI_AVAILABLE: check exit code first, then attempt 3-level parsing of `.signum/reviews/gemini_raw.txt`:
+If GEMINI_AVAILABLE: check exit code first, then attempt 3-level parsing of `reviews/gemini_raw.txt` under the canonical artifact root:
 
 ```bash
-GEMINI_EXIT=$(cat .signum/reviews/gemini_exit_code.txt 2>/dev/null || echo "1")
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+GEMINI_EXIT_PATH="${REVIEWS_DIR}/gemini_exit_code.txt"
+GEMINI_RAW_PATH="${REVIEWS_DIR}/gemini_raw.txt"
+GEMINI_JSON_PATH="${REVIEWS_DIR}/gemini.json"
+GEMINI_STRIPPED_PATH="${ARTIFACT_ROOT}gemini_stripped.txt"
+GEMINI_EXTRACTED_PATH="${ARTIFACT_ROOT}gemini_extracted.json"
+GEMINI_EXIT=$(cat "$GEMINI_EXIT_PATH" 2>/dev/null || echo "1")
 if [ "$GEMINI_EXIT" != "0" ]; then
   # Crash → UNAVAILABLE (not CONDITIONAL)
-  RAW=$(head -c 2000 .signum/reviews/gemini_raw.txt 2>/dev/null)
+  RAW=$(head -c 2000 "$GEMINI_RAW_PATH" 2>/dev/null)
   jq -n --arg raw "$RAW" --arg code "$GEMINI_EXIT" \
     '{"verdict":"UNAVAILABLE","findings":[],"summary":("Gemini invocation failed (exit " + $code + ")"),"available":false,"raw":$raw}' \
-    > .signum/reviews/gemini.json
+    > "$GEMINI_JSON_PATH"
   echo "gemini: invocation failed (exit $GEMINI_EXIT), marked UNAVAILABLE"
 
 # Level 0.5: strip markdown code fences (```json ... ```) if present
-elif sed -n '1{/^```/d}; ${/^```/d}; p' .signum/reviews/gemini_raw.txt | sed 's/^```json$//' | sed 's/^```$//' > .signum/reviews/gemini_stripped.txt \
-  && jq -e '.verdict' .signum/reviews/gemini_stripped.txt > /dev/null 2>&1; then
-  cp .signum/reviews/gemini_stripped.txt .signum/reviews/gemini.json
-  rm -f .signum/reviews/gemini_stripped.txt
+elif sed -n '1{/^```/d}; ${/^```/d}; p' "$GEMINI_RAW_PATH" | sed 's/^```json$//' | sed 's/^```$//' > "$GEMINI_STRIPPED_PATH" \
+  && jq -e '.verdict' "$GEMINI_STRIPPED_PATH" > /dev/null 2>&1; then
+  cp "$GEMINI_STRIPPED_PATH" "$GEMINI_JSON_PATH"
+  rm -f "$GEMINI_STRIPPED_PATH"
   echo "gemini: parsed after stripping markdown fences"
 
 # Level 1: valid JSON directly
-elif jq -e '.verdict' .signum/reviews/gemini_raw.txt > /dev/null 2>&1; then
-  cp .signum/reviews/gemini_raw.txt .signum/reviews/gemini.json
+elif jq -e '.verdict' "$GEMINI_RAW_PATH" > /dev/null 2>&1; then
+  cp "$GEMINI_RAW_PATH" "$GEMINI_JSON_PATH"
   echo "gemini: parsed as direct JSON"
 
-elif grep -q '###SIGNUM_REVIEW_START###' .signum/reviews/gemini_raw.txt; then
-  sed -n '/###SIGNUM_REVIEW_START###/,/###SIGNUM_REVIEW_END###/p' .signum/reviews/gemini_raw.txt \
-    | grep -v '###SIGNUM_REVIEW' > .signum/gemini_extracted.json
-  if jq -e '.verdict' .signum/gemini_extracted.json > /dev/null 2>&1; then
-    cp .signum/gemini_extracted.json .signum/reviews/gemini.json
+elif grep -q '###SIGNUM_REVIEW_START###' "$GEMINI_RAW_PATH"; then
+  sed -n '/###SIGNUM_REVIEW_START###/,/###SIGNUM_REVIEW_END###/p' "$GEMINI_RAW_PATH" \
+    | grep -v '###SIGNUM_REVIEW' > "$GEMINI_EXTRACTED_PATH"
+  if jq -e '.verdict' "$GEMINI_EXTRACTED_PATH" > /dev/null 2>&1; then
+    cp "$GEMINI_EXTRACTED_PATH" "$GEMINI_JSON_PATH"
     echo "gemini: parsed via markers"
   else
-    RAW=$(cat .signum/reviews/gemini_raw.txt | head -c 2000)
+    RAW=$(head -c 2000 "$GEMINI_RAW_PATH")
     jq -n --arg raw "$RAW" \
       '{"verdict":"CONDITIONAL","findings":[],"summary":"Could not parse gemini output","parseOk":false,"raw":$raw}' \
-      > .signum/reviews/gemini.json
+      > "$GEMINI_JSON_PATH"
     echo "gemini: marker extraction failed, saved raw"
   fi
 
 else
-  RAW=$(cat .signum/reviews/gemini_raw.txt | head -c 2000)
+  RAW=$(head -c 2000 "$GEMINI_RAW_PATH")
   jq -n --arg raw "$RAW" \
     '{"verdict":"CONDITIONAL","findings":[],"summary":"Could not parse gemini output","parseOk":false,"raw":$raw}' \
-    > .signum/reviews/gemini.json
+    > "$GEMINI_JSON_PATH"
   echo "gemini: no markers found, saved raw"
 fi
 ```
@@ -2122,8 +2508,12 @@ fi
 If GEMINI_UNAVAILABLE:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+GEMINI_JSON_PATH="${REVIEWS_DIR}/gemini.json"
 echo '{"verdict":"UNAVAILABLE","findings":[],"summary":"Gemini CLI not installed","available":false}' \
-  > .signum/reviews/gemini.json
+  > "$GEMINI_JSON_PATH"
 ```
 
 ### Step 3.5: Synthesizer (agent)
@@ -2131,17 +2521,18 @@ echo '{"verdict":"UNAVAILABLE","findings":[],"summary":"Gemini CLI not installed
 Use the Agent tool to launch the "synthesizer" agent with this prompt:
 
 ```
-Read .signum/mechanic_report.json, .signum/reviews/claude.json,
-.signum/reviews/codex.json, .signum/reviews/gemini.json,
-.signum/holdout_report.json, and .signum/execute_log.json.
-Apply deterministic synthesis rules, compute confidence scores,
-and write .signum/audit_summary.json.
+The canonical artifact root for this synthesis is `.signum/contracts/<activeContractId>/`.
+Read `mechanic_report.json`, `reviews/claude.json`, `reviews/codex.json`, `reviews/gemini.json`, `holdout_report.json`, and `execute_log.json` from that canonical artifact root.
+Apply deterministic synthesis rules, compute confidence scores, and write `audit_summary.json` to that same canonical artifact root.
 ```
 
 After it finishes, read and display the audit summary:
 
 ```bash
-test -f .signum/audit_summary.json || { echo "ERROR: audit_summary.json not found"; exit 1; }
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+test -f "$AUDIT_SUMMARY_PATH" || { echo "ERROR: audit_summary.json not found"; exit 1; }
 
 jq -r '"=== AUDIT SUMMARY ===",
        "Mechanic: " + (.mechanic // "unknown"),
@@ -2154,8 +2545,7 @@ jq -r '"=== AUDIT SUMMARY ===",
        "Consensus: " + .consensus,
        "Confidence: " + ((.confidence.overall // 0) | tostring) + "%",
        "DECISION: " + .decision,
-       "Reasoning: " + .reasoning' \
-  .signum/audit_summary.json
+       "Reasoning: " + .reasoning'   "$AUDIT_SUMMARY_PATH"
 ```
 
 ### Step 3.6: Iterative AUDIT Loop
@@ -2176,17 +2566,22 @@ echo "Iterative AUDIT config: max_iterations=$MAX_ITERATIONS"
 Check the audit summary decision and findings:
 
 ```bash
-AUDIT_DECISION=$(jq -r '.decision' .signum/audit_summary.json)
-HAS_MAJOR=$(jq '[.reviews[].findings[]? | select(.severity == "MAJOR" or .severity == "CRITICAL")] | length' .signum/audit_summary.json)
-HAS_REGRESSIONS=$(jq -r '.mechanic' .signum/audit_summary.json | grep -q "regression" && echo "true" || echo "false")
-HOLDOUT_FAILURES=$(jq -r '.holdout.failed // 0' .signum/audit_summary.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+AUDIT_DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
+HAS_MAJOR=$(jq '[.reviews[].findings[]? | select(.severity == "MAJOR" or .severity == "CRITICAL")] | length' "$AUDIT_SUMMARY_PATH")
+HAS_REGRESSIONS=$(jq -r '.mechanic' "$AUDIT_SUMMARY_PATH" | grep -q "regression" && echo "true" || echo "false")
+HOLDOUT_FAILURES=$(jq -r '.holdout.failed // 0' "$AUDIT_SUMMARY_PATH")
 
 # Compute iteration score from audit_summary findings (synthesizer emits the score field in iterative mode)
-_CRITICALS=$(jq '[.reviews[].findings[]? | select(.severity == "CRITICAL")] | length' .signum/audit_summary.json)
-_MAJORS=$(jq '[.reviews[].findings[]? | select(.severity == "MAJOR")] | length' .signum/audit_summary.json)
-_MINORS=$(jq '[.reviews[].findings[]? | select(.severity == "MINOR")] | length' .signum/audit_summary.json)
-_MECH_REGRESSIONS=$(jq 'if .hasRegressions then 1 else 0 end' .signum/mechanic_report.json)
-_HOLDOUT_FAILURES=$(jq '.failed // 0' .signum/holdout_report.json 2>/dev/null || echo 0)
+_CRITICALS=$(jq '[.reviews[].findings[]? | select(.severity == "CRITICAL")] | length' "$AUDIT_SUMMARY_PATH")
+_MAJORS=$(jq '[.reviews[].findings[]? | select(.severity == "MAJOR")] | length' "$AUDIT_SUMMARY_PATH")
+_MINORS=$(jq '[.reviews[].findings[]? | select(.severity == "MINOR")] | length' "$AUDIT_SUMMARY_PATH")
+_MECH_REGRESSIONS=$(jq 'if .hasRegressions then 1 else 0 end' "$MECHANIC_REPORT_PATH")
+_HOLDOUT_FAILURES=$(jq '.failed // 0' "$HOLDOUT_REPORT_PATH" 2>/dev/null || echo 0)
 ITERATION_SCORE=$(( -(_CRITICALS * 1000) - (_MECH_REGRESSIONS * 500) - (_HOLDOUT_FAILURES * 200) - (_MAJORS * 50) - (_MINORS * 1) ))
 
 echo "Pass 1: decision=$AUDIT_DECISION major_findings=$HAS_MAJOR regressions=$HAS_REGRESSIONS holdout_failures=$HOLDOUT_FAILURES score=$ITERATION_SCORE"
@@ -2199,30 +2594,39 @@ Otherwise, enter the iterative repair loop:
 #### Step 3.6.1: Initialize iteration tracking
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+PASS1_DIR="${ARTIFACT_ROOT}iterations/01"
+PASS1_REVIEWS_DIR="${PASS1_DIR}/reviews"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+AUDIT_ITERATION_LOG_PATH="${ARTIFACT_ROOT}audit_iteration_log.json"
+
 # Store pass 1 artifacts
-mkdir -p .signum/iterations/01/reviews
-cp .signum/combined.patch .signum/iterations/01/
-cp .signum/mechanic_report.json .signum/iterations/01/
-cp .signum/holdout_report.json .signum/iterations/01/ 2>/dev/null || true
-cp .signum/execute_log.json .signum/iterations/01/ 2>/dev/null || true
-cp .signum/reviews/*.json .signum/iterations/01/reviews/ 2>/dev/null || true
-cp .signum/audit_summary.json .signum/iterations/01/
+mkdir -p "$PASS1_REVIEWS_DIR"
+cp "$COMBINED_PATCH_PATH" "$PASS1_DIR/"
+cp "$MECHANIC_REPORT_PATH" "$PASS1_DIR/"
+cp "$HOLDOUT_REPORT_PATH" "$PASS1_DIR/" 2>/dev/null || true
+cp "$EXECUTE_LOG_PATH" "$PASS1_DIR/" 2>/dev/null || true
+cp "$REVIEWS_DIR/"*.json "$PASS1_REVIEWS_DIR/" 2>/dev/null || true
+cp "$AUDIT_SUMMARY_PATH" "$PASS1_DIR/"
 
 # Initialize iteration log
 BEST_SCORE=$ITERATION_SCORE
 BEST_ITERATION=1
-PASS1_FINDINGS=$(jq '[.reviews[].findings[]? | {fingerprint: .fingerprint, severity: .severity, category: .category, file: .file, line: .line}] | unique_by(.fingerprint // (.file + ":" + (.line | tostring) + ":" + .category))' .signum/audit_summary.json)
+PASS1_FINDINGS=$(jq '[.reviews[].findings[]? | {fingerprint: .fingerprint, severity: .severity, category: .category, file: .file, line: .line}] | unique_by(.fingerprint // (.file + ":" + (.line | tostring) + ":" + .category))' "$AUDIT_SUMMARY_PATH")
 PASS1_FINDINGS_COUNT=$(jq '{
   critical: [.reviews[].findings[]? | select(.severity == "CRITICAL")] | length,
   major: [.reviews[].findings[]? | select(.severity == "MAJOR")] | length,
   minor: [.reviews[].findings[]? | select(.severity == "MINOR")] | length
-}' .signum/audit_summary.json)
-MECH_REG=$(jq -r '.hasRegressions' .signum/mechanic_report.json 2>/dev/null || echo "false")
-HOLDOUT_FAIL=$(jq '.failed // 0' .signum/holdout_report.json 2>/dev/null || echo 0)
-jq -n --argjson score "$ITERATION_SCORE" --argjson findings "$PASS1_FINDINGS" --argjson findingsCount "$PASS1_FINDINGS_COUNT" \
-  --arg mechReg "$MECH_REG" --argjson holdoutFail "$HOLDOUT_FAIL" \
-  '[{"pass": 1, "score": $score, "decision": "'"$AUDIT_DECISION"'", "findingsCount": $findingsCount, "canonicalFindings": $findings, "mechanicRegressions": ($mechReg == "true"), "holdoutFailures": $holdoutFail}]' \
-  > .signum/audit_iteration_log.json
+}' "$AUDIT_SUMMARY_PATH")
+MECH_REG=$(jq -r '.hasRegressions' "$MECHANIC_REPORT_PATH" 2>/dev/null || echo "false")
+HOLDOUT_FAIL=$(jq '.failed // 0' "$HOLDOUT_REPORT_PATH" 2>/dev/null || echo 0)
+jq -n --argjson score "$ITERATION_SCORE" --argjson findings "$PASS1_FINDINGS" --argjson findingsCount "$PASS1_FINDINGS_COUNT"   --arg mechReg "$MECH_REG" --argjson holdoutFail "$HOLDOUT_FAIL"   '[{"pass": 1, "score": $score, "decision": "'"$AUDIT_DECISION"'", "findingsCount": $findingsCount, "canonicalFindings": $findings, "mechanicRegressions": ($mechReg == "true"), "holdoutFailures": $holdoutFail}]'   > "$AUDIT_ITERATION_LOG_PATH"
 
 echo "Iteration 1 stored. Best score: $BEST_SCORE"
 ```
@@ -2253,32 +2657,42 @@ fi
 SKIP_ITERATION=false
 if [ "$ITERATION_SCORE" -lt "$BEST_SCORE" ] && [ "$CURRENT_ITERATION" -gt 1 ]; then
   echo "Current score ($ITERATION_SCORE) worse than best ($BEST_SCORE at iteration $BEST_ITERATION). Rolling back."
+  source lib/contract-dir.sh 2>/dev/null || true
+  ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+  REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+  EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+  COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+  ITERATION_DELTA_PATH="${ARTIFACT_ROOT}iteration_delta.patch"
+  MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+  HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+  EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+  AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
   # Rollback: revert files from current patch (if exists) or best iteration's stored patch
-  BASE=$(jq -r '.base_commit' .signum/execution_context.json)
-  ROLLBACK_PATCH=".signum/combined.patch"
-  [ ! -f "$ROLLBACK_PATCH" ] && ROLLBACK_PATCH=".signum/iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch"
+  BASE=$(jq -r '.base_commit' "$EXECUTION_CONTEXT_PATH")
+  ROLLBACK_PATCH="$COMBINED_PATCH_PATH"
+  [ ! -f "$ROLLBACK_PATCH" ] && ROLLBACK_PATCH="${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch"
   PATCH_FILES=$(grep '^diff --git' "$ROLLBACK_PATCH" 2>/dev/null | sed 's|^diff --git a/||; s| b/.*||' | sort -u)
   for f in $PATCH_FILES; do
     git checkout "$BASE" -- "$f" 2>/dev/null || rm -f "$f" 2>/dev/null || true
   done
-  if git apply .signum/iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch; then
-    # Sync .signum/ working copies from best iteration
-    BEST_DIR=".signum/iterations/$(printf '%02d' $BEST_ITERATION)"
-    cp "${BEST_DIR}/combined.patch" .signum/ 2>/dev/null || true
-    cp "${BEST_DIR}/iteration_delta.patch" .signum/ 2>/dev/null || rm -f .signum/iteration_delta.patch
-    cp "${BEST_DIR}/mechanic_report.json" .signum/ 2>/dev/null || true
-    cp "${BEST_DIR}/holdout_report.json" .signum/ 2>/dev/null || true
-    cp "${BEST_DIR}/execute_log.json" .signum/ 2>/dev/null || true
-    rm -f .signum/reviews/*.json
-    cp "${BEST_DIR}/reviews/"*.json .signum/reviews/ 2>/dev/null || true
-    cp "${BEST_DIR}/audit_summary.json" .signum/ 2>/dev/null || true
+  if git apply "${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch"; then
+    # Sync canonical working copies from best iteration
+    BEST_DIR="${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)"
+    cp "${BEST_DIR}/combined.patch" "$COMBINED_PATCH_PATH" 2>/dev/null || true
+    cp "${BEST_DIR}/iteration_delta.patch" "$ITERATION_DELTA_PATH" 2>/dev/null || reset_active_artifact "iteration_delta.patch"
+    cp "${BEST_DIR}/mechanic_report.json" "$MECHANIC_REPORT_PATH" 2>/dev/null || true
+    cp "${BEST_DIR}/holdout_report.json" "$HOLDOUT_REPORT_PATH" 2>/dev/null || true
+    cp "${BEST_DIR}/execute_log.json" "$EXECUTE_LOG_PATH" 2>/dev/null || true
+    rm -f "$REVIEWS_DIR/"*.json
+    cp "${BEST_DIR}/reviews/"*.json "$REVIEWS_DIR/" 2>/dev/null || true
+    cp "${BEST_DIR}/audit_summary.json" "$AUDIT_SUMMARY_PATH" 2>/dev/null || true
   else
-    echo "ROLLBACK_FAILED: git apply failed for iteration $BEST_ITERATION — forcing early stop"
+    echo "ROLLBACK_FAILED: git apply failed for iteration $BEST_ITERATION - forcing early stop"
     NO_IMPROVE_COUNT=99
     SKIP_ITERATION=true
   fi
 fi
-# If rollback failed, skip repair engineer and audit re-run — the early stop condition
+# If rollback failed, skip repair engineer and audit re-run. The early stop condition
 # (NO_IMPROVE_COUNT=99) will terminate the loop on the next entry condition check.
 ```
 
@@ -2286,18 +2700,24 @@ fi
 
 **Build repair brief:**
 
-Use the Bash tool to construct `.signum/repair_brief.json` from the current audit summary (which now reflects the best candidate after any rollback):
+Use the Bash tool to construct `repair_brief.json` under the canonical artifact root from the current audit summary (which now reflects the best candidate after any rollback):
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+REPAIR_BRIEF_PATH="${ARTIFACT_ROOT}repair_brief.json"
 ITER_NUM=$((CURRENT_ITERATION + 1))
 
 # Extract MAJOR+ findings from all reviewers
-FINDINGS=$(jq '[.reviews | to_entries[] | .value.findings[]? | select(.severity == "MAJOR" or .severity == "CRITICAL") | {fingerprint: .fingerprint, severity: .severity, category: .category, file: .file, line: .line, comment: .comment, evidence: .evidence}]' .signum/audit_summary.json)
+FINDINGS=$(jq '[.reviews | to_entries[] | .value.findings[]? | select(.severity == "MAJOR" or .severity == "CRITICAL") | {fingerprint: .fingerprint, severity: .severity, category: .category, file: .file, line: .line, comment: .comment, evidence: .evidence}]' "$AUDIT_SUMMARY_PATH")
 
 # Sanitize holdout summary (category only, no details)
 HOLDOUT_SUMMARY=""
-if [ -f .signum/holdout_report.json ]; then
-  HOLDOUT_FAILED=$(jq '.failed // 0' .signum/holdout_report.json)
+if [ -f "$HOLDOUT_REPORT_PATH" ]; then
+  HOLDOUT_FAILED=$(jq '.failed // 0' "$HOLDOUT_REPORT_PATH")
   if [ "$HOLDOUT_FAILED" -gt 0 ]; then
     # Extract categories via keyword matching on descriptions
     HOLDOUT_CATS=$(jq -r '[.results[] | select(.status != "PASS") | .description | ascii_downcase |
@@ -2305,7 +2725,7 @@ if [ -f .signum/holdout_report.json ]; then
       elif test("error|exception|fail") then "error handling"
       elif test("concurrent|race|parallel") then "concurrency"
       elif test("empty|null|missing") then "null/empty input"
-      else "unspecified" end] | unique | join(", ")' .signum/holdout_report.json)
+      else "unspecified" end] | unique | join(", ")' "$HOLDOUT_REPORT_PATH")
     HOLDOUT_SUMMARY="${HOLDOUT_FAILED} holdout(s) failed (categories: ${HOLDOUT_CATS})"
   fi
 fi
@@ -2313,13 +2733,13 @@ fi
 # Build mechanic regression summary and typed findings
 MECH_SUMMARY=""
 MECH_FINDINGS='[]'
-MECH_REG=$(jq -r '.hasRegressions' .signum/mechanic_report.json)
+MECH_REG=$(jq -r '.hasRegressions' "$MECHANIC_REPORT_PATH")
 if [ "$MECH_REG" = "true" ]; then
   MECH_SUMMARY=$(jq -r '
     [if .lint.regression then "lint regression" else empty end,
      if .typecheck.regression then "typecheck regression" else empty end,
      if .tests.regression then "test regression (" + (.tests.newFailures | length | tostring) + " new failures)" else empty end
-    ] | join(", ")' .signum/mechanic_report.json)
+    ] | join(", ")' "$MECHANIC_REPORT_PATH")
   # Extract typed per-file findings from regression checks only
   MECH_FINDINGS=$(jq '[
     .findings[]? |
@@ -2328,9 +2748,9 @@ if [ "$MECH_REG" = "true" ]; then
     # Find the check entry to get category and regression flag
     ([ (if . then . else null end) ] | first) as $_ |
     $f
-  ] | if length == 0 then [] else . end' .signum/mechanic_report.json 2>/dev/null || echo '[]')
+  ] | if length == 0 then [] else . end' "$MECHANIC_REPORT_PATH" 2>/dev/null || echo '[]')
   # Filter to only regression checks
-  REGRESSION_IDS=$(jq -r '[.checks[]? | select(.regression == true) | .id] | join(" ")' .signum/mechanic_report.json 2>/dev/null || echo "")
+  REGRESSION_IDS=$(jq -r '[.checks[]? | select(.regression == true) | .id] | join(" ")' "$MECHANIC_REPORT_PATH" 2>/dev/null || echo "")
   if [ -n "$REGRESSION_IDS" ]; then
     MECH_FINDINGS=$(jq '
       (.checks // [] | map({(.id): .category}) | add // {}) as $cat_map |
@@ -2339,23 +2759,16 @@ if [ "$MECH_REG" = "true" ]; then
         # Normalize file path: reject absolute paths and path traversal attempts
         . as $entry |
         ($entry.file // "") as $raw_file |
-        (if ($raw_file | startswith("/")) or ($raw_file | test("(^|/)\\.\\.(/|$)"))
+        (if ($raw_file | startswith("/")) or ($raw_file | test("(^|/)\.\.(/|$)"))
          then ""
          else $raw_file end) as $safe_file |
-        {check_id: $entry.check_id, category: ($cat_map[$entry.check_id] // "unknown"), file: $safe_file, line: $entry.line, column: $entry.column, code: $entry.code, message: $entry.message, origin: $entry.origin}]' \
-      .signum/mechanic_report.json 2>/dev/null || echo '[]')
+        {check_id: $entry.check_id, category: ($cat_map[$entry.check_id] // "unknown"), file: $safe_file, line: $entry.line, column: $entry.column, code: $entry.code, message: $entry.message, origin: $entry.origin}]'       "$MECHANIC_REPORT_PATH" 2>/dev/null || echo '[]')
   else
     MECH_FINDINGS='[]'
   fi
 fi
 
-jq -n \
-  --argjson iteration "$ITER_NUM" \
-  --argjson findings "$FINDINGS" \
-  --arg holdout_summary "$HOLDOUT_SUMMARY" \
-  --arg mechanic_summary "$MECH_SUMMARY" \
-  --argjson mechanic_findings "$MECH_FINDINGS" \
-  '{
+jq -n   --argjson iteration "$ITER_NUM"   --argjson findings "$FINDINGS"   --arg holdout_summary "$HOLDOUT_SUMMARY"   --arg mechanic_summary "$MECH_SUMMARY"   --argjson mechanic_findings "$MECH_FINDINGS"   '{
     iteration: $iteration,
     deterministicFailures: {
       mechanic: (if $mechanic_summary != "" then $mechanic_summary else null end),
@@ -2365,27 +2778,34 @@ jq -n \
     mechanicFindings: (if ($mechanic_findings | length) > 0 then $mechanic_findings else [] end),
     constraints: [
       "Fix ONLY the listed findings",
-      "Minimal diff — no unrelated refactors",
+      "Minimal diff - no unrelated refactors",
       "Do not break already-passing acceptance criteria",
       "Re-run visible AC verifies after fix"
     ]
-  }' > .signum/repair_brief.json
+  }' > "$REPAIR_BRIEF_PATH"
 
-echo "Repair brief built: $(jq '.reviewFindings | length' .signum/repair_brief.json) findings, $(jq '.mechanicFindings | length' .signum/repair_brief.json) mechanic findings"
+echo "Repair brief built: $(jq '.reviewFindings | length' "$REPAIR_BRIEF_PATH") findings, $(jq '.mechanicFindings | length' "$REPAIR_BRIEF_PATH") mechanic findings"
 ```
 
 **Clear stale engineer artifacts before launching repair:**
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+
 # Save current best combined.patch for worktree seeding BEFORE deleting stale artifacts
 _SEED_PATCH=""
-if [ -f .signum/combined.patch ]; then
+if [ -f "$COMBINED_PATCH_PATH" ]; then
   _SEED_PATCH=$(mktemp /tmp/signum_seed_XXXXXX.patch)
-  cp .signum/combined.patch "$_SEED_PATCH"
+  cp "$COMBINED_PATCH_PATH" "$_SEED_PATCH"
 fi
 
-# Remove stale artifacts so the success gate cannot accept leftovers from prior iterations
-rm -f .signum/execute_log.json .signum/combined.patch .signum/iteration_delta.patch
+# Remove stale artifacts from both the root view and canonical active root.
+source lib/contract-dir.sh
+reset_active_artifact "combined.patch"
+reset_active_artifact "execute_log.json"
+reset_active_artifact "iteration_delta.patch"
 ```
 
 **Launch repair engineer (parallel lanes):**
@@ -2397,12 +2817,16 @@ Set up two isolated git worktrees and run both engineers in parallel. The two st
 
 If worktree creation fails for either lane, fall back to single-lane behavior (the original single-engineer dispatch) without aborting the iteration.
 
-Each lane works in an isolated git worktree seeded from `base_commit` + current best `combined.patch`. Worktree paths live under `.signum/iterations/NN/lanes/` (one subdirectory per lane).
+Each lane works in an isolated git worktree seeded from `base_commit` + current best `combined.patch`. Worktree paths live under `iterations/NN/lanes/` inside the active contract artifact root.
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+ITERATIONS_DIR="${ARTIFACT_ROOT}iterations"
 ITER_PAD=$(printf '%02d' $ITER_NUM)
-BASE_COMMIT=$(jq -r '.base_commit' .signum/execution_context.json)
-LANE_PATHS=( ".signum/iterations/$ITER_PAD/lanes/A" ".signum/iterations/$ITER_PAD/lanes/B" )
+BASE_COMMIT=$(jq -r '.base_commit' "$EXECUTION_CONTEXT_PATH")
+LANE_PATHS=( "${ITERATIONS_DIR}/${ITER_PAD}/lanes/A" "${ITERATIONS_DIR}/${ITER_PAD}/lanes/B" )
 mkdir -p "${LANE_PATHS[0]}" "${LANE_PATHS[1]}"
 
 # _prune_lanes: remove both worktrees; safe to call multiple times
@@ -2438,6 +2862,9 @@ fi
 Before launching repair engineers, capture a fresh workspace snapshot for this attempt. Each attempt needs its own snapshot because `base_tree_hash` must bind to the actual starting state of this repair.
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+
 # Single-lane snapshot
 if [ -z "$_SIGNUM_SNAPSHOT" ] || [ ! -f "$_SIGNUM_SNAPSHOT" ]; then
   _SIGNUM_SNAPSHOT=""
@@ -2452,12 +2879,12 @@ if [ -z "$_SIGNUM_SNAPSHOT" ] || [ ! -f "$_SIGNUM_SNAPSHOT" ]; then
 fi
 ATTEMPT_PAD=$(printf '%02d' "$ITER_NUM")
 if [ -n "$_SIGNUM_SNAPSHOT" ]; then
-  bash "$_SIGNUM_SNAPSHOT" "execute-attempt-${ATTEMPT_PAD}"
+  bash "$_SIGNUM_SNAPSHOT" "execute-attempt-${ATTEMPT_PAD}" --workspace-root "$PWD" --signum-dir "$ARTIFACT_ROOT"
   echo "Pre-repair snapshot captured: execute-attempt-${ATTEMPT_PAD}"
 fi
 ```
 
-If `WORKTREE_OK` is `false`, fall back to single-lane: use the Agent tool to launch the "engineer" agent with the original prompt (no strategy hint), writing `.signum/combined.patch` and `.signum/execute_log.json` as before — then skip ahead to "After engineer completes, validate execute success".
+If `WORKTREE_OK` is `false`, fall back to single-lane: use the Agent tool to launch the "engineer" agent with the original prompt (no strategy hint), writing `combined.patch` and `execute_log.json` under the active contract artifact root, then skip ahead to "After engineer completes, validate execute success".
 
 If `WORKTREE_OK` is `true`, launch both lane engineers in parallel using the Agent tool.
 
@@ -2465,9 +2892,8 @@ For the engineer working in `${LANE_PATHS[0]}`, use this prompt (strategy: minim
 
 ```
 STRATEGY HINT: Fix with minimal targeted changes. Patch only the specific lines flagged in findings.
-Read .signum/contract-engineer.json for scope and acceptance criteria.
-Read .signum/baseline.json for pre-existing check state.
-Read .signum/repair_brief.json for the specific issues to fix.
+The canonical artifact root in this lane is `.signum/contracts/<activeContractId>/`.
+Read `contract-engineer.json`, `baseline.json`, and `repair_brief.json` from that canonical artifact root.
 Fix ONLY the issues listed in the repair brief. Do not refactor, do not add features.
 After fixing, run the visible AC verifies to confirm you didn't break them.
 Write ${LANE_PATHS[0]}/combined.patch and ${LANE_PATHS[0]}/execute_log.json.
@@ -2478,9 +2904,8 @@ For the engineer working in `${LANE_PATHS[1]}`, use this prompt (strategy: root 
 
 ```
 STRATEGY HINT: Fix by addressing the root cause. May touch more files if the findings share a common underlying issue.
-Read .signum/contract-engineer.json for scope and acceptance criteria.
-Read .signum/baseline.json for pre-existing check state.
-Read .signum/repair_brief.json for the specific issues to fix.
+The canonical artifact root in this lane is `.signum/contracts/<activeContractId>/`.
+Read `contract-engineer.json`, `baseline.json`, and `repair_brief.json` from that canonical artifact root.
 Fix ONLY the issues listed in the repair brief. Do not refactor, do not add features.
 After fixing, run the visible AC verifies to confirm you didn't break them.
 Write ${LANE_PATHS[1]}/combined.patch and ${LANE_PATHS[1]}/execute_log.json.
@@ -2504,7 +2929,7 @@ _lane_score() {
 
 SCORE_A=$(_lane_score "${LANE_PATHS[0]}")
 SCORE_B=$(_lane_score "${LANE_PATHS[1]}")
-LANE_SELECTED_DIR=".signum/iterations/$ITER_PAD/lanes"
+LANE_SELECTED_DIR="${ITERATIONS_DIR}/${ITER_PAD}/lanes"
 
 if [ "$SCORE_A" -ge "$SCORE_B" ]; then
   WINNER_LANE="A"; RUNNER_UP_LANE="B"
@@ -2535,14 +2960,22 @@ If the winner receives a MAJOR or CRITICAL finding after the panel, also send th
 **Copy winner artifacts to iteration root:**
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
 if [ "$WINNER_LANE" = "A" ]; then WINNER_DIR="${LANE_PATHS[0]}"; else WINNER_DIR="${LANE_PATHS[1]}"; fi
-cp "$WINNER_DIR/combined.patch" .signum/combined.patch
-cp "$WINNER_DIR/execute_log.json" .signum/execute_log.json 2>/dev/null || true
-cp "$WINNER_DIR/mechanic_report.json" .signum/mechanic_report.json 2>/dev/null || true
-cp "$WINNER_DIR/holdout_report.json" .signum/holdout_report.json 2>/dev/null || true
-mkdir -p .signum/reviews
-cp "$WINNER_DIR/reviews/"*.json .signum/reviews/ 2>/dev/null || true
-cp "$WINNER_DIR/audit_summary.json" .signum/audit_summary.json 2>/dev/null || true
+cp "$WINNER_DIR/combined.patch" "$COMBINED_PATCH_PATH"
+cp "$WINNER_DIR/execute_log.json" "$EXECUTE_LOG_PATH" 2>/dev/null || true
+cp "$WINNER_DIR/mechanic_report.json" "$MECHANIC_REPORT_PATH" 2>/dev/null || true
+cp "$WINNER_DIR/holdout_report.json" "$HOLDOUT_REPORT_PATH" 2>/dev/null || true
+mkdir -p "$REVIEWS_DIR"
+cp "$WINNER_DIR/reviews/"*.json "$REVIEWS_DIR/" 2>/dev/null || true
+cp "$WINNER_DIR/audit_summary.json" "$AUDIT_SUMMARY_PATH" 2>/dev/null || true
 ```
 
 **Run boundary verification on winner BEFORE pruning worktrees (receipt chain):**
@@ -2550,6 +2983,23 @@ cp "$WINNER_DIR/audit_summary.json" .signum/audit_summary.json 2>/dev/null || tr
 Boundary verification must run while the winner worktree still exists — it needs the live workspace to verify file hashes, scope integrity, and AC evidence. Pruning worktrees before verification would cause the verifier to run against stale main checkout.
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+SNAPSHOTS_DIR="${ARTIFACT_ROOT}snapshots"
+RECEIPTS_DIR="${ARTIFACT_ROOT}receipts"
+RUNS_DIR="${ARTIFACT_ROOT}runs"
+WINNER_SIGNUM_DIR="${WINNER_DIR}/.signum"
+WINNER_ACTIVE_CONTRACT_ID=$(jq -r '.activeContractId // empty' "${WINNER_SIGNUM_DIR}/contracts/index.json" 2>/dev/null || true)
+if [ -z "$WINNER_ACTIVE_CONTRACT_ID" ]; then
+  WINNER_ACTIVE_CONTRACT_ID="$(get_active_contract 2>/dev/null || true)"
+fi
+if [ -n "$WINNER_ACTIVE_CONTRACT_ID" ]; then
+  WINNER_ARTIFACT_ROOT="${WINNER_SIGNUM_DIR}/contracts/${WINNER_ACTIVE_CONTRACT_ID}/"
+else
+  WINNER_ARTIFACT_ROOT="${WINNER_SIGNUM_DIR}/"
+fi
+
 # Re-resolve receipt chain scripts (variables may not persist across Bash tool calls)
 if [ -z "${_SIGNUM_BOUNDARY:-}" ]; then
   for _d in \
@@ -2579,26 +3029,26 @@ if [ -n "${_SIGNUM_BOUNDARY:-}" ]; then
   ATTEMPT_PAD=$(printf '%02d' "$ITER_NUM")
   if ! bash "$_SIGNUM_BOUNDARY" execute \
     --workspace-root "$WINNER_DIR" \
-    --signum-dir "$WINNER_DIR/.signum" \
-    --contract "$WINNER_DIR/.signum/contract-engineer.json" \
-    --contract-full "$WINNER_DIR/.signum/contract.json" \
-    --snapshot ".signum/snapshots/execute-attempt-${ATTEMPT_PAD}.json"; then
+    --signum-dir "$WINNER_SIGNUM_DIR" \
+    --contract "${WINNER_ARTIFACT_ROOT}contract-engineer.json" \
+    --contract-full "${WINNER_ARTIFACT_ROOT}contract.json" \
+    --snapshot "${SNAPSHOTS_DIR}/execute-attempt-${ATTEMPT_PAD}.json"; then
     echo "BOUNDARY_BLOCK: repair attempt $ITER_NUM failed boundary verification"
     RECEIPT_CHAIN_OK=false
   fi
-  # Copy receipt from winner worktree to root .signum (specific run_id only)
-  _CURRENT_RUN_ID=$(jq -r '.run_id // empty' .signum/execution_context.json)
-  mkdir -p ".signum/receipts" ".signum/runs/$_CURRENT_RUN_ID"
-  cp "$WINNER_DIR/.signum/receipts/execute.json" .signum/receipts/execute.json 2>/dev/null || true
-  if [ -d "$WINNER_DIR/.signum/runs/$_CURRENT_RUN_ID" ]; then
-    cp "$WINNER_DIR/.signum/runs/$_CURRENT_RUN_ID/execute-"*.json \
-      ".signum/runs/$_CURRENT_RUN_ID/" 2>/dev/null || true
+  # Copy receipt from winner worktree into the canonical artifact root.
+  _CURRENT_RUN_ID=$(jq -r '.run_id // empty' "$EXECUTION_CONTEXT_PATH")
+  mkdir -p "$RECEIPTS_DIR" "$RUNS_DIR/$_CURRENT_RUN_ID"
+  cp "${WINNER_ARTIFACT_ROOT}receipts/execute.json" "$RECEIPTS_DIR/execute.json" 2>/dev/null || true
+  if [ -d "${WINNER_ARTIFACT_ROOT}runs/$_CURRENT_RUN_ID" ]; then
+    cp "${WINNER_ARTIFACT_ROOT}runs/$_CURRENT_RUN_ID/execute-"*.json \
+      "$RUNS_DIR/$_CURRENT_RUN_ID/" 2>/dev/null || true
   fi
 fi
 if [ "$RECEIPT_CHAIN_OK" = "true" ] && [ -n "${_SIGNUM_TRANSITION:-}" ]; then
   ATTEMPT_PAD=$(printf '%02d' "$ITER_NUM")
   if ! bash "$_SIGNUM_TRANSITION" execute audit \
-    --snapshot ".signum/snapshots/execute-attempt-${ATTEMPT_PAD}.json"; then
+    --snapshot "${SNAPSHOTS_DIR}/execute-attempt-${ATTEMPT_PAD}.json"; then
     echo "TRANSITION_BLOCK: repair attempt $ITER_NUM failed transition gate"
     RECEIPT_CHAIN_OK=false
   fi
@@ -2617,51 +3067,57 @@ If `RECEIPT_CHAIN_OK` is `false`, **STOP** the repair iteration. Do not proceed 
 **After engineer completes, validate execute success before re-running audit:**
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+ITERATION_DELTA_PATH="${ARTIFACT_ROOT}iteration_delta.patch"
+
 # Execute success gate: verify engineer produced NEW artifacts (stale ones were cleared above)
-if [ ! -f .signum/execute_log.json ]; then
-  echo "REPAIR_SKIP: execute_log.json missing after repair engineer — skipping iteration $ITER_NUM"
+if [ ! -f "$EXECUTE_LOG_PATH" ]; then
+  echo "REPAIR_SKIP: execute_log.json missing after repair engineer - skipping iteration $ITER_NUM"
   CURRENT_ITERATION=$ITER_NUM
   continue
 fi
-REPAIR_STATUS=$(jq -r '.status // "unknown"' .signum/execute_log.json)
+REPAIR_STATUS=$(jq -r '.status // "unknown"' "$EXECUTE_LOG_PATH")
 if [ "$REPAIR_STATUS" != "SUCCESS" ]; then
-  echo "REPAIR_SKIP: execute_log.json status=$REPAIR_STATUS (not SUCCESS) — skipping iteration $ITER_NUM"
+  echo "REPAIR_SKIP: execute_log.json status=$REPAIR_STATUS (not SUCCESS) - skipping iteration $ITER_NUM"
   CURRENT_ITERATION=$ITER_NUM
   continue
 fi
-if [ ! -f .signum/combined.patch ]; then
-  echo "REPAIR_SKIP: combined.patch missing after repair engineer — skipping iteration $ITER_NUM"
+if [ ! -f "$COMBINED_PATCH_PATH" ]; then
+  echo "REPAIR_SKIP: combined.patch missing after repair engineer - skipping iteration $ITER_NUM"
   CURRENT_ITERATION=$ITER_NUM
   continue
 fi
-echo "Repair engineer succeeded for iteration $ITER_NUM — proceeding to audit"
+echo "Repair engineer succeeded for iteration $ITER_NUM - proceeding to audit"
 
 # Compute iteration delta by diffing the two stored patches (best candidate vs current)
 # The engineer already wrote combined.patch; we diff it against the best iteration's patch
-BEST_PATCH=".signum/iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch"
+BEST_PATCH="${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch"
 if [ -f "$BEST_PATCH" ]; then
   # Delta = lines in current patch that differ from best candidate's patch
   # Use diff on the applied file states, not on patch text
   # Simpler: extract file lists from both patches and diff only changed files
-  diff -u "$BEST_PATCH" .signum/combined.patch > .signum/iteration_delta.patch 2>/dev/null || true
+  diff -u "$BEST_PATCH" "$COMBINED_PATCH_PATH" > "$ITERATION_DELTA_PATH" 2>/dev/null || true
 else
   # No best patch to compare against (shouldn't happen after pass 1)
-  cp .signum/combined.patch .signum/iteration_delta.patch 2>/dev/null || true
+  cp "$COMBINED_PATCH_PATH" "$ITERATION_DELTA_PATH" 2>/dev/null || true
 fi
-DELTA_SIZE=$(wc -c < .signum/iteration_delta.patch 2>/dev/null || echo 0)
-FULL_SIZE=$(wc -c < .signum/combined.patch 2>/dev/null || echo 0)
+DELTA_SIZE=$(wc -c < "$ITERATION_DELTA_PATH" 2>/dev/null || echo 0)
+FULL_SIZE=$(wc -c < "$COMBINED_PATCH_PATH" 2>/dev/null || echo 0)
 echo "Delta: $DELTA_SIZE bytes, Full: $FULL_SIZE bytes"
 
 if [ "$DELTA_SIZE" -eq 0 ]; then
-  echo "Delta empty — marking as non-improving"
+  echo "Delta empty - marking as non-improving"
   NO_IMPROVE_COUNT=$((NO_IMPROVE_COUNT + 1))
   CURRENT_ITERATION=$ITER_NUM
   continue
 fi
 
 if [ "$FULL_SIZE" -gt 0 ] && [ $((DELTA_SIZE * 100 / FULL_SIZE)) -gt 80 ]; then
-  echo "Delta >80% of full patch — full-diff-only review for this iteration"
-  rm -f .signum/iteration_delta.patch
+  echo "Delta >80% of full patch - full-diff-only review for this iteration"
+  reset_active_artifact "iteration_delta.patch"
 fi
 ```
 
@@ -2672,49 +3128,54 @@ Re-run Steps 2.4 (scope gate), 2.4.5 (policy compliance if applicable), 2.4.6 (s
 Pass `currentIteration` to the synthesizer prompt:
 
 ```
-Read .signum/mechanic_report.json, .signum/reviews/claude.json,
-.signum/reviews/codex.json, .signum/reviews/gemini.json,
-.signum/holdout_report.json, .signum/execute_log.json,
-and .signum/audit_iteration_log.json.
+The canonical artifact root for this synthesis is `.signum/contracts/<activeContractId>/`.
+Read `mechanic_report.json`, `reviews/claude.json`, `reviews/codex.json`, `reviews/gemini.json`, `holdout_report.json`, `execute_log.json`, and `audit_iteration_log.json` from that canonical artifact root.
 Current iteration: <N>.
-Apply deterministic synthesis rules, compute confidence and iteration scores,
-and write .signum/audit_summary.json.
+Apply deterministic synthesis rules, compute confidence and iteration scores, and write `audit_summary.json` to that same canonical artifact root.
 ```
 
 **After synthesizer, store iteration artifacts and update tracking:**
 
 ```bash
-ITER_DIR=".signum/iterations/$(printf '%02d' $ITER_NUM)"
-mkdir -p "$ITER_DIR/reviews"
-cp .signum/combined.patch "$ITER_DIR/"
-cp .signum/iteration_delta.patch "$ITER_DIR/" 2>/dev/null || true
-cp .signum/mechanic_report.json "$ITER_DIR/"
-cp .signum/holdout_report.json "$ITER_DIR/" 2>/dev/null || true
-cp .signum/execute_log.json "$ITER_DIR/" 2>/dev/null || true
-cp .signum/reviews/*.json "$ITER_DIR/reviews/" 2>/dev/null || true
-cp .signum/audit_summary.json "$ITER_DIR/"
-cp .signum/repair_brief.json "$ITER_DIR/"
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+ITER_DIR="${ARTIFACT_ROOT}iterations/$(printf '%02d' $ITER_NUM)"
+ITER_REVIEWS_DIR="${ITER_DIR}/reviews"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+ITERATION_DELTA_PATH="${ARTIFACT_ROOT}iteration_delta.patch"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+REPAIR_BRIEF_PATH="${ARTIFACT_ROOT}repair_brief.json"
+AUDIT_ITERATION_LOG_PATH="${ARTIFACT_ROOT}audit_iteration_log.json"
+mkdir -p "$ITER_REVIEWS_DIR"
+cp "$COMBINED_PATCH_PATH" "$ITER_DIR/"
+cp "$ITERATION_DELTA_PATH" "$ITER_DIR/" 2>/dev/null || true
+cp "$MECHANIC_REPORT_PATH" "$ITER_DIR/"
+cp "$HOLDOUT_REPORT_PATH" "$ITER_DIR/" 2>/dev/null || true
+cp "$EXECUTE_LOG_PATH" "$ITER_DIR/" 2>/dev/null || true
+cp "$REVIEWS_DIR/"*.json "$ITER_REVIEWS_DIR/" 2>/dev/null || true
+cp "$AUDIT_SUMMARY_PATH" "$ITER_DIR/"
+cp "$REPAIR_BRIEF_PATH" "$ITER_DIR/"
 
 # Read new score
-NEW_SCORE=$(jq -r '.iterationScore // 0' .signum/audit_summary.json)
-NEW_DECISION=$(jq -r '.decision' .signum/audit_summary.json)
+NEW_SCORE=$(jq -r '.iterationScore // 0' "$AUDIT_SUMMARY_PATH")
+NEW_DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
 
 # Extract deduplicated findings with fingerprints for cross-iteration comparison
-NEW_FINDINGS=$(jq '[.reviews[].findings[]? | {fingerprint: .fingerprint, severity: .severity, category: .category, file: .file, line: .line}] | unique_by(.fingerprint // (.file + ":" + (.line | tostring) + ":" + .category))' .signum/audit_summary.json)
+NEW_FINDINGS=$(jq '[.reviews[].findings[]? | {fingerprint: .fingerprint, severity: .severity, category: .category, file: .file, line: .line}] | unique_by(.fingerprint // (.file + ":" + (.line | tostring) + ":" + .category))' "$AUDIT_SUMMARY_PATH")
 NEW_FINDINGS_COUNT=$(jq '{
   critical: [.reviews[].findings[]? | select(.severity == "CRITICAL")] | length,
   major: [.reviews[].findings[]? | select(.severity == "MAJOR")] | length,
   minor: [.reviews[].findings[]? | select(.severity == "MINOR")] | length
-}' .signum/audit_summary.json)
+}' "$AUDIT_SUMMARY_PATH")
 
 # Update iteration log
-MECH_REG=$(jq -r '.hasRegressions' .signum/mechanic_report.json 2>/dev/null || echo "false")
-HOLDOUT_FAIL=$(jq '.failed // 0' .signum/holdout_report.json 2>/dev/null || echo 0)
-jq --argjson score "$NEW_SCORE" --arg decision "$NEW_DECISION" --argjson pass "$ITER_NUM" --argjson findings "$NEW_FINDINGS" --argjson findingsCount "$NEW_FINDINGS_COUNT" \
-  --arg mechReg "$MECH_REG" --argjson holdoutFail "$HOLDOUT_FAIL" \
-  '. + [{"pass": $pass, "score": $score, "decision": $decision, "findingsCount": $findingsCount, "canonicalFindings": $findings, "mechanicRegressions": ($mechReg == "true"), "holdoutFailures": $holdoutFail}]' \
-  .signum/audit_iteration_log.json > .signum/audit_iteration_log.json.tmp \
-  && mv .signum/audit_iteration_log.json.tmp .signum/audit_iteration_log.json
+MECH_REG=$(jq -r '.hasRegressions' "$MECHANIC_REPORT_PATH" 2>/dev/null || echo "false")
+HOLDOUT_FAIL=$(jq '.failed // 0' "$HOLDOUT_REPORT_PATH" 2>/dev/null || echo 0)
+jq --argjson score "$NEW_SCORE" --arg decision "$NEW_DECISION" --argjson pass "$ITER_NUM" --argjson findings "$NEW_FINDINGS" --argjson findingsCount "$NEW_FINDINGS_COUNT"   --arg mechReg "$MECH_REG" --argjson holdoutFail "$HOLDOUT_FAIL"   '. + [{"pass": $pass, "score": $score, "decision": $decision, "findingsCount": $findingsCount, "canonicalFindings": $findings, "mechanicRegressions": ($mechReg == "true"), "holdoutFailures": $holdoutFail}]'   "$AUDIT_ITERATION_LOG_PATH" > "${AUDIT_ITERATION_LOG_PATH}.tmp"   && mv "${AUDIT_ITERATION_LOG_PATH}.tmp" "$AUDIT_ITERATION_LOG_PATH"
 
 # Update best tracking
 if [ "$NEW_SCORE" -gt "$BEST_SCORE" ] || [ "$NEW_SCORE" -eq "$BEST_SCORE" -a "$ITER_NUM" -le "$BEST_ITERATION" ]; then
@@ -2749,38 +3210,46 @@ ITERATIONS_USED=$CURRENT_ITERATION
 
 RESTORE_FAILED=false
 if [ "$BEST_ITERATION" -ne "$CURRENT_ITERATION" ]; then
-  echo "Restoring best candidate from iteration $BEST_ITERATION"
-  # Rollback using stored patch: revert only files listed in current iteration's combined.patch
-  BASE=$(jq -r '.base_commit' .signum/execution_context.json)
-  PATCH_FILES=$(grep '^diff --git' .signum/combined.patch | sed 's|^diff --git a/||; s| b/.*||' | sort -u)
-  for f in $PATCH_FILES; do
-    git checkout "$BASE" -- "$f" 2>/dev/null || rm -f "$f" 2>/dev/null || true
-  done
-  # Always sync audit artifacts from best iteration so PACK reads consistent data
-  BEST_DIR=".signum/iterations/$(printf '%02d' $BEST_ITERATION)"
-  cp "${BEST_DIR}/combined.patch" .signum/
-  cp "${BEST_DIR}/iteration_delta.patch" .signum/ 2>/dev/null || rm -f .signum/iteration_delta.patch
-  cp "${BEST_DIR}/mechanic_report.json" .signum/
-  cp "${BEST_DIR}/holdout_report.json" .signum/ 2>/dev/null || true
-  cp "${BEST_DIR}/execute_log.json" .signum/ 2>/dev/null || true
-  rm -f .signum/reviews/*.json
-  cp "${BEST_DIR}/reviews/"*.json .signum/reviews/ 2>/dev/null || true
-  cp "${BEST_DIR}/audit_summary.json" .signum/
+echo "Restoring best candidate from iteration $BEST_ITERATION"
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+ITERATION_DELTA_PATH="${ARTIFACT_ROOT}iteration_delta.patch"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+# Rollback using stored patch: revert only files listed in current iteration's combined.patch
+BASE=$(jq -r '.base_commit' "$EXECUTION_CONTEXT_PATH")
+PATCH_FILES=$(grep '^diff --git' "$COMBINED_PATCH_PATH" | sed 's|^diff --git a/||; s| b/.*||' | sort -u)
+for f in $PATCH_FILES; do
+  git checkout "$BASE" -- "$f" 2>/dev/null || rm -f "$f" 2>/dev/null || true
+done
+# Always sync audit artifacts from best iteration so PACK reads consistent data
+BEST_DIR="${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)"
+cp "${BEST_DIR}/combined.patch" "$COMBINED_PATCH_PATH"
+cp "${BEST_DIR}/iteration_delta.patch" "$ITERATION_DELTA_PATH" 2>/dev/null || reset_active_artifact "iteration_delta.patch"
+cp "${BEST_DIR}/mechanic_report.json" "$MECHANIC_REPORT_PATH"
+cp "${BEST_DIR}/holdout_report.json" "$HOLDOUT_REPORT_PATH" 2>/dev/null || true
+cp "${BEST_DIR}/execute_log.json" "$EXECUTE_LOG_PATH" 2>/dev/null || true
+rm -f "$REVIEWS_DIR/"*.json
+cp "${BEST_DIR}/reviews/"*.json "$REVIEWS_DIR/" 2>/dev/null || true
+cp "${BEST_DIR}/audit_summary.json" "$AUDIT_SUMMARY_PATH"
 
-  if ! git apply .signum/iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch; then
-    echo "ERROR: Failed to apply best candidate patch — forcing HUMAN_REVIEW"
+if ! git apply "${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)/combined.patch"; then
+    echo "ERROR: Failed to apply best candidate patch - forcing HUMAN_REVIEW"
     RESTORE_FAILED=true
     FINAL_DECISION="HUMAN_REVIEW"
     # Override decision in the already-synced audit_summary
-    jq '.decision = "HUMAN_REVIEW" | .terminalReason = "final restore of best candidate patch failed"' \
-      .signum/audit_summary.json > .signum/audit_summary.json.tmp \
-      && mv .signum/audit_summary.json.tmp .signum/audit_summary.json
+    jq '.decision = "HUMAN_REVIEW" | .terminalReason = "final restore of best candidate patch failed"'       "$AUDIT_SUMMARY_PATH" > "${AUDIT_SUMMARY_PATH}.tmp"       && mv "${AUDIT_SUMMARY_PATH}.tmp" "$AUDIT_SUMMARY_PATH"
   fi
 fi
 
 # Determine terminal decision from best candidate
 if [ "$RESTORE_FAILED" != "true" ]; then
-  FINAL_DECISION=$(jq -r '.decision' .signum/audit_summary.json)
+  FINAL_DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
 fi
 EARLY_STOP=$( [ "$NO_IMPROVE_COUNT" -ge 2 ] && echo "true" || echo "false" )
 EARLY_STOP_REASON=""
@@ -2788,28 +3257,22 @@ EARLY_STOP_REASON=""
 [ "$CURRENT_ITERATION" -ge "$MAX_ITERATIONS" ] && EARLY_STOP="true" && EARLY_STOP_REASON="max iterations reached"
 
 # Write iteration metadata unconditionally so PACK always has correct fields
-jq --argjson iters_used "$ITERATIONS_USED" \
-   --argjson iters_max "$MAX_ITERATIONS" \
-   --argjson best "$BEST_ITERATION" \
-   --arg early_stop "$EARLY_STOP" \
-   --arg early_stop_reason "$EARLY_STOP_REASON" \
-   '. + {
+jq --argjson iters_used "$ITERATIONS_USED"    --argjson iters_max "$MAX_ITERATIONS"    --argjson best "$BEST_ITERATION"    --arg early_stop "$EARLY_STOP"    --arg early_stop_reason "$EARLY_STOP_REASON"    '. + {
      iterationsUsed: $iters_used,
      iterationsMax: $iters_max,
      bestIteration: $best,
      earlyStop: ($early_stop == "true"),
      earlyStopReason: (if $early_stop_reason != "" then $early_stop_reason else null end)
-   }' .signum/audit_summary.json > .signum/audit_summary.json.tmp \
-   && mv .signum/audit_summary.json.tmp .signum/audit_summary.json
+   }' "$AUDIT_SUMMARY_PATH" > "${AUDIT_SUMMARY_PATH}.tmp"    && mv "${AUDIT_SUMMARY_PATH}.tmp" "$AUDIT_SUMMARY_PATH"
 
 if [ "$RESTORE_FAILED" != "true" ]; then
   # Terminal override based on remaining findings in best candidate
-  REMAINING_CRITICAL=$(jq '[.reviews[].findings[]? | select(.severity == "CRITICAL")] | length' .signum/audit_summary.json)
-  REMAINING_MAJOR=$(jq '[.reviews[].findings[]? | select(.severity == "MAJOR")] | length' .signum/audit_summary.json)
-  REMAINING_MINOR=$(jq '[.reviews[].findings[]? | select(.severity == "MINOR")] | length' .signum/audit_summary.json)
+  REMAINING_CRITICAL=$(jq '[.reviews[].findings[]? | select(.severity == "CRITICAL")] | length' "$AUDIT_SUMMARY_PATH")
+  REMAINING_MAJOR=$(jq '[.reviews[].findings[]? | select(.severity == "MAJOR")] | length' "$AUDIT_SUMMARY_PATH")
+  REMAINING_MINOR=$(jq '[.reviews[].findings[]? | select(.severity == "MINOR")] | length' "$AUDIT_SUMMARY_PATH")
 
-  BEST_MECH_REGRESSIONS=$(jq -r '.hasRegressions' .signum/mechanic_report.json 2>/dev/null || echo "false")
-  BEST_HOLDOUT_FAILED=$(jq '.failed // 0' .signum/holdout_report.json 2>/dev/null || echo 0)
+  BEST_MECH_REGRESSIONS=$(jq -r '.hasRegressions' "$MECHANIC_REPORT_PATH" 2>/dev/null || echo "false")
+  BEST_HOLDOUT_FAILED=$(jq '.failed // 0' "$HOLDOUT_REPORT_PATH" 2>/dev/null || echo 0)
 
   if [ "$REMAINING_CRITICAL" -gt 0 ]; then
     FINAL_DECISION="AUTO_BLOCK"
@@ -2834,15 +3297,11 @@ if [ "$RESTORE_FAILED" != "true" ]; then
   fi
 
   # Update audit_summary with decision metadata
-  jq --arg remaining_sev "$REMAINING_SEV" \
-     --arg final_decision "$FINAL_DECISION" \
-     --arg terminal_reason "$TERMINAL_REASON" \
-     '. + {
+  jq --arg remaining_sev "$REMAINING_SEV"      --arg final_decision "$FINAL_DECISION"      --arg terminal_reason "$TERMINAL_REASON"      '. + {
        decision: $final_decision,
        terminalReason: (if $final_decision != "AUTO_OK" then $terminal_reason else null end),
        remainingSeverity: $remaining_sev
-     }' .signum/audit_summary.json > .signum/audit_summary.json.tmp \
-     && mv .signum/audit_summary.json.tmp .signum/audit_summary.json
+     }' "$AUDIT_SUMMARY_PATH" > "${AUDIT_SUMMARY_PATH}.tmp"      && mv "${AUDIT_SUMMARY_PATH}.tmp" "$AUDIT_SUMMARY_PATH"
 fi
 
 echo "=== ITERATIVE AUDIT COMPLETE ==="
@@ -2866,11 +3325,15 @@ Proceed to Phase 4: PACK.
 Transition the contract status from `active` to `completed` and record the `completedAt` timestamp:
 
 ```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CONTRACT_TMP_PATH="${CONTRACT_PATH%.json}-tmp.json"
 COMPLETED_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 jq --arg ts "$COMPLETED_TS" \
   '.status = "completed" | .timestamps.completedAt = $ts' \
-  .signum/contract.json > .signum/contract-tmp.json && \
-  mv .signum/contract-tmp.json .signum/contract.json
+  "$CONTRACT_PATH" > "$CONTRACT_TMP_PATH" && \
+  mv "$CONTRACT_TMP_PATH" "$CONTRACT_PATH"
 echo "Contract status: active → completed at $COMPLETED_TS"
 ```
 
@@ -2900,34 +3363,55 @@ file_size() {
   wc -c < "$f" | tr -d ' '
 }
 
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+BASELINE_PATH="${ARTIFACT_ROOT}baseline.json"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+MECHANIC_REPORT_PATH="${ARTIFACT_ROOT}mechanic_report.json"
+HOLDOUT_REPORT_PATH="${ARTIFACT_ROOT}holdout_report.json"
+POLICY_SCAN_PATH="${ARTIFACT_ROOT}policy_scan.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+APPROVAL_PATH="${ARTIFACT_ROOT}approval.json"
+PROOFPACK_PATH="${ARTIFACT_ROOT}proofpack.json"
+ANTI_ENTROPY_PATH="${ARTIFACT_ROOT}anti_entropy_report.json"
+CONTRACT_HASH_PATH="${ARTIFACT_ROOT}contract-hash.txt"
+EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+AUDIT_ITERATION_LOG_PATH="${ARTIFACT_ROOT}audit_iteration_log.json"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+RECEIPTS_EXEC_PATH="${ARTIFACT_ROOT}receipts/execute.json"
+
 # Metadata
-DECISION=$(jq -r '.decision' .signum/audit_summary.json)
-GOAL=$(jq -r '.goal' .signum/contract.json)
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
-ATTEMPTS=$(jq -r '.totalAttempts' .signum/execute_log.json 2>/dev/null || echo "unknown")
-MECHANIC=$(jq -r '.mechanic' .signum/audit_summary.json)
-CONFIDENCE=$(jq -r '.confidence.overall // 0' .signum/audit_summary.json)
+DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
+GOAL=$(jq -r '.goal' "$CONTRACT_PATH")
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
+ATTEMPTS=$(jq -r '.totalAttempts' "$EXECUTE_LOG_PATH" 2>/dev/null || echo "unknown")
+MECHANIC=$(jq -r '.mechanic' "$AUDIT_SUMMARY_PATH")
+CONFIDENCE=$(jq -r '.confidence.overall // 0' "$AUDIT_SUMMARY_PATH")
 RUN_DATE=$(date +%Y-%m-%dT%H:%M:%SZ)
 RUN_RANDOM=$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 6)
 RUN_ID="signum-$(date +%Y-%m-%d)-${RUN_RANDOM}"
 
 # Audit chain
-CONTRACT_HASH=$(grep 'contract_sha256:' .signum/contract-hash.txt 2>/dev/null | awk '{print $2}' || echo "unavailable")
-APPROVED_AT=$(grep 'approved_at:' .signum/contract-hash.txt 2>/dev/null | awk '{print $2}' || echo "unavailable")
-BASE_COMMIT=$(jq -r '.base_commit // "unavailable"' .signum/execution_context.json 2>/dev/null || echo "unavailable")
+CONTRACT_HASH=$(grep 'contract_sha256:' "$CONTRACT_HASH_PATH" 2>/dev/null | awk '{print $2}' || echo "unavailable")
+APPROVED_AT=$(grep 'approved_at:' "$CONTRACT_HASH_PATH" 2>/dev/null | awk '{print $2}' || echo "unavailable")
+BASE_COMMIT=$(jq -r '.base_commit // "unavailable"' "$EXECUTION_CONTEXT_PATH" 2>/dev/null || echo "unavailable")
 
 # Contract redaction: strip holdoutScenarios, save to temp file
 REDACTED_CONTRACT=$(mktemp /tmp/signum-contract-redacted.XXXXXX.json)
-python3 -c "
-import json, sys
-with open('.signum/contract.json') as f:
+python3 - "$CONTRACT_PATH" <<'PY' > "$REDACTED_CONTRACT"
+import json
+import sys
+
+with open(sys.argv[1]) as f:
     data = json.load(f)
 data.pop('holdoutScenarios', None)
 json.dump(data, sys.stdout)
-" > "$REDACTED_CONTRACT"
+PY
 
 CONTRACT_SHA256=$(hash_file "$REDACTED_CONTRACT")
-CONTRACT_FULL_SHA256=$(hash_file .signum/contract.json)
+CONTRACT_FULL_SHA256=$(hash_file "$CONTRACT_PATH")
 
 # Envelope builder: embeds file content if <=102400 bytes, else omits
 # JSON files (.json) are embedded as objects, text files as strings
@@ -2968,34 +3452,34 @@ else
 fi
 
 # Diff embedding
-DIFF_ENV=$(build_envelope .signum/combined.patch)
+DIFF_ENV=$(build_envelope "$COMBINED_PATCH_PATH")
 
 # Baseline envelope (optional artifact)
-BASELINE_ENV=$(build_envelope .signum/baseline.json)
+BASELINE_ENV=$(build_envelope "$BASELINE_PATH")
 
 # Execute log envelope
-EXECUTE_ENV=$(build_envelope .signum/execute_log.json)
+EXECUTE_ENV=$(build_envelope "$EXECUTE_LOG_PATH")
 
 # Mechanic and holdout envelopes
-MECHANIC_ENV=$(build_envelope .signum/mechanic_report.json)
-HOLDOUT_ENV=$(build_envelope .signum/holdout_report.json)
+MECHANIC_ENV=$(build_envelope "$MECHANIC_REPORT_PATH")
+HOLDOUT_ENV=$(build_envelope "$HOLDOUT_REPORT_PATH")
 
 # Policy scan envelope — written to temp file so jq reads content directly,
 # avoiding shell variable limits on large reports.
 POLICY_SCAN_ENV_TMP=$(mktemp)
 trap 'rm -f "$POLICY_SCAN_ENV_TMP"' EXIT
-build_envelope .signum/policy_scan.json > "$POLICY_SCAN_ENV_TMP"
+build_envelope "$POLICY_SCAN_PATH" > "$POLICY_SCAN_ENV_TMP"
 
 # Audit summary envelope
-AUDIT_ENV=$(build_envelope .signum/audit_summary.json)
+AUDIT_ENV=$(build_envelope "$AUDIT_SUMMARY_PATH")
 
 # Approval envelope
-APPROVAL_ENV=$(build_envelope .signum/approval.json)
+APPROVAL_ENV=$(build_envelope "$APPROVAL_PATH")
 
-# Dynamic reviews: enumerate .signum/reviews/*.json
+# Dynamic reviews: enumerate canonical reviews/*.json
 REVIEWS_JSON='{'
 first=1
-for review_file in .signum/reviews/*.json; do
+for review_file in "$REVIEWS_DIR"/*.json; do
   [ -f "$review_file" ] || continue
   provider=$(basename "$review_file" .json)
   env_json=$(build_envelope "$review_file")
@@ -3049,23 +3533,23 @@ if [ -n "$PREV_PROOFPACK" ] && [ -f "$PREV_PROOFPACK" ]; then
 fi
 
 # Extract contractId for lineage
-PACK_CONTRACT_ID=$(jq -r '.contractId // empty' .signum/contract.json)
+PACK_CONTRACT_ID=$(jq -r '.contractId // empty' "$CONTRACT_PATH")
 
 # Read iteration metadata for iterativeAudit section
-ITERATIONS_USED_PACK=$(jq -r '.iterationsUsed // 1' .signum/audit_summary.json 2>/dev/null || echo 1)
-BEST_ITERATION_PACK=$(jq -r '.bestIteration // 1' .signum/audit_summary.json 2>/dev/null || echo 1)
+ITERATIONS_USED_PACK=$(jq -r '.iterationsUsed // 1' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo 1)
+BEST_ITERATION_PACK=$(jq -r '.bestIteration // 1' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo 1)
 ITERATIVE_AUDIT_JSON="null"
-if [ "$ITERATIONS_USED_PACK" -gt 1 ] && [ -f .signum/audit_iteration_log.json ]; then
+if [ "$ITERATIONS_USED_PACK" -gt 1 ] && [ -f "$AUDIT_ITERATION_LOG_PATH" ]; then
   # Read audit_summary metadata fields required by iterativeAudit schema
-  PACK_ITERS_MAX=$(jq -r '.iterationsMax // 20' .signum/audit_summary.json 2>/dev/null || echo 20)
-  PACK_EARLY_STOP=$(jq -r '.earlyStop // false' .signum/audit_summary.json 2>/dev/null || echo false)
-  PACK_EARLY_STOP_REASON=$(jq -r '.earlyStopReason // ""' .signum/audit_summary.json 2>/dev/null || echo "")
-  PACK_TERMINAL_REASON=$(jq -r '.terminalReason // ""' .signum/audit_summary.json 2>/dev/null || echo "")
-  PACK_REMAINING_SEV=$(jq -r '.remainingSeverity // "none"' .signum/audit_summary.json 2>/dev/null || echo "none")
+  PACK_ITERS_MAX=$(jq -r '.iterationsMax // 20' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo 20)
+  PACK_EARLY_STOP=$(jq -r '.earlyStop // false' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo false)
+  PACK_EARLY_STOP_REASON=$(jq -r '.earlyStopReason // ""' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo "")
+  PACK_TERMINAL_REASON=$(jq -r '.terminalReason // ""' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo "")
+  PACK_REMAINING_SEV=$(jq -r '.remainingSeverity // "none"' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo "none")
   # Build resolvedFindings: findings present in pass 1 but absent in best pass (by fingerprint)
   # Use .pass field lookup instead of array index to handle sparse logs from skipped iterations
   PACK_RESOLVED=$(jq -n \
-    --argjson log "$(cat .signum/audit_iteration_log.json)" \
+    --argjson log "$(cat "$AUDIT_ITERATION_LOG_PATH")" \
     --argjson best "$BEST_ITERATION_PACK" \
     '($log[0].canonicalFindings // []) as $first |
      (($log[] | select(.pass == $best)).canonicalFindings // []) as $last |
@@ -3073,7 +3557,7 @@ if [ "$ITERATIONS_USED_PACK" -gt 1 ] && [ -f .signum/audit_iteration_log.json ];
      [$first[] | select((.fingerprint // (.file + ":" + (.line|tostring) + ":" + .category)) as $fp | $lastFps | index($fp) | not)]')
   # Build remainingFindings: findings present in the best pass
   # Use .pass field lookup instead of array index to handle sparse logs from skipped iterations
-  PACK_REMAINING=$(jq --argjson best "$BEST_ITERATION_PACK" '(.[].pass as $p | select($p == $best) | .canonicalFindings) // []' .signum/audit_iteration_log.json 2>/dev/null || echo "[]")
+  PACK_REMAINING=$(jq --argjson best "$BEST_ITERATION_PACK" '(.[].pass as $p | select($p == $best) | .canonicalFindings) // []' "$AUDIT_ITERATION_LOG_PATH" 2>/dev/null || echo "[]")
   ITERATIVE_AUDIT_JSON=$(jq -n \
     --argjson iters_used "$ITERATIONS_USED_PACK" \
     --argjson iters_max "$PACK_ITERS_MAX" \
@@ -3084,7 +3568,7 @@ if [ "$ITERATIONS_USED_PACK" -gt 1 ] && [ -f .signum/audit_iteration_log.json ];
     --arg remaining_sev "$PACK_REMAINING_SEV" \
     --argjson resolved "$PACK_RESOLVED" \
     --argjson remaining "$PACK_REMAINING" \
-    --argjson log "$(cat .signum/audit_iteration_log.json)" \
+    --argjson log "$(cat "$AUDIT_ITERATION_LOG_PATH")" \
     '{iterationsUsed: $iters_used, iterationsMax: $iters_max, bestIteration: $best,
       earlyStop: $early_stop, earlyStopReason: $early_stop_reason,
       terminalReason: $terminal_reason, remainingSeverity: $remaining_sev,
@@ -3095,7 +3579,7 @@ fi
 # Final assembly
 jq -n \
   --arg schemaVersion "4.6" \
-  --arg signumVersion "4.19.2" \
+  --arg signumVersion "4.20.0" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \
@@ -3150,7 +3634,7 @@ jq -n \
   | if $ciContext != null then . + {ciContext: $ciContext} else . end
   | if $baselineComp != null then . + {baselineComparison: $baselineComp} else . end
   | if $iterativeAuditJson != null then . + {iterativeAudit: $iterativeAuditJson} else . end
-  ' > .signum/proofpack.json
+  ' > "$PROOFPACK_PATH"
 
 # Cleanup temp files
 rm -f "$REDACTED_CONTRACT"
@@ -3159,9 +3643,9 @@ rm -f "$REDACTED_CONTRACT"
 if [ -f lib/pack-anti-entropy.sh ]; then
   bash lib/pack-anti-entropy.sh \
     --project-root . \
-    --contract .signum/contract.json \
-    --proofpack .signum/proofpack.json \
-    --output .signum/anti_entropy_report.json || true
+    --contract "$CONTRACT_PATH" \
+    --proofpack "$PROOFPACK_PATH" \
+    --output "$ANTI_ENTROPY_PATH" || true
 fi
 
 echo "Proofpack written: $RUN_ID (schema v4.6)"
@@ -3174,12 +3658,16 @@ Use the Bash tool to transition the contract to `completed`:
 ```bash
 if [ -f lib/contract-dir.sh ]; then
   source lib/contract-dir.sh
-  CONTRACT_ID=$(jq -r '.contractId // empty' .signum/contract.json)
+  ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+  CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+  EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
+  RECEIPTS_EXEC_PATH="${ARTIFACT_ROOT}receipts/execute.json"
+  CONTRACT_ID=$(jq -r '.contractId // empty' "$CONTRACT_PATH")
   if [ -n "$CONTRACT_ID" ]; then
     update_contract_status "$CONTRACT_ID" "completed"
-    RUN_ID=$(jq -r '.run_id // empty' .signum/execution_context.json 2>/dev/null || true)
+    RUN_ID=$(jq -r '.run_id // empty' "$EXECUTION_CONTEXT_PATH" 2>/dev/null || true)
     if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
-      RUN_ID=$(jq -r '.run_id // empty' .signum/receipts/execute.json 2>/dev/null || true)
+      RUN_ID=$(jq -r '.run_id // empty' "$RECEIPTS_EXEC_PATH" 2>/dev/null || true)
     fi
     # Sync durable artifacts for this completed contract.
     sync_contract_artifacts "$CONTRACT_ID" \
@@ -3212,13 +3700,18 @@ fi
 Use the Bash tool:
 
 ```bash
-OBLIGATIONS=$(jq -r '.cleanupObligations // [] | length' .signum/contract.json)
-DECISION=$(jq -r '.decision' .signum/audit_summary.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+
+OBLIGATIONS=$(jq -r '.cleanupObligations // [] | length' "$CONTRACT_PATH")
+DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
 if [ "$OBLIGATIONS" -eq 0 ] || [ "$DECISION" != "AUTO_OK" ]; then
   echo "RECONCILE skipped (obligations=$OBLIGATIONS, decision=$DECISION)"
 else
   echo "RECONCILE: $OBLIGATIONS obligation(s) to resolve"
-  jq -r '.cleanupObligations[] | "  - [\(.action)] \(.target): \(.description)"' .signum/contract.json
+  jq -r '.cleanupObligations[] | "  - [\(.action)] \(.target): \(.description)"' "$CONTRACT_PATH"
 fi
 ```
 
@@ -3231,8 +3724,11 @@ Use the Agent tool to launch a general-purpose agent (model: sonnet) with this p
 ```
 You are the RECONCILE agent for Signum. Your job is to resolve cleanup obligations after a successful implementation.
 
-Read .signum/contract.json — the cleanupObligations array lists what needs to be done.
-Read .signum/proofpack.json — the summary field describes what was implemented.
+The canonical artifact root for the active contract is `.signum/contracts/<activeContractId>/`.
+If needed, use `.signum/contracts/index.json.activeContractId` to locate it.
+
+Read `contract.json` under that canonical artifact root — the `cleanupObligations` array lists what needs to be done.
+Read `proofpack.json` under that same canonical artifact root — the `summary` field describes what was implemented.
 
 For each obligation:
 
@@ -3247,7 +3743,7 @@ For each obligation:
 5. action=update_manifest: Read the target file and update lifecycle/status fields.
 
 After resolving each obligation, report what you did.
-Write a summary to .signum/reconcile_report.json:
+Write a summary to `reconcile_report.json` under the same canonical artifact root:
 {
   "obligations_total": N,
   "resolved": N,
@@ -3263,21 +3759,27 @@ Write a summary to .signum/reconcile_report.json:
 Use the Bash tool:
 
 ```bash
-if [ ! -f .signum/reconcile_report.json ]; then
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CONTRACT_TMP_PATH="${CONTRACT_PATH%.json}-tmp.json"
+RECONCILE_REPORT_PATH="${ARTIFACT_ROOT}reconcile_report.json"
+
+if [ ! -f "$RECONCILE_REPORT_PATH" ]; then
   echo "WARNING: reconcile_report.json missing — RECONCILE agent may have failed"
 else
-  RESOLVED=$(jq '.resolved' .signum/reconcile_report.json)
-  TOTAL=$(jq '.obligations_total' .signum/reconcile_report.json)
-  SKIPPED=$(jq '.skipped' .signum/reconcile_report.json)
+  RESOLVED=$(jq '.resolved' "$RECONCILE_REPORT_PATH")
+  TOTAL=$(jq '.obligations_total' "$RECONCILE_REPORT_PATH")
+  SKIPPED=$(jq '.skipped' "$RECONCILE_REPORT_PATH")
   echo "RECONCILE: $RESOLVED/$TOTAL resolved, $SKIPPED skipped"
-  jq -r '.details[] | "  [\(.status)] \(.action) \(.target): \(.what_changed)"' .signum/reconcile_report.json
+  jq -r '.details[] | "  [\(.status)] \(.action) \(.target): \(.what_changed)"' "$RECONCILE_REPORT_PATH"
 
   # Update contract: mark resolved obligations
   RECONCILE_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   jq --arg ts "$RECONCILE_TS" \
     '(.cleanupObligations // []) |= [.[] | . + {resolvedAt: $ts}] | .timestamps.reconciledAt = $ts' \
-    .signum/contract.json > .signum/contract-tmp.json && \
-    mv .signum/contract-tmp.json .signum/contract.json
+    "$CONTRACT_PATH" > "$CONTRACT_TMP_PATH" && \
+    mv "$CONTRACT_TMP_PATH" "$CONTRACT_PATH"
 fi
 ```
 
@@ -3288,17 +3790,24 @@ fi
 Use the Bash tool:
 
 ```bash
-RISK=$(jq -r '.riskLevel' .signum/contract.json)
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+RETRO_PATH="${ARTIFACT_ROOT}retro.json"
+
+RISK=$(jq -r '.riskLevel' "$CONTRACT_PATH")
 if [ "$RISK" = "low" ]; then
   echo "Retro skipped (low risk)"
 else
-  INSCOPE_COUNT=$(jq '.inScope | length' .signum/contract.json)
+  INSCOPE_COUNT=$(jq '.inScope | length' "$CONTRACT_PATH")
   CHANGED_COUNT=$(git diff --name-only | wc -l | tr -d ' ')
-  ATTEMPTS=$(jq -r '.totalAttempts // "?"' .signum/execute_log.json)
-  ITERATIONS=$(jq -r '.iterationsUsed // 1' .signum/audit_summary.json)
-  FINDINGS=$(jq '[.reviews[].findings[]?] | length' .signum/audit_summary.json 2>/dev/null || echo 0)
+  ATTEMPTS=$(jq -r '.totalAttempts // "?"' "$EXECUTE_LOG_PATH")
+  ITERATIONS=$(jq -r '.iterationsUsed // 1' "$AUDIT_SUMMARY_PATH")
+  FINDINGS=$(jq '[.reviews[].findings[]?] | length' "$AUDIT_SUMMARY_PATH" 2>/dev/null || echo 0)
 
-  cat > .signum/retro.json << RETRO
+  cat > "$RETRO_PATH" << RETRO
 {
   "estimated_files": $INSCOPE_COUNT,
   "actual_files": $CHANGED_COUNT,
@@ -3323,25 +3832,42 @@ Display to the user:
 Use the Bash tool to list all produced artifacts:
 
 ```bash
-echo "=== Artifacts in .signum/ ==="
-ls -1 .signum/ .signum/reviews/ 2>/dev/null
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+PROOFPACK_PATH="${ARTIFACT_ROOT}proofpack.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+DIFF_PATH="${ARTIFACT_ROOT}combined.patch"
+ANTI_ENTROPY_PATH="${ARTIFACT_ROOT}anti_entropy_report.json"
+
+echo "=== Canonical artifact root ==="
+echo "$ARTIFACT_ROOT"
 echo ""
-echo "Decision:   $(jq -r .decision .signum/proofpack.json)"
-echo "Confidence: $(jq -r '.confidence.overall' .signum/proofpack.json)%"
-echo "Run ID:     $(jq -r .runId   .signum/proofpack.json)"
-if [ -f .signum/anti_entropy_report.json ]; then
-  echo "Anti-entropy: $(jq -r ' .status + " — " + .summary' .signum/anti_entropy_report.json 2>/dev/null || echo 'unknown')"
+echo "=== Artifacts ==="
+if [ -d "$ARTIFACT_ROOT" ]; then
+  (
+    cd "$ARTIFACT_ROOT" &&
+    find . -maxdepth 2 -mindepth 1 | sed 's#^\./##' | LC_ALL=C sort
+  )
+else
+  echo "WARNING: artifact root not found"
 fi
-if [ -f .signum/reconcile_report.json ]; then
-  echo "Reconcile: $(jq '.resolved' .signum/reconcile_report.json)/$(jq '.obligations_total' .signum/reconcile_report.json) obligations resolved"
+echo ""
+echo "Decision:   $(jq -r .decision "$PROOFPACK_PATH")"
+echo "Confidence: $(jq -r '.confidence.overall' "$PROOFPACK_PATH")%"
+echo "Run ID:     $(jq -r .runId "$PROOFPACK_PATH")"
+if [ -f "$ANTI_ENTROPY_PATH" ]; then
+  echo "Anti-entropy: $(jq -r ' .status + " — " + .summary' "$ANTI_ENTROPY_PATH" 2>/dev/null || echo 'unknown')"
+fi
+if [ -f "${ARTIFACT_ROOT}reconcile_report.json" ]; then
+  echo "Reconcile: $(jq '.resolved' "${ARTIFACT_ROOT}reconcile_report.json")/$(jq '.obligations_total' "${ARTIFACT_ROOT}reconcile_report.json") obligations resolved"
 fi
 ```
 
 Then display the appropriate next steps based on the decision:
 
-- **AUTO_OK**: "Changes are verified. Review `.signum/combined.patch` and commit when ready."
-- **AUTO_BLOCK**: "Issues found. Review `.signum/audit_summary.json` and fix before committing."
-- **HUMAN_REVIEW**: "Audit inconclusive. Review `.signum/audit_summary.json`, then either: (1) refine acceptance criteria and re-run `/signum`, or (2) manually verify the flagged findings."
+- **AUTO_OK**: "Changes are verified. Review `combined.patch` under the canonical artifact root shown above and commit when ready."
+- **AUTO_BLOCK**: "Issues found. Review `audit_summary.json` under the canonical artifact root shown above and fix before committing."
+- **HUMAN_REVIEW**: "Audit inconclusive. Review `audit_summary.json` under the canonical artifact root shown above, then either: (1) refine acceptance criteria and re-run `/signum`, or (2) manually verify the flagged findings."
 
 ---
 

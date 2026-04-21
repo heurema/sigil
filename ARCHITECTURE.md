@@ -13,7 +13,7 @@ review_cadence: quarterly
 - The product mixes two layers:
   - deterministic shell/JSON verification in `lib/`
   - LLM orchestration in `commands/` and `agents/`
-- The output artifact is `.signum/proofpack.json`, intended for CI gating and auditability.
+- The main output artifact is `proofpack.json` under the active contract artifact root (`.signum/contracts/<contractId>/proofpack.json`), intended for CI gating and auditability.
 
 ## Main Components
 
@@ -32,10 +32,10 @@ review_cadence: quarterly
 
 ### 1. Main product flow
 1. User runs `/signum <task>`.
-2. Contractor creates `.signum/contract.json`, applies spec-quality checks, and prepares execution policy.
+2. Contractor creates canonical `contract.json` under the active contract artifact root, applies spec-quality checks, and prepares execution policy.
 3. Engineer implements against the redacted contract.
 4. AUDIT runs deterministic checks + holdouts + multi-model review panel.
-5. PACK assembles `.signum/proofpack.json`.
+5. PACK assembles `proofpack.json` under the active contract artifact root.
 
 ### 2. Project-context bootstrap flow
 1. User runs `/signum init`.

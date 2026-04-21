@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pack-anti-entropy.sh -- safe writer for .signum/anti_entropy_report.json
+# pack-anti-entropy.sh -- safe writer for anti_entropy_report.json beside canonical contract artifacts
 # Always exits 0. If anti-entropy-report.sh fails, writes a fallback error artifact instead.
 #
 # Usage:
@@ -11,11 +11,11 @@
 set -euo pipefail
 
 PROJECT_ROOT="."
-CONTRACT_PATH=".signum/contract.json"
-PROOFPACK_PATH=".signum/proofpack.json"
+CONTRACT_PATH=""
+PROOFPACK_PATH=""
 DOC_PARITY_JSON=""
 METRIC_RATCHET_JSON=""
-OUTPUT_PATH=".signum/anti_entropy_report.json"
+OUTPUT_PATH=""
 AS_OF=""
 
 while [[ $# -gt 0 ]]; do
@@ -38,9 +38,65 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTER="$SCRIPT_DIR/anti-entropy-report.sh"
 PROJECT_ROOT_ABS="$(cd "$PROJECT_ROOT" && pwd)"
 
-if [[ "$OUTPUT_PATH" != /* ]]; then
-  OUTPUT_PATH="$PROJECT_ROOT_ABS/$OUTPUT_PATH"
-fi
+abspath_from_root() {
+  local path="$1"
+  if [[ "$path" = /* ]]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "$PROJECT_ROOT_ABS" "$path"
+  fi
+}
+
+resolve_active_artifact_root() {
+  local index_path="$PROJECT_ROOT_ABS/.signum/contracts/index.json"
+  local active_id=""
+
+  [ -f "$index_path" ] || return 1
+  active_id="$(jq -r '.activeContractId // empty' "$index_path" 2>/dev/null || true)"
+  [ -n "$active_id" ] || return 1
+  [ -d "$PROJECT_ROOT_ABS/.signum/contracts/$active_id" ] || return 1
+
+  printf '%s\n' "$PROJECT_ROOT_ABS/.signum/contracts/$active_id"
+}
+
+resolve_artifact_root() {
+  local output_dir=""
+
+  if [ -n "$OUTPUT_PATH" ]; then
+    output_dir="$(dirname "$(abspath_from_root "$OUTPUT_PATH")")"
+    if [ -f "$output_dir/contract.json" ] || [ -f "$output_dir/proofpack.json" ] || [ "$(basename "$OUTPUT_PATH")" = "anti_entropy_report.json" ]; then
+      printf '%s\n' "$output_dir"
+      return 0
+    fi
+  fi
+
+  if [ -n "$CONTRACT_PATH" ]; then
+    dirname "$(abspath_from_root "$CONTRACT_PATH")"
+    return 0
+  fi
+
+  if [ -n "$PROOFPACK_PATH" ]; then
+    dirname "$(abspath_from_root "$PROOFPACK_PATH")"
+    return 0
+  fi
+
+  if resolve_active_artifact_root >/dev/null 2>&1; then
+    resolve_active_artifact_root
+    return 0
+  fi
+
+  printf '%s\n' "$PROJECT_ROOT_ABS/.signum"
+}
+
+ARTIFACT_ROOT="$(resolve_artifact_root)"
+
+[ -n "$OUTPUT_PATH" ] || OUTPUT_PATH="$ARTIFACT_ROOT/anti_entropy_report.json"
+[ -n "$CONTRACT_PATH" ] || CONTRACT_PATH="$ARTIFACT_ROOT/contract.json"
+[ -n "$PROOFPACK_PATH" ] || PROOFPACK_PATH="$ARTIFACT_ROOT/proofpack.json"
+
+OUTPUT_PATH="$(abspath_from_root "$OUTPUT_PATH")"
+CONTRACT_PATH="$(abspath_from_root "$CONTRACT_PATH")"
+PROOFPACK_PATH="$(abspath_from_root "$PROOFPACK_PATH")"
 
 if [ -z "$METRIC_RATCHET_JSON" ] && [ -f "$PROJECT_ROOT_ABS/.signum/metrics/ratchet-report.json" ]; then
   METRIC_RATCHET_JSON="$PROJECT_ROOT_ABS/.signum/metrics/ratchet-report.json"

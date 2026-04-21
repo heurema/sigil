@@ -136,20 +136,20 @@ Order matters — deterministic signals first:
 
 ### 6.1. Repair Brief — Engineer Invocation
 
-Repair-mode engineer reads the SAME files as normal mode plus the brief:
-- `.signum/contract-engineer.json` (original contract, holdouts redacted)
-- `.signum/baseline.json` (pre-change check state)
-- `.signum/repair_brief.json` (new — the repair brief)
+Repair-mode engineer reads the SAME canonical files as normal mode plus the brief, all under the active contract artifact root (`$ARTIFACT_ROOT`):
+- `$ARTIFACT_ROOT/contract-engineer.json` (original contract, holdouts redacted)
+- `$ARTIFACT_ROOT/baseline.json` (pre-change check state)
+- `$ARTIFACT_ROOT/repair_brief.json` (new — the repair brief)
 
 Orchestrator prompt to engineer agent:
 
 ```
-Read .signum/contract-engineer.json for scope and acceptance criteria.
-Read .signum/baseline.json for pre-existing check state.
-Read .signum/repair_brief.json for the specific issues to fix.
+Read $ARTIFACT_ROOT/contract-engineer.json for scope and acceptance criteria.
+Read $ARTIFACT_ROOT/baseline.json for pre-existing check state.
+Read $ARTIFACT_ROOT/repair_brief.json for the specific issues to fix.
 Fix ONLY the issues listed in the repair brief. Do not refactor, do not add features.
 After fixing, run the visible AC verifies to confirm you didn't break them.
-Write .signum/combined.patch and .signum/execute_log.json.
+Write $ARTIFACT_ROOT/combined.patch and $ARTIFACT_ROOT/execute_log.json.
 ```
 
 The brief is a delta — engineer still works within the original contract boundaries.
@@ -172,7 +172,7 @@ Categories derived from holdout description via simple keyword extraction:
 ### 8. Per-Iteration Storage
 
 ```
-.signum/
+.signum/contracts/<contractId>/
   iterations/
     01/
       combined.patch
@@ -189,7 +189,7 @@ Categories derived from holdout description via simple keyword extraction:
   audit_iteration_log.json   # summary of all iterations
 ```
 
-Each iteration's artifacts stored separately. No overwrites. Working copies in `.signum/` always overwritten to match the active candidate; `iterations/*` remain immutable snapshots.
+Each iteration's artifacts stored separately. No overwrites. Canonical working copies in the active contract artifact root are always overwritten to match the active candidate; `iterations/*` remain immutable snapshots. Root `.signum/` compatibility views may exist during the migration, but they are not the source of truth.
 
 **Iteration 01** = initial EXECUTE candidate (pass 1 artifacts, before any fix).
 
@@ -289,7 +289,7 @@ Add to proofpack schema:
 }
 ```
 
-Full per-iteration artifacts stored in `.signum/iterations/` but NOT embedded in proofpack (too large). Proofpack embeds summaries only.
+Full per-iteration artifacts are stored under the active contract artifact root in `iterations/` but NOT embedded in proofpack (too large). Proofpack embeds summaries only.
 
 ### 13. Synthesizer Changes
 
@@ -358,7 +358,7 @@ done
 
 **Non-rerunnable failures** (build errors, panics before test discovery, infra timeouts): always counted as real regressions, no retry.
 
-Flaky state persisted in `.signum/flaky_tests.json`:
+Flaky state persisted in `flaky_tests.json` under the active contract artifact root:
 ```json
 {
   "tests": [
@@ -387,10 +387,10 @@ Flaky state persisted in `.signum/flaky_tests.json`:
 Procedure:
 1. `git clean -fd` (remove untracked files from failed candidate — they survive `git checkout`)
 2. `git checkout $BASE_COMMIT -- .` (BASE_COMMIT from `execution_context.json`, captured in Step 2.0)
-3. `git apply .signum/iterations/<best>/combined.patch`
-4. Copy `.signum/iterations/<best>/{mechanic_report,holdout_report,audit_summary}.json` → `.signum/` working copies
-5. Copy `.signum/iterations/<best>/reviews/*` → `.signum/reviews/`
-6. Regenerate working `.signum/combined.patch`
+3. `git apply "$ARTIFACT_ROOT/iterations/<best>/combined.patch"`
+4. Copy `$ARTIFACT_ROOT/iterations/<best>/{mechanic_report,holdout_report,audit_summary}.json` → canonical working copies in `$ARTIFACT_ROOT/`
+5. Copy `$ARTIFACT_ROOT/iterations/<best>/reviews/*` → `$ARTIFACT_ROOT/reviews/`
+6. Regenerate canonical `$ARTIFACT_ROOT/combined.patch`
 7. If apply fails → stop, return `HUMAN_REVIEW` with `terminalReason: "rollback_patch_apply_failed"`
 
 Each iteration's `combined.patch` already persisted in `iterations/N/`. No git stash, no worktrees, no temporary commits.
@@ -412,7 +412,7 @@ When mechanic detects a NEW test failure:
 1. Retry the failing test(s) **2 more times** (3 total observations)
 2. **2 of 3 fail** → real regression, counted in `hasRegressions` and score
 3. **Mixed results** (1 of 3 or 2 of 3 pass) → `flaky candidate`, excluded from `hasRegressions` and score
-4. Persist in `.signum/flaky_tests.json` (run-local, not committed)
+4. Persist in `$ARTIFACT_ROOT/flaky_tests.json` (run-local, not committed)
 5. If same test flip-flops across iterations → promote to `knownFlaky`
 6. If instability is suite-level (not attributable to specific tests) → cap at `HUMAN_REVIEW`
 

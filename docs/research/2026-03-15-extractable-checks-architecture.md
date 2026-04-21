@@ -78,7 +78,8 @@ Signum's checks are 100% deterministic (jq, grep, shasum) — they should NEVER 
 Each check becomes `lib/<name>.sh` with identical logic, just pulled out of markdown. The markdown block becomes a 2-line call:
 
 ```bash
-RESULT=$(lib/glossary-check.sh .signum/contract.json "$GLOSSARY_PATH" 2>/dev/null || echo '{}')
+CONTRACT_PATH=".signum/contracts/<contractId>/contract.json"
+RESULT=$(lib/glossary-check.sh "$CONTRACT_PATH" "$GLOSSARY_PATH" 2>/dev/null || echo '{}')
 echo "$RESULT" | jq -r '.summary // "glossary check: no output"'
 ```
 

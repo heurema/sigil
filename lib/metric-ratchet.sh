@@ -5,7 +5,7 @@
 #
 # Usage: metric-ratchet.sh [days_current] [days_previous]
 # Default: 7 days current vs 7 days previous
-# Output: .signum/metrics/ratchet-report.json
+# Output: project-level .signum/metrics/ratchet-report.json
 # Exit 0: metrics computed (may include regressions)
 # Exit 1: no data available
 # Exit 2: usage error
@@ -20,9 +20,16 @@ if ! [[ "$DAYS_CURRENT" =~ ^[0-9]+$ ]] || ! [[ "$DAYS_PREVIOUS" =~ ^[0-9]+$ ]]; 
   exit 2
 fi
 
-METRICS_DIR=".signum/metrics"
-ARCHIVE_DIR=".signum/archive"
-INDEX_FILE=".signum/proofpack-index.jsonl"
+PROJECT_ROOT="${SIGNUM_PROJECT_ROOT:-$PWD}"
+if [[ "$PROJECT_ROOT" = /* ]]; then
+  ABS_PROJECT_ROOT="$PROJECT_ROOT"
+else
+  ABS_PROJECT_ROOT="$PWD/$PROJECT_ROOT"
+fi
+
+METRICS_DIR="$ABS_PROJECT_ROOT/.signum/metrics"
+ARCHIVE_DIR="$ABS_PROJECT_ROOT/.signum/archive"
+INDEX_FILE="$ABS_PROJECT_ROOT/.signum/proofpack-index.jsonl"
 REPORT_FILE="${METRICS_DIR}/ratchet-report.json"
 
 mkdir -p "$METRICS_DIR"
@@ -109,17 +116,20 @@ json.dump({
 # Collect current and previous period
 CURRENT_DATA=$(collect_proofpacks "$DAYS_CURRENT")
 TOTAL_DAYS=$((DAYS_CURRENT + DAYS_PREVIOUS))
-PREVIOUS_DATA=$(collect_proofpacks "$TOTAL_DAYS" | python3 - "$DAYS_CURRENT" <<'PYEOF'
+PREVIOUS_DATA=$(collect_proofpacks "$TOTAL_DAYS" | python3 -c '
 import json, sys
 from datetime import datetime, timedelta, timezone
+
 cutoff = datetime.now(timezone.utc) - timedelta(days=int(sys.argv[1]))
-cutoff_str = cutoff.strftime('%Y-%m-%dT%H:%M:%SZ')
+cutoff_str = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 for line in sys.stdin:
-    if line.strip():
-        e = json.loads(line)
-        if e.get('createdAt', '') < cutoff_str:
-            print(line.strip())
-PYEOF
+    if not line.strip():
+        continue
+    entry = json.loads(line)
+    if entry.get("createdAt", "") < cutoff_str:
+        print(line.strip())
+' "$DAYS_CURRENT"
 )
 
 CURRENT_METRICS=$(echo "$CURRENT_DATA" | compute_metrics)
@@ -134,7 +144,7 @@ if [ "$CURRENT_COUNT" -eq 0 ] && [ "$PREVIOUS_COUNT" -eq 0 ]; then
 fi
 
 # Compare and detect regressions
-REPORT=$(printf '%s\n%s' "$CURRENT_METRICS" "$PREVIOUS_METRICS" | python3 - "$DAYS_CURRENT" "$DAYS_PREVIOUS" <<'PYEOF'
+REPORT=$(printf '%s\n%s\n' "$CURRENT_METRICS" "$PREVIOUS_METRICS" | python3 -c '
 import json, sys
 
 current = json.loads(sys.stdin.readline())
@@ -143,41 +153,41 @@ regressions = []
 improvements = []
 
 def compare(metric, label, higher_is_better=True):
-    c = current.get(metric, 0)
-    p = previous.get(metric, 0)
-    if previous.get('count', 0) == 0:
-        return  # no baseline
-    delta = c - p
-    threshold = 10  # 10 percentage points
+    current_value = current.get(metric, 0)
+    previous_value = previous.get(metric, 0)
+    if previous.get("count", 0) == 0:
+        return
+    delta = current_value - previous_value
+    threshold = 10
     if higher_is_better and delta < -threshold:
-        regressions.append({'metric': label, 'current': c, 'previous': p, 'delta': round(delta, 1)})
+        regressions.append({"metric": label, "current": current_value, "previous": previous_value, "delta": round(delta, 1)})
     elif not higher_is_better and delta > threshold:
-        regressions.append({'metric': label, 'current': c, 'previous': p, 'delta': round(delta, 1)})
+        regressions.append({"metric": label, "current": current_value, "previous": previous_value, "delta": round(delta, 1)})
     elif higher_is_better and delta > threshold:
-        improvements.append({'metric': label, 'current': c, 'previous': p, 'delta': round(delta, 1)})
+        improvements.append({"metric": label, "current": current_value, "previous": previous_value, "delta": round(delta, 1)})
     elif not higher_is_better and delta < -threshold:
-        improvements.append({'metric': label, 'current': c, 'previous': p, 'delta': round(delta, 1)})
+        improvements.append({"metric": label, "current": current_value, "previous": previous_value, "delta": round(delta, 1)})
 
-compare('auto_ok_rate', 'AUTO_OK rate', True)
-compare('auto_block_rate', 'AUTO_BLOCK rate', False)
-compare('human_review_rate', 'HUMAN_REVIEW rate', False)
-compare('avg_confidence', 'Average confidence', True)
-compare('promote_rate', 'PROMOTE rate', True)
+compare("auto_ok_rate", "AUTO_OK rate", True)
+compare("auto_block_rate", "AUTO_BLOCK rate", False)
+compare("human_review_rate", "HUMAN_REVIEW rate", False)
+compare("avg_confidence", "Average confidence", True)
+compare("promote_rate", "PROMOTE rate", True)
 
-status = 'regression' if regressions else ('improved' if improvements else 'stable')
+status = "regression" if regressions else ("improved" if improvements else "stable")
 days_current = int(sys.argv[1])
 days_previous = int(sys.argv[2])
 
 report = {
-    'status': status,
-    'period': {'current_days': days_current, 'previous_days': days_previous},
-    'current': current,
-    'previous': previous,
-    'regressions': regressions,
-    'improvements': improvements
+    "status": status,
+    "period": {"current_days": days_current, "previous_days": days_previous},
+    "current": current,
+    "previous": previous,
+    "regressions": regressions,
+    "improvements": improvements,
 }
 print(json.dumps(report, indent=2))
-PYEOF
+' "$DAYS_CURRENT" "$DAYS_PREVIOUS"
 )
 
 echo "$REPORT" > "$REPORT_FILE"

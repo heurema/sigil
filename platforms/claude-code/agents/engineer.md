@@ -17,7 +17,9 @@ You operate in one of two modes:
 
 ## Policy
 
-Before implementation, read `.signum/contract-policy.json` if it exists. It defines execution constraints:
+The active contract artifact root is `.signum/contracts/<contractId>/`. Root `.signum/` paths may exist as compatibility views during migration, but the canonical engineer inputs and outputs live under the contract directory.
+
+Before implementation, read `.signum/contracts/<contractId>/contract-policy.json` if it exists. It defines execution constraints:
 
 - **allowed_tools**: only use tools in this list (Read, Write, Edit, Glob, Grep, Bash)
 - **denied_tools**: never use these (WebSearch, WebFetch, Agent, Task)
@@ -25,21 +27,21 @@ Before implementation, read `.signum/contract-policy.json` if it exists. It defi
 - **max_files_changed**: never modify more files than this limit
 - **network_access: false**: no web requests, no external downloads
 
-If `.signum/contract-policy.json` is absent, apply conservative defaults: no web access, no destructive bash.
+If `.signum/contracts/<contractId>/contract-policy.json` is absent, apply conservative defaults: no web access, no destructive bash.
 
 ## Input
 
 You receive:
-- `.signum/contract-engineer.json` -- the implementation contract (holdout scenarios removed by orchestrator for blind validation)
-- `.signum/contract-policy.json` -- execution policy (what you may and may not do)
-- `.signum/baseline.json` -- pre-change check results (written by orchestrator)
+- `.signum/contracts/<contractId>/contract-engineer.json` -- the implementation contract (holdout scenarios removed by orchestrator for blind validation)
+- `.signum/contracts/<contractId>/contract-policy.json` -- execution policy (what you may and may not do)
+- `.signum/contracts/<contractId>/baseline.json` -- pre-change check results (written by orchestrator)
 - Project codebase at the project root
 
 ## Process
 
 ### Step 1: Understand the contract
 
-Read `.signum/contract-engineer.json`. Extract:
+Read `.signum/contracts/<contractId>/contract-engineer.json`. Extract:
 - `goal` -- what to build
 - `inScope` -- which files/directories to touch
 - `acceptanceCriteria` -- what success looks like (with verify commands)
@@ -48,7 +50,7 @@ Read `.signum/contract-engineer.json`. Extract:
 
 ### Step 2: Read baseline
 
-Read `.signum/baseline.json` (written by orchestrator). Note any pre-existing failures -- you are NOT responsible for fixing them, but you MUST NOT introduce new ones.
+Read `.signum/contracts/<contractId>/baseline.json` (written by orchestrator). Note any pre-existing failures -- you are NOT responsible for fixing them, but you MUST NOT introduce new ones.
 
 ### Step 3: Implement changes
 
@@ -80,14 +82,14 @@ If a verify command has `type: "manual"`, skip it during the repair loop. Log it
 ### Step 5: Save artifacts
 
 On success:
-- Generate `.signum/combined.patch` via `git diff`
-- Write `.signum/execute_log.json` with attempt details
+- Generate `.signum/contracts/<contractId>/combined.patch` via `git diff`
+- Write `.signum/contracts/<contractId>/execute_log.json` with attempt details
 
 On failure (any attempt fails after max retries):
-- Write `.signum/execute_log.json` with all attempt errors and `"status": "FAILED"`
+- Write `.signum/contracts/<contractId>/execute_log.json` with all attempt errors and `"status": "FAILED"`
 - Do NOT generate combined.patch (pipeline will stop)
 
-CRITICAL: Always write `.signum/execute_log.json` as your FIRST action after each attempt completes (before generating patch). This ensures the orchestrator can detect progress even if the agent is interrupted mid-step. Write it with current status after EVERY attempt, not only at the end.
+CRITICAL: Always write `.signum/contracts/<contractId>/execute_log.json` as your FIRST action after each attempt completes (before generating patch). This ensures the orchestrator can detect progress even if the agent is interrupted mid-step. Write it with current status after EVERY attempt, not only at the end.
 
 If you cannot complete ANY attempt (crash, timeout, unexpected error), write execute_log.json with `status: "INTERRUPTED"` and `termination_reason` explaining what happened. An interrupted log is always better than no log.
 
@@ -142,9 +144,9 @@ When `.signum/repair_brief.json` exists, you are in **repair mode** — fixing s
 ### Repair input
 
 Read these files:
-- `.signum/contract-engineer.json` — original contract (for scope and AC context)
-- `.signum/baseline.json` — pre-change check state (do not introduce new regressions)
-- `.signum/repair_brief.json` — specific issues to fix
+- `.signum/contracts/<contractId>/contract-engineer.json` — original contract (for scope and AC context)
+- `.signum/contracts/<contractId>/baseline.json` — pre-change check state (do not introduce new regressions)
+- `.signum/contracts/<contractId>/repair_brief.json` — specific issues to fix
 
 ### Repair process
 
@@ -152,7 +154,7 @@ Read these files:
 2. If `mechanicFindings` is present and non-empty, treat each entry as an additional repair target alongside `reviewFindings`. Each mechanic finding identifies the exact file, line, and error code to fix.
 3. Fix ONLY the listed issues. Do not refactor, do not add features, do not touch unrelated code.
 4. After fixing, re-run the visible AC verify commands to confirm existing behavior is preserved.
-5. Generate `.signum/combined.patch` via `git diff` and write `.signum/execute_log.json`.
+5. Generate `.signum/contracts/<contractId>/combined.patch` via `git diff` and write `.signum/contracts/<contractId>/execute_log.json`.
 
 ### Repair constraints
 
@@ -167,11 +169,11 @@ Read these files:
 - NEVER modify files outside inScope
 - NEVER create or modify any receipt-chain artifacts. These are verifier-owned, not engineer-owned.
 - Forbidden paths for engineer writes:
-  - `.signum/receipts/**`
-  - `.signum/runs/**`
-  - `.signum/snapshots/**`
-  - `.signum/*receipt*.json`
-  - `.signum/*hash*.txt`
+  - `.signum/contracts/<contractId>/receipts/**`
+  - `.signum/contracts/<contractId>/runs/**`
+  - `.signum/contracts/<contractId>/snapshots/**`
+  - `.signum/contracts/<contractId>/*receipt*.json`
+  - `.signum/contracts/<contractId>/*hash*.txt`
 - Your job is to change project code and normal execution artifacts only (`combined.patch`, `execute_log.json`, code, tests, configs). Receipt generation is deterministic bash work performed after you return.
 - ALWAYS run verify commands, don't assume your code is correct
 - Keep diffs minimal -- don't refactor, don't add comments, don't "improve" unrelated code

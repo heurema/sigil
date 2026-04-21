@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.20.0] - 2026-04-21
+
+### Changed
+- Canonical contract-dir artifact root cleanup and parity hardening for the Claude overlay
+  - overlay command/docs/prompts now consistently describe `.signum/contracts/<contractId>/` as the active artifact root
+  - overlay CI/template surfaces prefer canonical artifact paths before legacy root fallback
+  - overlay changelog/docs/quickstart wording now matches the canonical storage model used by the runtime
+
 ## [4.9.0] - 2026-03-17
 
 ### Added
@@ -14,7 +22,7 @@
 - **Context retrieval** (Step 3.2.0) — pre-review step gathers git history (last commit per file), issue refs (ID + title), and project.intent.md. Injected into Claude reviewer only — Codex/Gemini remain adversarially isolated.
   - `{review_context}` variable in `lib/prompts/review-template.md`
 - **Parallel repair lanes** (Step 3.6.2) — 2 parallel Engineers in git worktrees with different strategies (minimal fix vs root-cause). Mechanic+holdout on both, full review on winner only. Runner-up reviewed if winner gets MAJOR+.
-  - Lane artifacts in `.signum/iterations/NN/lanes/A|B/`
+  - Lane artifacts in `iterations/NN/lanes/A|B/` under the active contract artifact root
   - `selected_lane.json` for audit trail
   - Trap-based worktree cleanup, fallback to single-lane on failure
 - **Typed diagnostics** — extracted mechanic logic into `lib/mechanic-parser.sh` with hybrid output format: summary per check always + per-file findings when runner supports structured output.
@@ -74,7 +82,7 @@
 - `SIGNUM_AUDIT_MAX_ITERATIONS` env var for configurable iteration cap
 - `SIGNUM_CI_RELAXED` env var — HUMAN_REVIEW maps to exit 0 in relaxed mode
 - Engineer repair mode: reads `repair_brief.json` to fix specific findings
-- Per-iteration artifact storage in `.signum/iterations/NN/`
+- Per-iteration artifact storage in `iterations/NN/` under the active contract artifact root
 - `audit_iteration_log.json` for cross-iteration tracking
 - Best-of-N with rollback: pipeline keeps best candidate, not last attempt
 - Early stop: halts if no improvement for 2 consecutive iterations
