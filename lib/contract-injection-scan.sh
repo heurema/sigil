@@ -8,19 +8,46 @@
 # Glassworm research (variation selectors, bidi overrides, tag characters).
 #
 # Usage: contract-injection-scan.sh [contract_file]
-# Default: .signum/contract.json
+# Default: active contract root from .signum/contracts/index.json, then a single canonical contract dir, then legacy .signum/contract.json
 # Exit 0: clean (no injection found)
 # Exit 1: blocked (invisible Unicode detected)
 # Exit 2: usage error (missing file, missing tools)
 
 set -euo pipefail
 
-CONTRACT_FILE="${1:-.signum/contract.json}"
+resolve_default_contract_file() {
+  local index_path=".signum/contracts/index.json"
+  local contracts_root=".signum/contracts"
+  local active_id=""
+  local canonical_path=""
+  local dir_count=""
+  local only_dir=""
 
-if [ ! -f "$CONTRACT_FILE" ]; then
-  echo "ERROR: contract file not found: $CONTRACT_FILE" >&2
-  exit 2
-fi
+  if [ -f "$index_path" ]; then
+    active_id="$(jq -r '.activeContractId // empty' "$index_path" 2>/dev/null || true)"
+    if [ -n "$active_id" ]; then
+      canonical_path=".signum/contracts/${active_id}/contract.json"
+      if [ -f "$canonical_path" ]; then
+        printf '%s\n' "$canonical_path"
+        return 0
+      fi
+    fi
+  fi
+
+  if [ -d "$contracts_root" ]; then
+    dir_count=$(find "$contracts_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d '[:space:]')
+    if [ "$dir_count" = "1" ]; then
+      only_dir=$(find "$contracts_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n 1)
+      canonical_path="${only_dir}/contract.json"
+      if [ -f "$canonical_path" ]; then
+        printf '%s\n' "$canonical_path"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s\n' ".signum/contract.json"
+}
 
 if ! command -v jq > /dev/null 2>&1; then
   echo "ERROR: jq not found" >&2
@@ -32,24 +59,35 @@ if ! command -v python3 > /dev/null 2>&1; then
   exit 2
 fi
 
+CONTRACT_FILE="${1:-}"
+
+if [ -z "$CONTRACT_FILE" ]; then
+  CONTRACT_FILE="$(resolve_default_contract_file)"
+fi
+
+if [ ! -f "$CONTRACT_FILE" ]; then
+  echo "ERROR: contract file not found: $CONTRACT_FILE" >&2
+  exit 2
+fi
+
 # Extract all human-readable text fields from contract.json
 # These are the injection surfaces: goal, scope items, AC descriptions, assumptions
 jq -r '
   [
-    .goal // empty,
-    (.inScope // [])[] // empty,
-    (.outOfScope // [])[] // empty,
-    (.acceptanceCriteria // [])[].description // empty,
-    (.acceptanceCriteria // [])[].verify // empty | tostring,
-    ((.assumptions // [])[] | if type == "object" then .text else . end) // empty,
-    (.openQuestions // [])[] // empty,
-    (.removals // [])[].reason // empty,
-    (.cleanupObligations // [])[].description // empty,
-    .implementationStrategy // empty,
-    (.allowNewFilesUnder // [])[] // empty,
-    (.riskSignals // [])[] // empty,
-    (.contextInheritance // {} | .. | strings) // empty
-  ] | .[]
+    (.goal // empty),
+    ((.inScope // [])[]?),
+    ((.outOfScope // [])[]?),
+    ((.acceptanceCriteria // [])[]? | .description // empty),
+    ((.acceptanceCriteria // [])[]? | .verify // empty | tostring),
+    ((.assumptions // [])[]? | if type == "object" then (.text // empty) else . end),
+    ((.openQuestions // [])[]?),
+    ((.removals // [])[]? | .reason // empty),
+    ((.cleanupObligations // [])[]? | .description // empty),
+    (.implementationStrategy // empty),
+    ((.allowNewFilesUnder // [])[]?),
+    ((.riskSignals // [])[]?),
+    ((.contextInheritance // {}) | .. | strings)
+  ] | .[] | select(. != "")
 ' "$CONTRACT_FILE" 2>/dev/null | python3 -c "
 import re, sys
 

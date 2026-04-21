@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # snapshot-tree.sh -- deterministic workspace tree snapshot for Signum receipt chain.
-# Writes a sorted manifest and JSON summary under .signum/snapshots/.
+# Writes a sorted manifest and JSON summary under the active Signum artifact root snapshots/ dir.
 #
 # Usage:
 #   snapshot-tree.sh [label] [--workspace-root PATH] [--signum-dir PATH]
 #
 # Example:
 #   lib/snapshot-tree.sh execute-attempt-01
-#   lib/snapshot-tree.sh lane-A --workspace-root .signum/iterations/01/lanes/A \
-#       --signum-dir .signum/iterations/01/lanes/A/.signum
+#   ARTIFACT_ROOT=".signum/contracts/<contractId>"
+#   lib/snapshot-tree.sh lane-A --workspace-root "$ARTIFACT_ROOT/iterations/01/lanes/A" \
+#       --signum-dir "$ARTIFACT_ROOT"
 set -euo pipefail
 export LC_ALL=C
 
@@ -20,7 +21,7 @@ else
 fi
 
 WORKSPACE_ROOT="${PWD}"
-SIGNUM_DIR=".signum"
+SIGNUM_DIR=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -48,6 +49,36 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "snapshot-tree.sh: jq not found" >&2
   exit 1
 fi
+
+resolve_default_signum_dir() {
+  local workspace_root="$1"
+  local index_path="$workspace_root/.signum/contracts/index.json"
+  local active_id=""
+  local contracts_root="$workspace_root/.signum/contracts"
+  local dir_count=""
+  local only_dir=""
+
+  if [[ -f "$index_path" ]]; then
+    active_id="$(jq -r '.activeContractId // empty' "$index_path" 2>/dev/null || true)"
+    if [[ -n "$active_id" && -d "$workspace_root/.signum/contracts/$active_id" ]]; then
+      printf '%s\n' "$workspace_root/.signum/contracts/$active_id"
+      return 0
+    fi
+  fi
+
+  if [[ -d "$contracts_root" ]]; then
+    dir_count=$(find "$contracts_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d '[:space:]')
+    if [[ "$dir_count" == "1" ]]; then
+      only_dir=$(find "$contracts_root" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n 1)
+      if [[ -n "$only_dir" && -d "$only_dir" ]]; then
+        printf '%s\n' "$only_dir"
+        return 0
+      fi
+    fi
+  fi
+
+  printf '%s\n' "$workspace_root/.signum"
+}
 
 hash_file() {
   local path="$1"
@@ -78,6 +109,9 @@ list_files_null() {
 }
 
 ABS_WORKSPACE=$(CDPATH= cd "$WORKSPACE_ROOT" && pwd)
+if [[ -z "$SIGNUM_DIR" ]]; then
+  SIGNUM_DIR="$(resolve_default_signum_dir "$ABS_WORKSPACE")"
+fi
 if [[ "$SIGNUM_DIR" = /* ]]; then
   ABS_SIGNUM_DIR="$SIGNUM_DIR"
 else

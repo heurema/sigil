@@ -49,11 +49,32 @@ jobs:
           EXIT_CODE=$?
           echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
 
-          # Extract decision for PR comment
-          if [ -f .signum/proofpack.json ]; then
-            DECISION=$(jq -r '.decision' .signum/proofpack.json)
-            CONFIDENCE=$(jq -r '.confidence.overall // 0' .signum/proofpack.json)
-            RUN_ID=$(jq -r '.runId' .signum/proofpack.json)
+          # Extract canonical artifact paths and decision for PR comment
+          source lib/signum-ci.sh
+          INPUT_CONTRACT_ID=$(jq -r '.contractId // empty' "$SIGNUM_CONTRACT_PATH" 2>/dev/null || true)
+          ARTIFACT_ROOT=$(resolve_ci_artifact_root "$SIGNUM_PROJECT_ROOT" "$INPUT_CONTRACT_ID" 2>/dev/null || true)
+          PROOFPACK_PATH=$(resolve_ci_proofpack_path "$SIGNUM_PROJECT_ROOT" "$INPUT_CONTRACT_ID" 2>/dev/null || true)
+          ARTIFACT_UPLOAD_PATH="${ARTIFACT_ROOT:-$SIGNUM_PROJECT_ROOT/.signum/contracts}"
+          if [ ! -d "$ARTIFACT_UPLOAD_PATH" ] && [ -d "$SIGNUM_PROJECT_ROOT/.signum" ]; then
+            ARTIFACT_UPLOAD_PATH="$SIGNUM_PROJECT_ROOT/.signum"
+          fi
+          PROOFPACK_UPLOAD_PATH="${PROOFPACK_PATH:-}"
+          if [ -z "$PROOFPACK_UPLOAD_PATH" ] && [ -n "$ARTIFACT_ROOT" ]; then
+            PROOFPACK_UPLOAD_PATH="$ARTIFACT_ROOT/proofpack.json"
+          fi
+          if [ -z "$PROOFPACK_UPLOAD_PATH" ]; then
+            PROOFPACK_UPLOAD_PATH="$ARTIFACT_UPLOAD_PATH/proofpack.json"
+          fi
+          echo "artifact_upload_path=$ARTIFACT_UPLOAD_PATH" >> "$GITHUB_OUTPUT"
+          echo "proofpack_upload_path=$PROOFPACK_UPLOAD_PATH" >> "$GITHUB_OUTPUT"
+          if [ -n "$ARTIFACT_ROOT" ]; then
+            echo "artifact_root=$ARTIFACT_ROOT" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$PROOFPACK_PATH" ] && [ -f "$PROOFPACK_PATH" ]; then
+            DECISION=$(jq -r '.decision' "$PROOFPACK_PATH")
+            CONFIDENCE=$(jq -r '.confidence.overall // 0' "$PROOFPACK_PATH")
+            RUN_ID=$(jq -r '.runId' "$PROOFPACK_PATH")
+            echo "proofpack_path=$PROOFPACK_PATH" >> "$GITHUB_OUTPUT"
             echo "decision=$DECISION" >> "$GITHUB_OUTPUT"
             echo "confidence=$CONFIDENCE" >> "$GITHUB_OUTPUT"
             echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
@@ -66,7 +87,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: signum-proofpack-${{ steps.signum.outputs.run_id || 'unknown' }}
-          path: .signum/proofpack.json
+          path: ${{ steps.signum.outputs.proofpack_upload_path }}
           retention-days: 90
           if-no-files-found: warn
 
@@ -75,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: signum-audit-${{ steps.signum.outputs.run_id || 'unknown' }}
-          path: .signum/
+          path: ${{ steps.signum.outputs.artifact_upload_path }}
           retention-days: 30
           if-no-files-found: warn
 

@@ -35,15 +35,16 @@ You approve the contract once. Everything else is autonomous.
 
 ## 3. Read the Proofpack
 
-After a run, check the result:
+After a run, check the result under the active contract artifact root that Signum prints at the end of the run:
 
 ```bash
-jq '.decision, .confidence.overall' .signum/proofpack.json
+ARTIFACT_ROOT=".signum/contracts/<contractId>"
+jq '.decision, .confidence.overall' "$ARTIFACT_ROOT/proofpack.json"
 ```
 
 Decisions:
 - **AUTO_OK** — All checks passed. Review the diff and commit.
-- **AUTO_BLOCK** — Issues found. Check `.signum/audit_summary.json`.
+- **AUTO_BLOCK** — Issues found. Check `audit_summary.json` under the active contract artifact root.
 - **HUMAN_REVIEW** — Inconclusive. Review flagged findings manually.
 
 ## 4. Understand the Phases
@@ -55,7 +56,7 @@ Decisions:
 | AUDIT | Mechanic checks + up to 3 model reviews + holdout validation | 1-3 min |
 | PACK | Bundles all artifacts into signed proofpack | ~5s |
 
-Key artifacts in `.signum/`:
+Key artifacts under the active contract artifact root (`.signum/contracts/<contractId>/`):
 - `contract.json` — The verified spec
 - `combined.patch` — The code diff
 - `mechanic_report.json` — Lint/typecheck/test results vs baseline
@@ -160,12 +161,12 @@ EOF
 2. Create `project.intent.md` (or skip — Signum will ask)
 3. Run: `/signum "describe your first task"`
 4. Review the contract when prompted (5-item checklist)
-5. Check `.signum/proofpack.json` for the result
+5. Check `proofpack.json` under the active contract artifact root for the result
 
 `.signum/` is auto-added to `.gitignore`. No cleanup needed.
 
 ## Next Steps
 
 - Run `/signum` on a real task in your project
-- Check `.signum/audit_summary.json` after a run to understand findings
+- Check `audit_summary.json` under the active contract artifact root after a run to understand findings
 - Add `repo-contract.json` for project-wide invariant enforcement

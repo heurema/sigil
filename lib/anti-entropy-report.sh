@@ -11,8 +11,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="."
-CONTRACT_PATH=".signum/contract.json"
-PROOFPACK_PATH=".signum/proofpack.json"
+CONTRACT_PATH=""
+PROOFPACK_PATH=""
 DOC_PARITY_JSON=""
 METRIC_RATCHET_JSON=""
 AS_OF="$(date +%F)"
@@ -45,6 +45,62 @@ fi
 
 cd "$PROJECT_ROOT"
 ROOT_ABS="$(pwd)"
+
+abspath_from_root() {
+  local path="$1"
+  if [[ "$path" = /* ]]; then
+    printf '%s\n' "$path"
+  else
+    printf '%s/%s\n' "$ROOT_ABS" "$path"
+  fi
+}
+
+resolve_active_artifact_root() {
+  local index_path="$ROOT_ABS/.signum/contracts/index.json"
+  local active_id=""
+
+  [ -f "$index_path" ] || return 1
+  active_id="$(jq -r '.activeContractId // empty' "$index_path" 2>/dev/null || true)"
+  [ -n "$active_id" ] || return 1
+  [ -d "$ROOT_ABS/.signum/contracts/$active_id" ] || return 1
+
+  printf '%s\n' "$ROOT_ABS/.signum/contracts/$active_id"
+}
+
+resolve_artifact_root() {
+  local output_dir=""
+
+  if [ -n "$OUTPUT_PATH" ]; then
+    output_dir="$(dirname "$(abspath_from_root "$OUTPUT_PATH")")"
+    if [ -f "$output_dir/contract.json" ] || [ -f "$output_dir/proofpack.json" ] || [ "$(basename "$OUTPUT_PATH")" = "anti_entropy_report.json" ]; then
+      printf '%s\n' "$output_dir"
+      return 0
+    fi
+  fi
+
+  if [ -n "$CONTRACT_PATH" ]; then
+    dirname "$(abspath_from_root "$CONTRACT_PATH")"
+    return 0
+  fi
+
+  if [ -n "$PROOFPACK_PATH" ]; then
+    dirname "$(abspath_from_root "$PROOFPACK_PATH")"
+    return 0
+  fi
+
+  if resolve_active_artifact_root >/dev/null 2>&1; then
+    resolve_active_artifact_root
+    return 0
+  fi
+
+  printf '%s\n' "$ROOT_ABS/.signum"
+}
+
+ARTIFACT_ROOT="$(resolve_artifact_root)"
+
+[ -n "$OUTPUT_PATH" ] && OUTPUT_PATH="$(abspath_from_root "$OUTPUT_PATH")"
+[ -n "$CONTRACT_PATH" ] || CONTRACT_PATH="$ARTIFACT_ROOT/contract.json"
+[ -n "$PROOFPACK_PATH" ] || PROOFPACK_PATH="$ARTIFACT_ROOT/proofpack.json"
 
 if [ -n "$DOC_PARITY_JSON" ] && [ ! -f "$DOC_PARITY_JSON" ]; then
   echo "doc parity JSON not found: $DOC_PARITY_JSON" >&2

@@ -96,7 +96,7 @@ Relevant local lines / sections:
 ### A. Within-task loop: recommended now
 
 Artifact under improvement:
-- `.signum/contract.json` in `draft`
+- `.signum/contracts/<contractId>/contract.json` in `draft`
 
 Loop:
 1. Generate initial `draft contract`

@@ -6,7 +6,7 @@
 #
 # Options:
 #   --workspace-root PATH
-#   --signum-dir PATH
+#   --signum-dir PATH           Signum artifact dir (default: active contract root from .signum/contracts/index.json, else .signum)
 #   --contract PATH
 #   --receipt PATH
 #   --snapshot PATH
@@ -23,7 +23,7 @@ if [[ -z "$FROM_PHASE" || -z "$TO_PHASE" ]]; then
 fi
 
 WORKSPACE_ROOT="$PWD"
-SIGNUM_DIR=".signum"
+SIGNUM_DIR=""
 CONTRACT_ENGINEER=""
 CONTRACT_FULL=""
 RECEIPT_PATH=""
@@ -67,6 +67,22 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
+resolve_default_signum_dir() {
+  local workspace_root="$1"
+  local index_path="$workspace_root/.signum/contracts/index.json"
+  local active_id=""
+
+  if [[ -f "$index_path" ]]; then
+    active_id="$(jq -r '.activeContractId // empty' "$index_path" 2>/dev/null || true)"
+    if [[ -n "$active_id" && -d "$workspace_root/.signum/contracts/$active_id" ]]; then
+      printf '%s\n' "$workspace_root/.signum/contracts/$active_id"
+      return 0
+    fi
+  fi
+
+  printf '%s\n' "$workspace_root/.signum"
+}
+
 hash_file() {
   local path="$1"
   if command -v sha256sum >/dev/null 2>&1; then
@@ -80,6 +96,9 @@ hash_file() {
 }
 
 ABS_WORKSPACE=$(CDPATH= cd "$WORKSPACE_ROOT" && pwd)
+if [[ -z "$SIGNUM_DIR" ]]; then
+  SIGNUM_DIR="$(resolve_default_signum_dir "$ABS_WORKSPACE")"
+fi
 if [[ "$SIGNUM_DIR" = /* ]]; then
   ABS_SIGNUM_DIR="$SIGNUM_DIR"
 else

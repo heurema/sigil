@@ -32,7 +32,7 @@ Current `platforms/claude-code/commands/signum.md` `Phase 5: RECONCILE`:
 - runs after `AUTO_OK`
 - may update docs / roadmap / manifests
 - may remove code
-- mutates `.signum/contract.json` timestamps after audit
+- mutates canonical `contract.json` metadata after audit (under the active contract artifact root, with a root compatibility view during the migration)
 
 This is too broad for canonical promotion because it blurs three different concerns:
 
@@ -132,7 +132,7 @@ Rule:
 
 After or alongside PACK, root Signum can generate a **report artifact** only:
 
-- `.signum/anti_entropy_report.json`
+- `anti_entropy_report.json` under the active contract artifact root (`.signum/contracts/<contractId>/anti_entropy_report.json`)
 
 This artifact is advisory and does not mutate the repo.
 
@@ -197,9 +197,9 @@ This gives a principled split:
 ### Stage 1 — Report only
 
 Add a deterministic anti-entropy report generator that:
-- reads `contract.json`, `proofpack.json`, `modules.yaml`
+- reads canonical `contract.json`, `proofpack.json`, `modules.yaml`
 - optionally consumes doc parity output and metric-ratchet output
-- emits `.signum/anti_entropy_report.json`
+- emits `anti_entropy_report.json` under the active contract artifact root
 - never edits repo files
 
 This is the safest first canonical step.

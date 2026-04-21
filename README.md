@@ -60,8 +60,9 @@ claude plugin install .
 Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.
 
 Storage model:
-- `.signum/` is the live working set for the current run
-- `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history, including receipt-chain evidence
+- `.signum/` is now mainly a registry/state surface for the repo, plus compatibility views during the contract-dir migration
+- `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history, including receipt-chain evidence, and is now the canonical root for the contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`)
+- `.signum/contracts/index.json.activeContractId` selects the current resumable contract; resume checks should use the registry first, not root `.signum/contract.json`
 - the per-contract directory is not a second active workspace
 
 For an existing repo, bootstrap project context first:
@@ -101,7 +102,7 @@ It is fixture-driven and snapshot-based by design. It does not call live provide
 
 **Harness bootstrap** — `/signum init --harness` adds deterministic repo-level scaffolding for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. These files make repo conventions, architecture, planning, and review policy explicit without changing Signum runtime behavior.
 
-**Brownfield validation pattern** — When extending harness bootstrap or advisory anti-entropy behavior, prefer a downstream-style temporary repo test that preserves existing `project.intent.md` / `project.glossary.json`, materializes scaffold docs, and checks the resulting `.signum/anti_entropy_report.json`. `tests/test-brownfield-harness-flow.sh` is the reference pattern.
+**Brownfield validation pattern** — When extending harness bootstrap or advisory anti-entropy behavior, prefer a downstream-style temporary repo test that preserves existing `project.intent.md` / `project.glossary.json`, materializes scaffold docs, and checks the resulting `anti_entropy_report.json` under the active contract artifact root. `tests/test-brownfield-harness-flow.sh` is the reference pattern.
 
 **Cross-contract coherence** — `overlap_check` detects inScope file overlap between active contracts. `assumption_check` flags contradictions in assumptions across related contracts. `adr_check` warns when relevant ADRs exist but aren't referenced. Contract lineage is tracked via `parentContractId`, `relatedContractIds`, and `interfacesTouched`.
 
@@ -139,7 +140,7 @@ It is fixture-driven and snapshot-based by design. It does not call live provide
 
 **Cleanup contracts** — Contract schema v3.8 adds first-class support for code removal. `removals` entries specify files/directories to delete with `preventReintroduction` flags. `cleanupObligations` use K8s Finalizer semantics — blocking obligations (e.g., "remove all imports of deleted module") must be fulfilled before `AUTO_OK`. The DSL supports `file_not_exists` assertions and `grep` for reference-checking verify blocks. Evidence of successful removals is captured in `proofpack.json`.
 
-**Advisory anti-entropy report** — PACK also writes `.signum/anti_entropy_report.json`: a non-blocking follow-up report that can surface unresolved cleanup evidence, overdue `modules.yaml` lifecycle drift, and optional imported metric regressions. It never changes the pipeline decision.
+**Advisory anti-entropy report** — PACK also writes `anti_entropy_report.json` under the active contract artifact root, with a root `.signum/anti_entropy_report.json` compatibility path during the migration. It is a non-blocking follow-up report that can surface unresolved cleanup evidence, overdue `modules.yaml` lifecycle drift, and optional imported metric regressions. It never changes the pipeline decision.
 
 ## Architecture
 
@@ -223,7 +224,7 @@ Without this file, signum uses each CLI's default model. See `forge doctor` to v
 
 ## Privacy
 
-All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Artifacts stored in `.signum/` (auto-added to `.gitignore`), including the advisory `anti_entropy_report.json`.
+All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Canonical run artifacts live under `.signum/contracts/<contractId>/` with `.signum/` compatibility paths during the migration, and `.signum/` remains auto-added to `.gitignore`.
 
 ## Why Signum
 

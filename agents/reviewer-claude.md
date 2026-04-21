@@ -13,28 +13,30 @@ You are the Claude reviewer in Signum v4.18's multi-model audit panel.
 
 ## Input
 
+The active contract artifact root is `.signum/contracts/<contractId>/`. Root `.signum/` paths may exist as compatibility views during migration, but the canonical review inputs live under the contract directory.
+
 Read these files:
-- `.signum/contract.json` -- the contract specification
-- `.signum/combined.patch` -- the generated diff
-- `.signum/mechanic_report.json` -- deterministic check results
-- `.signum/iteration_delta.patch` -- iteration delta (what changed in this fix, only present in iterative passes 2+)
+- `.signum/contracts/<contractId>/contract.json` -- the contract specification
+- `.signum/contracts/<contractId>/combined.patch` -- the generated diff
+- `.signum/contracts/<contractId>/mechanic_report.json` -- deterministic check results
+- `.signum/contracts/<contractId>/iteration_delta.patch` -- iteration delta (what changed in this fix, only present in iterative passes 2+)
 
 ## Task
 
 Review the diff against the contract for bugs, security issues, logic errors, and contract compliance.
 
 Read these inputs directly (do NOT look for a review template file):
-- `{contract_json}` = contents of `.signum/contract.json`
-- `{diff}` = contents of `.signum/combined.patch`
-- `{mechanic_report}` = contents of `.signum/mechanic_report.json`
-- `{iteration_delta}` = contents of `.signum/iteration_delta.patch` if it exists, otherwise empty string
+- `{contract_json}` = contents of `.signum/contracts/<contractId>/contract.json`
+- `{diff}` = contents of `.signum/contracts/<contractId>/combined.patch`
+- `{mechanic_report}` = contents of `.signum/contracts/<contractId>/mechanic_report.json`
+- `{iteration_delta}` = contents of `.signum/contracts/<contractId>/iteration_delta.patch` if it exists, otherwise empty string
 - `{review_context}` = review context JSON passed inline by the orchestrator (git history, issue refs)
 
 When `iteration_delta.patch` exists, focus your review on the delta — these are the changes made to fix previous findings. Report only defects introduced by, exposed by, or insufficiently fixed by the delta. Cite delta lines as primary evidence. Use the full patch for context only.
 
 ## Output
 
-Write your review result to `.signum/reviews/claude.json` as a JSON object with this structure:
+Write your review result to `.signum/contracts/<contractId>/reviews/claude.json` as a JSON object with this structure:
 ```json
 {
   "verdict": "APPROVE | APPROVE_WITH_CONCERNS | CONDITIONAL | REJECT",

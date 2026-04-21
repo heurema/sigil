@@ -37,7 +37,9 @@ assert_equals() {
 
 setup_brownfield_repo() {
   local dir="$1"
-  mkdir -p "$dir/src/legacy" "$dir/.signum"
+  local contract_id="sig-20260410-1000-test"
+  local artifact_root="$dir/.signum/contracts/$contract_id"
+  mkdir -p "$dir/src/legacy" "$artifact_root" "$dir/.signum/contracts"
 
   cat > "$dir/README.md" <<'DOC'
 # Downstream Example
@@ -72,11 +74,15 @@ modules:
     remove_after: 2026-01-01
 DOC
 
-  cat > "$dir/.signum/contract.json" <<'DOC'
+  cat > "$dir/.signum/contracts/index.json" <<EOF
+{"activeContractId":"$contract_id","contracts":[{"contractId":"$contract_id","status":"auditing","directory":".signum/contracts/$contract_id"}]}
+EOF
+
+  cat > "$artifact_root/contract.json" <<'DOC'
 {"schemaVersion":"3.8","cleanupObligations":[],"removals":[]}
 DOC
 
-  cat > "$dir/.signum/proofpack.json" <<'DOC'
+  cat > "$artifact_root/proofpack.json" <<'DOC'
 {
   "schemaVersion":"4.7",
   "signumVersion":"4.19.1",
@@ -145,11 +151,11 @@ assert_equals "existing glossary preserved" "$(hash_file "$BROWNFIELD/project.gl
 echo ""
 echo "=== Advisory anti-entropy artifact ==="
 assert_pass "packer exits 0 for brownfield repo" "$PACKER" --project-root "$BROWNFIELD" --as-of 2026-04-10
-assert_pass "anti-entropy report written" test -f "$BROWNFIELD/.signum/anti_entropy_report.json"
-assert_equals "anti-entropy report is warn due to overdue module" "$(jq -r '.status' "$BROWNFIELD/.signum/anti_entropy_report.json")" "warn"
-assert_equals "modules.yaml imported as source" "$(jq -r '.sources | index("modules_yaml") != null' "$BROWNFIELD/.signum/anti_entropy_report.json")" "true"
-assert_equals "overdue module finding present" "$(jq -r '[.findings[] | select(.category=="module_deadline_passed")] | length' "$BROWNFIELD/.signum/anti_entropy_report.json")" "1"
-assert_equals "finding targets legacy module path" "$(jq -r '.findings[] | select(.category=="module_deadline_passed") | .target' "$BROWNFIELD/.signum/anti_entropy_report.json")" "src/legacy"
+assert_pass "anti-entropy report written in canonical artifact root" test -f "$BROWNFIELD/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json"
+assert_equals "anti-entropy report is warn due to overdue module" "$(jq -r '.status' "$BROWNFIELD/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json")" "warn"
+assert_equals "modules.yaml imported as source" "$(jq -r '.sources | index("modules_yaml") != null' "$BROWNFIELD/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json")" "true"
+assert_equals "overdue module finding present" "$(jq -r '[.findings[] | select(.category=="module_deadline_passed")] | length' "$BROWNFIELD/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json")" "1"
+assert_equals "finding targets legacy module path" "$(jq -r '.findings[] | select(.category=="module_deadline_passed") | .target' "$BROWNFIELD/.signum/contracts/sig-20260410-1000-test/anti_entropy_report.json")" "src/legacy"
 
 echo ""
 echo "=== Results ==="

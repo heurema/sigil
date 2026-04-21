@@ -59,8 +59,8 @@ assert_eq() {
 echo "=== contract_dir ==="
 
 assert_eq "returns path for valid id" \
-  ".signum/contracts/sig-20260314-abcd/" \
-  "$(contract_dir "sig-20260314-abcd")"
+  ".signum/contracts/sig-20260314-1030-abcd/" \
+  "$(contract_dir "sig-20260314-1030-abcd")"
 
 assert_fail "rejects empty id" "contractId required" \
   contract_dir ""
@@ -73,6 +73,27 @@ assert_fail "rejects double dot in id" "path traversal" \
 
 assert_fail "rejects slashed path" "path traversal" \
   contract_dir "../../etc/passwd"
+
+echo ""
+echo "=== new_contract_id ==="
+
+ID1=$(new_contract_id)
+ID2=$(new_contract_id)
+if [[ "$ID1" =~ ^sig-[0-9]{8}-[0-9]{4}-[0-9a-f]{4}$ ]]; then
+  printf '  PASS: new_contract_id format includes HHMM\n'
+  passed=$((passed + 1))
+else
+  printf '  FAIL: new_contract_id format includes HHMM - got "%s"\n' "$ID1"
+  failed=$((failed + 1))
+fi
+
+if [[ "$ID1" != "$ID2" ]]; then
+  printf '  PASS: new_contract_id produces unique values\n'
+  passed=$((passed + 1))
+else
+  printf '  FAIL: new_contract_id produces unique values - both were "%s"\n' "$ID1"
+  failed=$((failed + 1))
+fi
 
 echo ""
 echo "=== init_contract_dir ==="
@@ -130,7 +151,7 @@ echo "=== register_contract ==="
 
 assert_ok "registers new contract" register_contract "sig-test-001" "draft"
 ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
-assert_eq "sets activeContractId" "sig-test-001" "$ACTIVE"
+assert_eq "register does not set activeContractId" "null" "$ACTIVE"
 
 STATUS=$(jq -r '.contracts[] | select(.contractId == "sig-test-001") | .status' .signum/contracts/index.json)
 assert_eq "status is draft" "draft" "$STATUS"
@@ -138,29 +159,47 @@ assert_eq "status is draft" "draft" "$STATUS"
 # Register second contract
 assert_ok "registers second contract" register_contract "sig-test-002" "active"
 ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
-assert_eq "active switches to second" "sig-test-002" "$ACTIVE"
+assert_eq "register still leaves active unset" "null" "$ACTIVE"
 
 COUNT=$(jq '.contracts | length' .signum/contracts/index.json)
 assert_eq "two contracts in index" "2" "$COUNT"
 
-# Re-register updates existing (NOTE: this also sets activeContractId back to sig-test-001)
+# Re-register updates existing without stealing active selection
+assert_ok "sets active contract explicitly" set_active_contract "sig-test-002"
+ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
+assert_eq "active switches only via explicit setter" "sig-test-002" "$ACTIVE"
+
 assert_ok "re-register updates existing" register_contract "sig-test-001" "completed"
 STATUS=$(jq -r '.contracts[] | select(.contractId == "sig-test-001") | .status' .signum/contracts/index.json)
 assert_eq "status updated to completed" "completed" "$STATUS"
 COUNT=$(jq '.contracts | length' .signum/contracts/index.json)
 assert_eq "still two contracts (no dup)" "2" "$COUNT"
 ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
-assert_eq "active switches back on re-register" "sig-test-001" "$ACTIVE"
+assert_eq "re-register does not change active" "sig-test-002" "$ACTIVE"
 
 assert_fail "register fails without id" "contractId required" \
   register_contract ""
+assert_fail "set_active_contract fails without id" "contractId required" \
+  set_active_contract ""
+assert_fail "set_active_contract fails for missing contract" "not found in index" \
+  set_active_contract "sig-missing"
+
+echo ""
+echo "=== clear_active_contract ==="
+
+assert_ok "clears active contract explicitly" clear_active_contract
+ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
+assert_eq "activeContractId is null after clear" "null" "$ACTIVE"
 
 echo ""
 echo "=== update_contract_status ==="
 
+assert_ok "re-sets active contract for terminal status test" set_active_contract "sig-test-002"
 assert_ok "updates existing status" update_contract_status "sig-test-002" "archived"
 STATUS=$(jq -r '.contracts[] | select(.contractId == "sig-test-002") | .status' .signum/contracts/index.json)
 assert_eq "status is archived" "archived" "$STATUS"
+ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
+assert_eq "terminal status clears active contract" "null" "$ACTIVE"
 
 assert_fail "fails for missing contract" "not found in index" \
   update_contract_status "sig-nonexistent" "active"
@@ -172,13 +211,189 @@ echo ""
 echo "=== get_active_contract ==="
 
 ACTIVE=$(get_active_contract)
-assert_eq "returns active id" "sig-test-001" "$ACTIVE"
+assert_eq "returns empty when no active id is set" "" "$ACTIVE"
+
+STATUS=$(get_contract_status "sig-test-002")
+assert_eq "get_contract_status returns archived status" "archived" "$STATUS"
+assert_fail "get_contract_status fails without id" "contractId required" \
+  get_contract_status ""
+assert_fail "get_contract_status fails for missing contract" "not found in index" \
+  get_contract_status "sig-missing"
 
 echo ""
-echo "=== current_contract_dir ==="
+echo "=== describe_active_contract_state ==="
 
+STATE_JSON=$(describe_active_contract_state)
+assert_eq "describe_active_contract_state returns NONE without active contract" "NONE" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.state')"
+assert_eq "describe_active_contract_state returns null contractId when inactive" "null" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.contractId')"
+
+echo ""
+echo "=== active_artifact_root / current_contract_dir ==="
+
+ACTIVE_ID="sig-active-001"
+assert_ok "creates active draft contract dir" init_contract_dir "$ACTIVE_ID"
+printf '{"goal":"active"}\n' > ".signum/contracts/${ACTIVE_ID}/contract.json"
+assert_ok "registers active draft contract" register_contract "$ACTIVE_ID" "draft"
+assert_ok "sets active contract for root lookup" set_active_contract "$ACTIVE_ID"
+DIR=$(active_artifact_root)
+assert_eq "returns active artifact root" ".signum/contracts/${ACTIVE_ID}/" "$DIR"
 DIR=$(current_contract_dir)
-assert_eq "returns active dir" ".signum/contracts/sig-test-001/" "$DIR"
+assert_eq "current_contract_dir remains alias" ".signum/contracts/${ACTIVE_ID}/" "$DIR"
+PATH_TO_CONTRACT=$(active_artifact_path "contract.json")
+assert_eq "active_artifact_path returns active file path" ".signum/contracts/${ACTIVE_ID}/contract.json" "$PATH_TO_CONTRACT"
+STATE_JSON=$(describe_active_contract_state)
+assert_eq "active contract with only contract.json is CONTRACT_ONLY" "CONTRACT_ONLY" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.state')"
+assert_eq "describe_active_contract_state includes active contract id" "$ACTIVE_ID" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.contractId')"
+assert_eq "describe_active_contract_state includes active artifact root" ".signum/contracts/${ACTIVE_ID}/" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.artifactRoot')"
+
+echo ""
+echo "=== link_active_artifact / promote_root_artifact_to_active ==="
+
+printf '{"goal":"canonical"}\n' > .signum/contract.json
+assert_ok "promotes root contract into active root" promote_root_artifact_to_active "contract.json"
+assert_eq "promoted contract now exists in active root" "true" \
+  "$([ -f .signum/contracts/${ACTIVE_ID}/contract.json ] && echo true || echo false)"
+assert_eq "root contract path becomes symlink" "true" \
+  "$([ -L .signum/contract.json ] && echo true || echo false)"
+PROMOTED_CONTENT=$(cat ".signum/contracts/${ACTIVE_ID}/contract.json")
+assert_eq "promoted contract content preserved" '{"goal":"canonical"}' "$PROMOTED_CONTENT"
+
+assert_ok "links phase1 spec artifact into active root" link_active_artifact "spec_quality.json"
+assert_eq "root spec_quality path becomes symlink" "true" \
+  "$([ -L .signum/spec_quality.json ] && echo true || echo false)"
+printf '{"total":91}\n' > .signum/spec_quality.json
+assert_eq "writing through symlink lands in active root" '{"total":91}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/spec_quality.json")"
+assert_ok "links execution context into active root" link_active_artifact "execution_context.json"
+printf '{"run_id":"run-01"}\n' > .signum/execution_context.json
+STATE_JSON=$(describe_active_contract_state)
+assert_eq "active contract with execution_context becomes RESUMABLE" "RESUMABLE" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.state')"
+
+assert_ok "links execute patch into active root" link_active_artifact "combined.patch"
+printf 'diff --git a/foo b/foo\n' > .signum/combined.patch
+assert_eq "execute patch is written to active root" 'diff --git a/foo b/foo' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/combined.patch")"
+rm -f .signum/combined.patch
+assert_ok "re-links execute patch after cleanup" link_active_artifact "combined.patch"
+printf 'diff --git a/bar b/bar\n' > .signum/combined.patch
+assert_eq "relinked execute patch still writes canonically" 'diff --git a/bar b/bar' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/combined.patch")"
+
+assert_ok "links audit summary into active root" link_active_artifact "audit_summary.json"
+printf '{"decision":"AUTO_OK"}\n' > .signum/audit_summary.json
+assert_eq "audit summary is written to active root" '{"decision":"AUTO_OK"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/audit_summary.json")"
+
+assert_ok "links proofpack into active root" link_active_artifact "proofpack.json"
+printf '{"runId":"sig-active-001"}\n' > .signum/proofpack.json
+assert_eq "proofpack is written to active root" '{"runId":"sig-active-001"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/proofpack.json")"
+assert_ok "sync of symlinked active proofpack is a no-op" \
+  sync_contract_artifacts "$ACTIVE_ID" "proofpack.json"
+assert_eq "self-copy sync keeps canonical proofpack content" '{"runId":"sig-active-001"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/proofpack.json")"
+
+echo ""
+echo "=== ensure_active_artifact_dir / remove_root_artifact_view / reset_active_artifact ==="
+
+assert_ok "creates active reviews dir bridge" ensure_active_artifact_dir "reviews"
+assert_eq "root reviews path becomes symlink" "true" \
+  "$([ -L .signum/reviews ] && echo true || echo false)"
+mkdir -p .signum/reviews
+printf '{"decision":"APPROVE"}\n' > .signum/reviews/claude.json
+assert_eq "reviews dir writes into active root" '{"decision":"APPROVE"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/reviews/claude.json")"
+assert_ok "sync of symlinked active reviews dir is a no-op" \
+  sync_contract_artifacts "$ACTIVE_ID" "reviews"
+assert_eq "self-copy sync keeps canonical reviews content" '{"decision":"APPROVE"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/reviews/claude.json")"
+
+assert_ok "removes only root reviews view" remove_root_artifact_view "reviews"
+assert_eq "root reviews view removed" "false" \
+  "$([ -e .signum/reviews ] && echo true || echo false)"
+assert_eq "canonical reviews dir preserved" "true" \
+  "$([ -f ".signum/contracts/${ACTIVE_ID}/reviews/claude.json" ] && echo true || echo false)"
+
+assert_ok "resets dir artifact and re-links it" reset_active_artifact "reviews" "dir"
+assert_eq "reviews root relinked after reset" "true" \
+  "$([ -L .signum/reviews ] && echo true || echo false)"
+assert_eq "reviews canonical contents cleared on reset" "false" \
+  "$([ -f ".signum/contracts/${ACTIVE_ID}/reviews/claude.json" ] && echo true || echo false)"
+printf '{"decision":"RETRY"}\n' > .signum/reviews/codex.json
+assert_eq "reviews dir can be reused after reset" '{"decision":"RETRY"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/reviews/codex.json")"
+
+assert_ok "resets file artifact and re-links it" reset_active_artifact "iteration_delta.patch"
+assert_eq "iteration delta path is symlink after reset" "true" \
+  "$([ -L .signum/iteration_delta.patch ] && echo true || echo false)"
+assert_eq "iteration delta target cleared on reset" "false" \
+  "$([ -e ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch" ] && echo true || echo false)"
+printf 'delta-v2\n' > .signum/iteration_delta.patch
+assert_eq "iteration delta writes canonically after reset" 'delta-v2' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch")"
+
+assert_fail "reset_active_artifact rejects invalid kind" "kind must be file or dir" \
+  reset_active_artifact "proofpack.json" "weird"
+
+echo ""
+echo "=== archive_contract_artifacts / purge_root_working_set_views ==="
+
+assert_ok "re-links proofpack before archive helper" link_active_artifact "proofpack.json"
+printf '{"runId":"sig-active-001-archive"}\n' > .signum/proofpack.json
+printf '{"resolved":1}\n' > ".signum/contracts/${ACTIVE_ID}/reconcile_report.json"
+printf '{"risk":"medium"}\n' > ".signum/contracts/${ACTIVE_ID}/retro.json"
+mkdir -p ".signum/contracts/${ACTIVE_ID}/receipts"
+printf '{"status":"PASS"}\n' > ".signum/contracts/${ACTIVE_ID}/receipts/execute.json"
+ARCHIVE_OUT=".signum/archive/${ACTIVE_ID}"
+assert_ok "archives canonical contract payload" archive_contract_artifacts "$ACTIVE_ID" "$ARCHIVE_OUT"
+assert_eq "archive copies canonical contract" "true" \
+  "$([ -f "${ARCHIVE_OUT}/contract.json" ] && echo true || echo false)"
+assert_eq "archive copies canonical proofpack" "true" \
+  "$([ -f "${ARCHIVE_OUT}/proofpack.json" ] && echo true || echo false)"
+assert_eq "archive copies reconcile report" "true" \
+  "$([ -f "${ARCHIVE_OUT}/reconcile_report.json" ] && echo true || echo false)"
+assert_eq "archive copies retro" "true" \
+  "$([ -f "${ARCHIVE_OUT}/retro.json" ] && echo true || echo false)"
+assert_eq "archive copies receipts dir contents" "true" \
+  "$([ -f "${ARCHIVE_OUT}/receipts/execute.json" ] && echo true || echo false)"
+assert_fail "archive helper rejects missing contract id" "contractId and archive_dir required" \
+  archive_contract_artifacts ""
+
+printf '{"baseline":true}\n' > .signum/repo_contract_baseline.json
+printf 'prompt\n' > .signum/review_prompt_codex.txt
+assert_ok "re-links review context before purge" link_active_artifact "review_context.json"
+printf '{"issue_refs":[]}\n' > .signum/review_context.json
+assert_ok "purges root working set compatibility surface" purge_root_working_set_views
+assert_eq "root proofpack view removed" "false" \
+  "$([ -e .signum/proofpack.json ] && echo true || echo false)"
+assert_eq "root reviews view removed" "false" \
+  "$([ -e .signum/reviews ] && echo true || echo false)"
+assert_eq "root repo baseline removed" "false" \
+  "$([ -e .signum/repo_contract_baseline.json ] && echo true || echo false)"
+assert_eq "root review prompt removed" "false" \
+  "$([ -e .signum/review_prompt_codex.txt ] && echo true || echo false)"
+assert_eq "root review context removed" "false" \
+  "$([ -e .signum/review_context.json ] && echo true || echo false)"
+assert_eq "canonical proofpack preserved after purge" "true" \
+  "$([ -f ".signum/contracts/${ACTIVE_ID}/proofpack.json" ] && echo true || echo false)"
+assert_eq "canonical reviews preserved after purge" "true" \
+  "$([ -f ".signum/contracts/${ACTIVE_ID}/reviews/codex.json" ] && echo true || echo false)"
+assert_eq "canonical review context preserved after purge" "true" \
+  "$([ -f ".signum/contracts/${ACTIVE_ID}/review_context.json" ] && echo true || echo false)"
+
+assert_ok "marks contract terminal for stale-active cleanup test" update_contract_status "$ACTIVE_ID" "completed"
+assert_ok "re-sets completed contract as active to simulate stale index" set_active_contract "$ACTIVE_ID"
+STATE_JSON=$(describe_active_contract_state)
+assert_eq "terminal active contract is treated as NONE" "NONE" \
+  "$(printf '%s' "$STATE_JSON" | jq -r '.state')"
+assert_eq "terminal active contract is cleared from index" "" \
+  "$(get_active_contract)"
 
 echo ""
 echo "=== Results ==="

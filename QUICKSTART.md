@@ -29,25 +29,26 @@ Signum runs 4 phases automatically:
 1. **CONTRACT** — Generates a verifiable spec from your request
 2. **EXECUTE** — Implements code against the spec (with repair loop)
 3. **AUDIT** — Reviews with up to 3 independent AI models
-4. **PACK** — Bundles proof artifacts into `proofpack.json` and writes advisory `anti_entropy_report.json`
+4. **PACK** — Bundles proof artifacts into `proofpack.json` and writes advisory `anti_entropy_report.json` under the active contract artifact root
 
 You approve the contract once. Everything else is autonomous.
 
 ## 3. Read the Proofpack
 
-After a run, check the result:
+After a run, check the result under the active contract artifact root that Signum prints at the end of the run:
 
 ```bash
-jq '.decision, .confidence.overall' .signum/proofpack.json
+ARTIFACT_ROOT=".signum/contracts/<contractId>"
+jq '.decision, .confidence.overall' "$ARTIFACT_ROOT/proofpack.json"
 ```
 
 Decisions:
 - **AUTO_OK** — All checks passed. Review the diff and commit.
-- **AUTO_BLOCK** — Issues found. Check `.signum/audit_summary.json`.
+- **AUTO_BLOCK** — Issues found. Check `audit_summary.json` under the active contract artifact root.
 - **HUMAN_REVIEW** — Inconclusive. Review flagged findings manually.
 
 Optional follow-up:
-- `jq '.status, .summary' .signum/anti_entropy_report.json` — advisory cleanup / anti-drift findings
+- `jq '.status, .summary' "$ARTIFACT_ROOT/anti_entropy_report.json"` — advisory cleanup / anti-drift findings
 
 ## 4. Understand the Phases
 
@@ -58,7 +59,7 @@ Optional follow-up:
 | AUDIT | Mechanic checks + up to 3 model reviews + holdout validation | 1-3 min |
 | PACK | Bundles all artifacts into signed proofpack | ~5s |
 
-Key artifacts in `.signum/`:
+Key artifacts under the active contract artifact root (`.signum/contracts/<contractId>/`):
 - `contract.json` — The verified spec
 - `combined.patch` — The code diff
 - `mechanic_report.json` — Lint/typecheck/test results vs baseline
@@ -188,13 +189,13 @@ EOF
 2. Create `project.intent.md` (or skip — Signum will ask)
 3. Run: `/signum "describe your first task"`
 4. Review the contract when prompted (5-item checklist)
-5. Check `.signum/proofpack.json` for the result
-6. Optionally check `.signum/anti_entropy_report.json` for follow-up hygiene work
+5. Check `proofpack.json` under the active contract artifact root for the result
+6. Optionally check `anti_entropy_report.json` there for follow-up hygiene work
 
 `.signum/` is auto-added to `.gitignore`. No cleanup needed.
 
 ## Next Steps
 
 - Run `/signum` on a real task in your project
-- Check `.signum/audit_summary.json` after a run to understand findings
+- Check `audit_summary.json` under the active contract artifact root after a run to understand findings
 - Add `repo-contract.json` for project-wide invariant enforcement

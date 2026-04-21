@@ -43,7 +43,7 @@ Risk is assessed structurally (file count, keywords, surface area). Holdout scen
 
 **Orchestrator:** captures baseline, launches Engineer, enforces scope gate.
 
-1. **Baseline capture**: orchestrator runs lint/typecheck/tests BEFORE any changes and saves exit codes to `.signum/baseline.json`. This is the trust anchor for regression detection.
+1. **Baseline capture**: orchestrator runs lint/typecheck/tests BEFORE any changes and saves exit codes to `baseline.json` under the active contract artifact root. This is the trust anchor for regression detection.
 2. **Engineer** (sonnet) implements against the contract with a 3-attempt repair loop.
 3. **Scope gate**: deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Stops pipeline on violation.
 
@@ -134,7 +134,7 @@ If the CLI returns malformed output or a non-zero exit code, the provider is mar
 
 ## Artifacts
 
-Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`). Signum also mirrors durable per-contract snapshots into `.signum/contracts/<contractId>/` for history/archive flows. That per-contract directory is not the active workspace while a run is in flight.
+Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and now mainly holds registry/state surfaces plus compatibility views during the contract-dir migration. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory.
 
 | File | Phase | Description |
 |------|-------|-------------|
@@ -147,6 +147,7 @@ Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`
 | `reviews/*.json` | AUDIT | Per-provider findings (specialized templates) |
 | `audit_summary.json` | AUDIT | Verdict with confidence scores |
 | `proofpack.json` | PACK | Final CI-gate artifact |
+| `anti_entropy_report.json` | PACK | Advisory follow-up findings (report-only, non-blocking) |
 | `iterations/NN/` | AUDIT | Per-iteration snapshots (v4.6+, only when iterative) |
 | `audit_iteration_log.json` | AUDIT | Summary of all iterations (v4.6+) |
 | `repair_brief.json` | AUDIT | Current repair brief for engineer (v4.6+) |
@@ -159,6 +160,8 @@ Durable per-contract snapshots typically mirror:
 - `audit_summary.json`
 - `approval.json`
 - `execution_context.json`
+- `reviews/`
+- `iterations/`
 - `receipts/`
 - `runs/<runId>/`
 - `snapshots/`

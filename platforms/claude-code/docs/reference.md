@@ -47,7 +47,7 @@ Estimated cost: ~$0.50-1.00.
 
 # Reopen and run the same command
 /signum refactor the payment module
-# Signum detects .signum/contract.json and asks: resume from Phase 2, or restart?
+# Signum checks contracts/index.json first and asks: resume from Phase 2, or restart?
 ```
 
 ## Pipeline Phases
@@ -58,17 +58,17 @@ CONTRACT → EXECUTE → AUDIT → PACK
 
 ### Phase 1: CONTRACT
 
-Contractor agent (haiku) scans the codebase and produces `.signum/contract.json` — a structured specification with goal, scope, acceptance criteria, holdout scenarios, and risk assessment.
+Contractor agent (haiku) scans the codebase and produces `contract.json` under the active contract artifact root (`.signum/contracts/<contractId>/`) — a structured specification with goal, scope, acceptance criteria, holdout scenarios, and risk assessment.
 
 Hard stop if `openQuestions` is non-empty — the user must answer before proceeding.
 
 ### Phase 2: EXECUTE
 
-1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes, saves to `.signum/baseline.json`.
+1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes, saves `baseline.json` under the active contract artifact root.
 2. **Engineer agent** (sonnet) implements the contract. Repair loop: up to 3 attempts of implement → check acceptance criteria → fix failures.
 3. **Scope gate** — deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Pipeline stops on scope violation.
 
-Outputs: `.signum/baseline.json`, `.signum/combined.patch`, `.signum/execute_log.json`.
+Outputs: `baseline.json`, `combined.patch`, `execute_log.json` under the active contract artifact root.
 
 ### Phase 3: AUDIT
 
@@ -89,11 +89,11 @@ Pre-existing failures (checks that failed in baseline AND still fail) no longer 
 
 ### Phase 4: PACK
 
-Assembles `.signum/proofpack.json` — self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
+Assembles `proofpack.json` under the active contract artifact root — self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
 
 ## Artifacts
 
-Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`). Durable per-contract snapshots are mirrored under `.signum/contracts/<contractId>/` for history/archive flows. The per-contract directory is not the active workspace for an in-flight run.
+Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and now mainly holds registry/state surfaces plus compatibility views during the contract-dir migration.
 
 | File | Phase | Contents |
 |------|-------|----------|
@@ -109,7 +109,7 @@ Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`
 | `audit_summary.json` | Audit | Synthesized decision with consensus reasoning and confidence scores |
 | `proofpack.json` | Pack | Self-contained evidence bundle with embedded artifacts, checksums, and confidence |
 
-Durable per-contract snapshots typically mirror:
+Canonical contract directories typically contain:
 - `contract.json`
 - `proofpack.json`
 - `audit_summary.json`
@@ -249,7 +249,7 @@ When AUDIT finds MAJOR or CRITICAL issues, it enters an iterative repair loop:
 | `SIGNUM_AUDIT_MAX_ITERATIONS` | `20` | Maximum audit fix iterations before terminal decision |
 | `SIGNUM_CI_RELAXED` | `false` | If `"true"`, HUMAN_REVIEW maps to exit 0 instead of 78 |
 
-Iteration artifacts are stored in `.signum/iterations/01/`, `.signum/iterations/02/`, etc. Each contains the full set of audit artifacts for that pass.
+Iteration artifacts are stored under the active contract artifact root, for example `.signum/contracts/<contractId>/iterations/01/`, `.signum/contracts/<contractId>/iterations/02/`, etc. Each contains the full set of audit artifacts for that pass.
 
 The proofpack includes an `iterativeAudit` section when >1 iteration was used, with per-iteration summaries, resolved/remaining findings, and the best iteration number.
 
@@ -348,11 +348,11 @@ Signum continues without the provider if auth fails.
 
 ### Provider timeout
 
-External providers are killed after 180 seconds. The review continues with remaining providers. Check `.signum/reviews/` for provider status.
+External providers are killed after 180 seconds. The review continues with remaining providers. Check `reviews/` under the active contract artifact root for provider status.
 
 ### `.signum/` exists from previous run
 
-Normal behavior. Signum detects existing `contract.json` and offers:
+Normal behavior. Signum detects an existing active contract through `contracts/index.json.activeContractId` and offers:
 - **Resume**: continue from Phase 2
 - **Restart**: clear artifacts, start fresh
 

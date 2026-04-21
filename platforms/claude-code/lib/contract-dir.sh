@@ -1,10 +1,85 @@
 #!/usr/bin/env bash
 # contract-dir.sh — per-contract directory management for Signum
-# Functions: contract_dir, init_contract_dir, sync_contract_artifacts,
-#            register_contract, update_contract_status,
-#            get_active_contract, current_contract_dir
+# Functions: new_contract_id, contract_dir, init_contract_dir,
+#            sync_contract_artifacts, register_contract, set_active_contract,
+#            clear_active_contract, update_contract_status,
+#            get_active_contract, get_contract_status,
+#            describe_active_contract_state,
+#            active_artifact_root, active_artifact_path,
+#            link_active_artifact, ensure_active_artifact_dir,
+#            remove_root_artifact_view, archive_contract_artifacts,
+#            purge_root_working_set_views, reset_active_artifact,
+#            promote_root_artifact_to_active, current_contract_dir
 #
 # Requires: jq, bash 4.0+, standard POSIX utils
+
+# _random_hex4
+# Returns 4 lowercase hex chars.
+_random_hex4() {
+  if command -v od >/dev/null 2>&1; then
+    od -An -N2 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n'
+  else
+    printf '%04x' "$((RANDOM % 65536))"
+  fi
+}
+
+# new_contract_id
+# Returns a canonical contract id for a new run.
+new_contract_id() {
+  printf 'sig-%s-%s\n' "$(date -u +%Y%m%d-%H%M)" "$(_random_hex4)"
+}
+
+# _relative_path <target> <from_dir>
+# Returns a relative path from from_dir to target.
+_relative_path() {
+  local target="${1:-}"
+  local from_dir="${2:-}"
+  if [[ -z "$target" || -z "$from_dir" ]]; then
+    echo "_relative_path: target and from_dir required" >&2
+    return 1
+  fi
+  python3 - "$target" "$from_dir" <<'PY'
+import os
+import sys
+
+target = sys.argv[1]
+from_dir = sys.argv[2]
+print(os.path.relpath(target, from_dir))
+PY
+}
+
+# _realpath_or_self <path>
+# Returns the normalized absolute path, resolving symlinks where possible.
+_realpath_or_self() {
+  local path="${1:-}"
+  if [[ -z "$path" ]]; then
+    echo "_realpath_or_self: path required" >&2
+    return 1
+  fi
+  python3 - "$path" <<'PY'
+import os
+import sys
+
+print(os.path.realpath(sys.argv[1]))
+PY
+}
+
+# _remove_artifact_path <path>
+# Removes a file, symlink, or directory path without following symlinked dirs.
+_remove_artifact_path() {
+  local path="${1:-}"
+  if [[ -z "$path" ]]; then
+    echo "_remove_artifact_path: path required" >&2
+    return 1
+  fi
+  if [[ -L "$path" ]]; then
+    rm -f "$path"
+  elif [[ -d "$path" ]]; then
+    rm -rf "$path"
+  elif [[ -e "$path" ]]; then
+    rm -f "$path"
+  fi
+}
 
 # contract_dir <contractId>
 # Returns the path for a contract's isolated directory.
@@ -31,7 +106,7 @@ init_contract_dir() {
     return 1
   fi
   local dir
-  dir=$(contract_dir "$contract_id")
+  dir=$(contract_dir "$contract_id") || return 1
   mkdir -p "${dir}"
   echo "Initialized contract directory: ${dir}"
 }
@@ -52,10 +127,10 @@ sync_contract_artifacts() {
   fi
 
   local dir
-  dir=$(contract_dir "$contract_id")
+  dir=$(contract_dir "$contract_id") || return 1
   mkdir -p "$dir"
 
-  local rel src dst copied=0
+  local rel src dst src_real dst_real copied=0
   for rel in "$@"; do
     if [[ -z "$rel" ]]; then
       continue
@@ -65,6 +140,11 @@ sync_contract_artifacts() {
       continue
     fi
     dst="${dir}${rel}"
+    src_real=$(_realpath_or_self "$src")
+    dst_real=$(_realpath_or_self "$dst")
+    if [[ "$src_real" == "$dst_real" ]]; then
+      continue
+    fi
     if [[ -d "$src" ]]; then
       mkdir -p "$dst"
       cp -R "$src"/. "$dst"/
@@ -90,7 +170,7 @@ _ensure_index() {
 
 # register_contract <contractId> <contract_status>
 # Adds or updates an entry in .signum/contracts/index.json.
-# Sets activeContractId to this contract.
+# Does not change activeContractId; callers must set that explicitly.
 register_contract() {
   local contract_id="${1:-}"
   local contract_status="${2:-draft}"
@@ -116,7 +196,7 @@ register_contract() {
     assumptions_arg=$(jq -c '[(.assumptions // [])[] | .text // .]' "$contract_file" 2>/dev/null || echo '[]')
   fi
 
-  # Add or update entry; also set activeContractId
+  # Add or update entry
   jq --arg id "$contract_id" \
      --arg st "$contract_status" \
      --arg dir "$dir" \
@@ -125,7 +205,6 @@ register_contract() {
      --argjson inscope "${inscope_arg:-[]}" \
      --argjson assumptions "${assumptions_arg:-[]}" \
      '
-     .activeContractId = $id |
      if any(.contracts[]; .contractId == $id) then
        .contracts = [.contracts[] |
          if .contractId == $id then
@@ -137,6 +216,69 @@ register_contract() {
      ' "$index" > "${index}.tmp" && mv "${index}.tmp" "$index"
 
   echo "Registered contract ${contract_id} (status=${contract_status}) in ${index}"
+}
+
+# set_active_contract <contractId>
+# Updates activeContractId for an already-registered contract.
+set_active_contract() {
+  local contract_id="${1:-}"
+  if [[ -z "$contract_id" ]]; then
+    echo "set_active_contract: contractId required" >&2
+    return 1
+  fi
+
+  _ensure_index
+
+  local index=".signum/contracts/index.json"
+  local exists
+  exists=$(jq --arg id "$contract_id" 'any(.contracts[]; .contractId == $id)' "$index")
+  if [[ "$exists" != "true" ]]; then
+    echo "set_active_contract: contractId '${contract_id}' not found in index" >&2
+    return 1
+  fi
+
+  jq --arg id "$contract_id" '.activeContractId = $id' \
+    "$index" > "${index}.tmp" && mv "${index}.tmp" "$index"
+
+  echo "Set active contract to ${contract_id}"
+}
+
+# clear_active_contract
+# Clears activeContractId in index.json.
+clear_active_contract() {
+  _ensure_index
+
+  local index=".signum/contracts/index.json"
+  jq '.activeContractId = null' \
+    "$index" > "${index}.tmp" && mv "${index}.tmp" "$index"
+
+  echo "Cleared active contract"
+}
+
+# _is_terminal_status <status>
+# Returns success for statuses that must not remain active.
+_is_terminal_status() {
+  case "${1:-}" in
+    completed|archived|closed|superseded)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# _is_resumable_status <status>
+# Returns success for statuses that may remain active/resumable.
+_is_resumable_status() {
+  case "${1:-}" in
+    draft|active|approved|executing|auditing|human_review|blocked)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 # update_contract_status <contractId> <newStatus>
@@ -168,6 +310,12 @@ update_contract_status() {
        if .contractId == $id then . + {status: $st} else . end]' \
      "$index" > "${index}.tmp" && mv "${index}.tmp" "$index"
 
+  local active
+  active=$(jq -r '.activeContractId // empty' "$index")
+  if [[ "$active" == "$contract_id" ]] && _is_terminal_status "$new_status"; then
+    clear_active_contract >/dev/null
+  fi
+
   echo "Updated contract ${contract_id} status to ${new_status}"
 }
 
@@ -182,14 +330,324 @@ get_active_contract() {
   jq -r '.activeContractId // empty' "$index"
 }
 
-# current_contract_dir
-# Returns the directory path for the currently active contract.
-current_contract_dir() {
+# get_contract_status <contractId>
+# Reads and returns the status for a contract in index.json.
+get_contract_status() {
+  local contract_id="${1:-}"
+  if [[ -z "$contract_id" ]]; then
+    echo "get_contract_status: contractId required" >&2
+    return 1
+  fi
+
+  local index=".signum/contracts/index.json"
+  if [[ ! -f "$index" ]]; then
+    echo "get_contract_status: index.json not found" >&2
+    return 1
+  fi
+
+  local status
+  status=$(jq -r --arg id "$contract_id" '.contracts[] | select(.contractId == $id) | .status // empty' "$index")
+  if [[ -z "$status" ]]; then
+    echo "get_contract_status: contractId '${contract_id}' not found in index" >&2
+    return 1
+  fi
+
+  printf '%s\n' "$status"
+}
+
+# describe_active_contract_state
+# Emits JSON describing the current active/resumable contract state.
+describe_active_contract_state() {
+  local state="NONE"
+  local active=""
+  local status=""
+  local root=""
+
+  active=$(get_active_contract 2>/dev/null || true)
+  if [[ -n "$active" ]]; then
+    status=$(get_contract_status "$active" 2>/dev/null || true)
+    root=$(contract_dir "$active" 2>/dev/null || true)
+
+    if [[ -z "$root" ]]; then
+      clear_active_contract >/dev/null 2>&1 || true
+      active=""
+      status=""
+    elif [[ -n "$status" ]] && ! _is_resumable_status "$status"; then
+      clear_active_contract >/dev/null 2>&1 || true
+      active=""
+      status=""
+      root=""
+    elif [[ -f "${root}contract.json" && -f "${root}execution_context.json" ]]; then
+      state="RESUMABLE"
+    elif [[ -f "${root}contract.json" ]]; then
+      state="CONTRACT_ONLY"
+    else
+      clear_active_contract >/dev/null 2>&1 || true
+      active=""
+      status=""
+      root=""
+    fi
+  fi
+
+  jq -n \
+    --arg state "$state" \
+    --arg contract_id "$active" \
+    --arg status "$status" \
+    --arg artifact_root "$root" \
+    '{
+      state: $state,
+      contractId: (if $contract_id == "" then null else $contract_id end),
+      status: (if $status == "" then null else $status end),
+      artifactRoot: (if $artifact_root == "" then null else $artifact_root end)
+    }'
+}
+
+# active_artifact_root
+# Returns the canonical artifact root for the currently active contract.
+active_artifact_root() {
   local active
   active=$(get_active_contract)
   if [[ -z "$active" ]]; then
-    echo "current_contract_dir: no active contract in index.json" >&2
+    echo "active_artifact_root: no active contract in index.json" >&2
     return 1
   fi
   contract_dir "$active"
+}
+
+# active_artifact_path <relative_path>
+# Returns the path for an artifact under the active contract root.
+active_artifact_path() {
+  local rel="${1:-}"
+  if [[ -z "$rel" ]]; then
+    echo "active_artifact_path: relative path required" >&2
+    return 1
+  fi
+  local root
+  root=$(active_artifact_root) || return 1
+  printf '%s%s\n' "$root" "$rel"
+}
+
+# remove_root_artifact_view <relative_path>
+# Removes only the root .signum/ compatibility view for an artifact.
+remove_root_artifact_view() {
+  local rel="${1:-}"
+  if [[ -z "$rel" ]]; then
+    echo "remove_root_artifact_view: relative path required" >&2
+    return 1
+  fi
+
+  local root_path=".signum/${rel}"
+  _remove_artifact_path "$root_path"
+
+  echo "Removed root artifact view: ${root_path}"
+}
+
+# archive_contract_artifacts <contractId> <archive_dir>
+# Copies archive-worthy canonical artifacts for a contract into archive_dir.
+archive_contract_artifacts() {
+  local contract_id="${1:-}"
+  local archive_dir="${2:-}"
+  if [[ -z "$contract_id" || -z "$archive_dir" ]]; then
+    echo "archive_contract_artifacts: contractId and archive_dir required" >&2
+    return 1
+  fi
+
+  local dir
+  dir=$(contract_dir "$contract_id") || return 1
+  if [[ ! -d "$dir" ]]; then
+    echo "archive_contract_artifacts: contract directory not found: ${dir}" >&2
+    return 1
+  fi
+
+  mkdir -p "$archive_dir"
+
+  local rel copied=0
+  for rel in \
+    contract.json \
+    proofpack.json \
+    approval.json \
+    audit_summary.json \
+    anti_entropy_report.json \
+    execution_context.json \
+    reconcile_report.json \
+    retro.json; do
+    if [[ -f "${dir}${rel}" ]]; then
+      cp "${dir}${rel}" "$archive_dir/"
+      copied=$((copied + 1))
+    fi
+  done
+
+  for rel in receipts runs snapshots; do
+    if [[ -d "${dir}${rel}" ]]; then
+      mkdir -p "${archive_dir}/${rel}"
+      cp -R "${dir}${rel}/." "${archive_dir}/${rel}/"
+      copied=$((copied + 1))
+    fi
+  done
+
+  echo "Archived ${copied} contract artifact(s) from ${dir} to ${archive_dir}"
+}
+
+# purge_root_working_set_views
+# Removes the root .signum/ compatibility surface for the active working set.
+purge_root_working_set_views() {
+  local rel
+  for rel in \
+    contract.json \
+    contract-engineer.json \
+    contract-policy.json \
+    execute_log.json \
+    combined.patch \
+    iteration_delta.patch \
+    baseline.json \
+    mechanic_report.json \
+    holdout_report.json \
+    audit_summary.json \
+    proofpack.json \
+    approval.json \
+    anti_entropy_report.json \
+    policy_violations.json \
+    policy_scan.json \
+    spec_quality.json \
+    spec_validation.json \
+    repo_contract_baseline.json \
+    repo_contract_violations.json \
+    contract-hash.txt \
+    execution_context.json \
+    review_prompt_codex.txt \
+    review_prompt_gemini.txt \
+    review_context.json \
+    clover_report.json \
+    intent_check.json \
+    audit_iteration_log.json \
+    repair_brief.json \
+    flaky_tests.json \
+    reconcile_report.json \
+    retro.json; do
+    remove_root_artifact_view "$rel" >/dev/null 2>&1 || true
+  done
+
+  for rel in reviews iterations receipts runs snapshots; do
+    remove_root_artifact_view "$rel" >/dev/null 2>&1 || true
+  done
+
+  echo "Purged root working set views"
+}
+
+# link_active_artifact <relative_path>
+# Creates a compatibility symlink in root .signum/ that points at the active contract artifact.
+link_active_artifact() {
+  local rel="${1:-}"
+  if [[ -z "$rel" ]]; then
+    echo "link_active_artifact: relative path required" >&2
+    return 1
+  fi
+
+  local root_path=".signum/${rel}"
+  local active_path
+  active_path=$(active_artifact_path "$rel") || return 1
+
+  mkdir -p "$(dirname "$root_path")" "$(dirname "$active_path")"
+
+  if [[ -e "$root_path" || -L "$root_path" ]]; then
+    remove_root_artifact_view "$rel" >/dev/null
+  fi
+
+  local link_target
+  link_target=$(_relative_path "$active_path" "$(dirname "$root_path")")
+  ln -s "$link_target" "$root_path"
+
+  echo "Linked ${root_path} -> ${active_path}"
+}
+
+# ensure_active_artifact_dir <relative_path>
+# Ensures a canonical directory exists in the active contract root and exposes
+# it through a root compatibility symlink.
+ensure_active_artifact_dir() {
+  local rel="${1:-}"
+  if [[ -z "$rel" ]]; then
+    echo "ensure_active_artifact_dir: relative path required" >&2
+    return 1
+  fi
+
+  local active_path
+  active_path=$(active_artifact_path "$rel") || return 1
+  mkdir -p "$active_path"
+  link_active_artifact "$rel" >/dev/null
+
+  echo "Ensured active artifact dir: ${active_path}"
+}
+
+# reset_active_artifact <relative_path> [file|dir]
+# Clears both the root compatibility path and the canonical active artifact,
+# then recreates the compatibility link for the requested kind.
+reset_active_artifact() {
+  local rel="${1:-}"
+  local kind="${2:-file}"
+  if [[ -z "$rel" ]]; then
+    echo "reset_active_artifact: relative path required" >&2
+    return 1
+  fi
+
+  local active_path
+  active_path=$(active_artifact_path "$rel") || return 1
+
+  remove_root_artifact_view "$rel" >/dev/null
+  _remove_artifact_path "$active_path"
+
+  case "$kind" in
+    file)
+      link_active_artifact "$rel" >/dev/null
+      ;;
+    dir)
+      ensure_active_artifact_dir "$rel" >/dev/null
+      ;;
+    *)
+      echo "reset_active_artifact: kind must be file or dir" >&2
+      return 1
+      ;;
+  esac
+
+  echo "Reset active artifact: ${active_path} (${kind})"
+}
+
+# promote_root_artifact_to_active <relative_path>
+# Moves an existing root .signum artifact into the active contract dir, then
+# recreates the root path as a compatibility symlink to the canonical location.
+promote_root_artifact_to_active() {
+  local rel="${1:-}"
+  if [[ -z "$rel" ]]; then
+    echo "promote_root_artifact_to_active: relative path required" >&2
+    return 1
+  fi
+
+  local root_path=".signum/${rel}"
+  local active_path
+  active_path=$(active_artifact_path "$rel") || return 1
+
+  mkdir -p "$(dirname "$root_path")" "$(dirname "$active_path")"
+
+  if [[ -L "$root_path" ]]; then
+    rm -f "$root_path"
+  elif [[ -d "$root_path" ]]; then
+    mkdir -p "$active_path"
+    cp -R "$root_path"/. "$active_path"/
+    rm -rf "$root_path"
+  elif [[ -e "$root_path" ]]; then
+    if [[ -e "$active_path" ]]; then
+      cp -f "$root_path" "$active_path"
+      rm -f "$root_path"
+    else
+      mv "$root_path" "$active_path"
+    fi
+  fi
+
+  link_active_artifact "$rel" >/dev/null
+  echo "Promoted ${root_path} -> ${active_path}"
+}
+
+# current_contract_dir
+# Backward-compatible alias for active_artifact_root.
+current_contract_dir() {
+  active_artifact_root
 }

@@ -31,11 +31,13 @@ The reviewer prompt instructs: "Focus your review on the delta. Use the full pat
 The **orchestrator** owns delta generation — not the engineer. After the repair success gate (Step 3.6.2) passes, the orchestrator runs both capture commands from a single place:
 
 ```bash
+ARTIFACT_ROOT=".signum/contracts/<contractId>"
+
 # After engineer completes repair and repair success gate passes (Step 3.6.2):
 # git diff (unstaged) = iteration delta; engineer started from best candidate state
-git diff > .signum/iteration_delta.patch
+git diff > "$ARTIFACT_ROOT/iteration_delta.patch"
 # git diff $BASE = full combined patch from base commit
-git diff $BASE > .signum/combined.patch
+git diff "$BASE" > "$ARTIFACT_ROOT/combined.patch"
 ```
 
 The engineer always starts from the best candidate state (after rollback), so `git diff` (unstaged changes) equals exactly what the fix changed. `git diff $BASE` then gives the full feature diff. Both are computed by the orchestrator immediately after the repair gate, before launching reviews.
@@ -45,13 +47,15 @@ The engineer always starts from the best candidate state (after rollback), so `g
 **Before repair** — clear stale artifacts alongside execute_log and combined.patch:
 
 ```bash
-rm -f .signum/iteration_delta.patch .signum/execute_log .signum/combined.patch
+rm -f "$ARTIFACT_ROOT/iteration_delta.patch" \
+      "$ARTIFACT_ROOT/execute_log.json" \
+      "$ARTIFACT_ROOT/combined.patch"
 ```
 
 **Post-repair guard** — if delta is absent or zero-length after repair, mark iteration as non-improving and skip Steps 3.1.5–3.5 (delta-focused review path):
 
 ```bash
-DELTA_SIZE=$(wc -c < .signum/iteration_delta.patch 2>/dev/null || echo 0)
+DELTA_SIZE=$(wc -c < "$ARTIFACT_ROOT/iteration_delta.patch" 2>/dev/null || echo 0)
 if [ "$DELTA_SIZE" -eq 0 ]; then
   echo "Delta absent or empty — non-improving iteration, skipping delta review path"
   # falls through to existing REPAIR_SKIP / no-op handling
@@ -61,13 +65,14 @@ fi
 **Store in iteration directory** — copy delta alongside combined.patch:
 
 ```bash
-cp .signum/iteration_delta.patch "$ITER_DIR/"
+cp "$ARTIFACT_ROOT/iteration_delta.patch" "$ITER_DIR/iteration_delta.patch"
 ```
 
 **Rollback sync** — when rolling back to a best iteration, copy its delta:
 
 ```bash
-cp ".signum/iterations/$(printf '%02d' $BEST_ITERATION)/iteration_delta.patch" .signum/iteration_delta.patch 2>/dev/null || rm -f .signum/iteration_delta.patch
+cp "$ARTIFACT_ROOT/iterations/$(printf '%02d' "$BEST_ITERATION")/iteration_delta.patch" \
+   "$ARTIFACT_ROOT/iteration_delta.patch" 2>/dev/null || rm -f "$ARTIFACT_ROOT/iteration_delta.patch"
 ```
 
 **Restart/archive cleanup** — add `iteration_delta.patch` to cleanup lists alongside combined.patch and execute_log in both restart and archive routines.
@@ -99,8 +104,8 @@ FOCUS your review on the DELTA — these are the changes made to fix previous fi
 ### Storage
 
 ```
-.signum/
-  iteration_delta.patch          # current delta (working copy)
+.signum/contracts/<contractId>/
+  iteration_delta.patch          # current delta (canonical working copy)
   iterations/
     01/
       combined.patch             # full diff (no delta for pass 1)
