@@ -124,21 +124,27 @@ const invalidRegexIssues = collectPiContractVerifyIssues(normalizeContractForPiR
 assert.equal(invalidRegexIssues.length, 1)
 assert.match(invalidRegexIssues[0], /not portable to the pi runtime/i)
 
-const brittleShellIssues = collectPiContractVerifyIssues(normalizeContractForPiRuntime({
+const brittleShellRaw = {
   acceptanceCriteria: [
     {
       id: 'AC11',
       visibility: 'visible',
       verify: {
         steps: [
+          { type: 'assertContains', path: 'tests/test-pi-self-hosted-smoke.sh', text: 'platforms/pi/extensions/signum/index.ts' },
           { type: 'assertMatches', path: 'tests/test-pi-self-hosted-smoke.sh', pattern: 'pi --no-extensions -e .*platforms/pi/extensions/signum/index\\.ts' },
         ],
       },
     },
   ],
-}))
-assert.equal(brittleShellIssues.length, 1)
-assert.match(brittleShellIssues[0], /literal pi command and extension path/i)
+}
+const brittleShellContract = normalizeContractForPiRuntime(brittleShellRaw)
+assert.equal(brittleShellContract.acceptanceCriteria[0].verify.steps.length, 1)
+assert.equal(brittleShellContract.acceptanceCriteria[0].verify.steps[0].type, 'assertContains')
+const brittleShellAnalysis = analyzePiContractForRuntime(brittleShellRaw, brittleShellContract)
+assert.equal(brittleShellAnalysis.sanitizedVisibleVerifySteps, 1)
+assert.equal(brittleShellAnalysis.errors.length, 0)
+assert.match(brittleShellAnalysis.warnings[0], /sanitized 1 brittle visible verify step/i)
 
 console.log('PASS: pi verify normalizer')
 EOF

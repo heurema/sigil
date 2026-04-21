@@ -118,12 +118,6 @@ export function collectPiContractVerifyIssues(contract: ContractLike): string[] 
           })
         }
 
-        if (isBrittleShellEntrypointAssertion(path, step.pattern)) {
-          issues.push({
-            criterionId,
-            message: `${criterionId}: avoid brittle shell-command regexes that require the literal pi command and extension path on the same line; assert the entrypoint path and $EXT usage separately`,
-          })
-        }
       }
 
       if (referencesLatePhaseArtifact(step)) {
@@ -301,6 +295,15 @@ function isSanitizedAway(step: unknown): boolean {
   if (!step || typeof step !== "object") return false
   const record = step as Record<string, unknown>
   const type = typeof record.type === "string" ? record.type.toLowerCase().replace(/[-_]/g, "") : ""
+
+  if (type === "assertmatches") {
+    const path = typeof record.path === "string" ? record.path : ""
+    const pattern = typeof record.pattern === "string" ? record.pattern : ""
+    if (isBrittleShellEntrypointAssertion(path, pattern)) {
+      return true
+    }
+  }
+
   if (!["assertnotcontains", "assertnotcontainsany"].includes(type)) return false
 
   const path = typeof record.path === "string" ? record.path : ""
