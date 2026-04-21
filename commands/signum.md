@@ -20,6 +20,25 @@ CONTRACT → EXECUTE → AUDIT → PACK
 
 The user's task: `$ARGUMENTS`
 
+## Init Command Redirect
+
+If the user's task is using Signum init command syntax instead of a feature request - for example:
+- exactly `init`
+- `init --force`
+- `init --harness`
+- `init --project-root <path>`
+
+do NOT run the CONTRACT → EXECUTE → AUDIT → PACK pipeline.
+
+Instead, tell the user:
+
+Use `/signum:init [--force] [--harness] [--project-root <path>]`.
+
+For Claude Code plugin usage, `/signum:init` is the canonical form.
+`--harness` requires Signum `>= v4.18.0`.
+
+Then stop.
+
 ## Explain Mode
 
 If the user's task is exactly `explain` (case-insensitive), do NOT run the pipeline. Instead, output this JSON and stop:
@@ -27,7 +46,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.19.1",
+  "version": "4.19.2",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -3076,7 +3095,7 @@ PACK_AVAILABLE_REVIEWS=$(jq -r '.availableReviews // 0' .signum/audit_summary.js
 # Final assembly
 jq -n \
   --arg schemaVersion "4.8" \
-  --arg signumVersion "4.19.1" \
+  --arg signumVersion "4.19.2" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \

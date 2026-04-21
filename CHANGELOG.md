@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [4.19.2] - 2026-04-21
+
+### Fixed
+- Clarified the Claude Code init command surface so docs and prompts now use `/signum:init` as the canonical plugin invocation
+  - `README.md` and `docs/how-it-works.md` now document `/signum:init` instead of `/signum init`
+  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now redirect accidental `init ...` usage to `/signum:init`
+  - `commands/init.md` and `platforms/claude-code/commands/init.md` now note that `--harness` requires Signum `>= v4.18.0`
+- Made init bootstrap helper resolution work in downstream repos
+  - `commands/init.md` and `platforms/claude-code/commands/init.md` now resolve `init-scanner.sh` and `init-harness-scaffold.sh` from `CLAUDE_PLUGIN_ROOT/lib/` first, with repo-local `lib/` fallback
+  - `tests/test-init-command-surface.sh` covers canonical command usage, redirect guard, version note, and helper path resolution
+
 ## [4.19.1] - 2026-04-20
 
 ### Fixed
