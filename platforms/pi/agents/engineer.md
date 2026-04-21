@@ -1,7 +1,6 @@
 ---
 name: engineer
 description: Implement against a Signum contract within pi
-model: sonnet
 tools: [read, grep, find, ls, bash, write, edit]
 ---
 

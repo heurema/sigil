@@ -21,8 +21,13 @@ export function selectRoleModel(
   const available = dedupeModels(options.availableModels)
   if (available.length === 0) return options.currentModel
 
+  const currentAvailable = findMatchingModel(available, options.currentModel)
+  if (currentAvailable && !options.preferFallback) {
+    return currentAvailable
+  }
+
   if (options.preferFallback) {
-    return pickFallbackModel(available, options.currentModel, role) ?? options.currentModel ?? available[0]
+    return pickFallbackModel(available, currentAvailable ?? options.currentModel, role) ?? currentAvailable ?? options.currentModel ?? available[0]
   }
 
   if (options.preferredModelId) {
@@ -30,11 +35,7 @@ export function selectRoleModel(
     if (direct) return direct
   }
 
-  if (options.currentModel) {
-    return options.currentModel
-  }
-
-  return pickInitialModel(available, role) ?? available[0]
+  return pickInitialModel(available, role) ?? currentAvailable ?? options.currentModel ?? available[0]
 }
 
 function dedupeModels(models: Model[]): Model[] {
@@ -57,8 +58,31 @@ function pickInitialModel(models: Model[], role: SignumRole): Model | undefined 
 }
 
 function pickFallbackModel(models: Model[], currentModel: Model | undefined, role: SignumRole): Model | undefined {
-  const candidates = models.filter((model) => !currentModel || `${model.provider}/${model.id}` !== `${currentModel.provider}/${currentModel.id}`)
-  return pickByPatterns(candidates, [/sonnet/i, /gpt-5/i, /pro/i, /opus/i, /thinking/i]) ?? pickInitialModel(candidates, role)
+  const candidates = models.filter((model) => !isSameModel(model, currentModel))
+  const sameProviderCandidates = currentModel
+    ? candidates.filter((model) => model.provider === currentModel.provider)
+    : []
+  return (
+    pickProviderAwareFallback(sameProviderCandidates, role) ??
+    pickProviderAwareFallback(candidates, role) ??
+    pickInitialModel(candidates, role)
+  )
+}
+
+function pickProviderAwareFallback(models: Model[], role: SignumRole): Model | undefined {
+  const rolePatterns = role === "contractor"
+    ? [/haiku/i, /mini/i, /flash/i, /sonnet/i, /gpt-5/i, /pro/i]
+    : [/sonnet/i, /gpt-5/i, /pro/i, /opus/i, /thinking/i, /flash/i, /mini/i, /haiku/i]
+  return pickByPatterns(models, rolePatterns)
+}
+
+function findMatchingModel(models: Model[], currentModel: Model | undefined): Model | undefined {
+  return models.find((model) => isSameModel(model, currentModel))
+}
+
+function isSameModel(left: Model | undefined, right: Model | undefined): boolean {
+  if (!left || !right) return false
+  return `${left.provider}/${left.id}` === `${right.provider}/${right.id}`
 }
 
 function pickByPatterns(models: Model[], patterns: RegExp[]): Model | undefined {

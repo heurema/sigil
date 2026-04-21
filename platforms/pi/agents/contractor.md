@@ -1,7 +1,6 @@
 ---
 name: contractor
 description: Generate a Signum contract.json from a user request inside pi
-model: haiku
 tools: [read, grep, find, ls, bash, write, edit]
 ---
 

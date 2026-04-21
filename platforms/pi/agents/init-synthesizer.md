@@ -1,7 +1,6 @@
 ---
 name: init-synthesizer
 description: Synthesize project.intent.md and project.glossary.json for pi-native Signum init
-model: sonnet
 tools: [read, grep, find, ls]
 ---
 

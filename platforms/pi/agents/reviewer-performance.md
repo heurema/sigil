@@ -1,7 +1,6 @@
 ---
 name: reviewer-performance
 description: Performance reviewer for Signum audit inside pi
-model: sonnet
 tools: [read, grep, find, ls, bash, write]
 ---
 

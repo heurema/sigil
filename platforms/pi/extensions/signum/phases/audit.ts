@@ -382,11 +382,11 @@ function buildReviewPlan(riskLevel: ContractDocument["riskLevel"], availableMode
     return projectReviews
   }
 
-  const securityModel = pickAdditionalReviewerModel(availableModels, [semanticModel], [/gpt-5/i, /gpt/i, /sonnet/i, /opus/i, /pro/i, /gemini/i])
+  const securityModel = pickAdditionalReviewerModel(availableModels, [semanticModel], "reviewer-security")
   const performanceModel = pickAdditionalReviewerModel(
     availableModels,
     [semanticModel, securityModel].filter(Boolean) as Model[],
-    [/gemini/i, /flash/i, /pro/i, /gpt/i, /sonnet/i, /opus/i],
+    "reviewer-performance",
   )
 
   projectReviews.push(
@@ -407,12 +407,22 @@ function buildReviewPlan(riskLevel: ContractDocument["riskLevel"], availableMode
   return projectReviews
 }
 
-function pickAdditionalReviewerModel(models: Model[], used: Model[], preferredPatterns: RegExp[]): Model | undefined {
+function pickAdditionalReviewerModel(
+  models: Model[],
+  used: Model[],
+  role: Extract<SignumRole, "reviewer-security" | "reviewer-performance">,
+): Model | undefined {
   const usedKeys = new Set(used.map((model) => `${model.provider}/${model.id}`))
   const usedProviders = new Set(used.map((model) => model.provider))
   const candidates = models.filter((model) => !usedKeys.has(`${model.provider}/${model.id}`))
+  const sameProvider = used.length > 0 ? candidates.filter((model) => model.provider === used[used.length - 1]?.provider) : []
   const differentProvider = candidates.filter((model) => !usedProviders.has(model.provider))
+  const preferredPatterns = role === "reviewer-security"
+    ? [/security/i, /thinking/i, /sonnet/i, /gpt-5/i, /gpt/i, /opus/i, /pro/i, /gemini/i]
+    : [/flash/i, /pro/i, /gemini/i, /mini/i, /gpt/i, /sonnet/i, /opus/i]
   return (
+    pickByPatterns(sameProvider, preferredPatterns) ??
+    sameProvider[0] ??
     pickByPatterns(differentProvider, preferredPatterns) ??
     pickByPatterns(candidates, preferredPatterns) ??
     differentProvider[0] ??

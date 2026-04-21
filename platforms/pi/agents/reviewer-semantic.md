@@ -1,7 +1,6 @@
 ---
 name: reviewer-semantic
 description: Semantic reviewer for Signum audit inside pi
-model: sonnet
 tools: [read, grep, find, ls, bash, write]
 ---
 

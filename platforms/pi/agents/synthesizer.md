@@ -1,7 +1,6 @@
 ---
 name: synthesizer
 description: Synthesize Signum audit results into a verdict inside pi
-model: sonnet
 tools: [read, grep, find, ls, bash, write]
 ---
 
