@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.20.0] - 2026-04-21
+
+### Changed
+- Canonical contract-dir artifact root cleanup and parity hardening for the Claude overlay
+  - overlay command/docs/prompts now consistently describe `.signum/contracts/<contractId>/` as the active artifact root
+  - overlay CI/template surfaces prefer canonical artifact paths before legacy root fallback
+  - overlay changelog/docs/quickstart wording now matches the canonical storage model used by the runtime
+
 ## [4.9.0] - 2026-03-17
 
 ### Added

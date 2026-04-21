@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [4.20.0] - 2026-04-21
+
+### Changed
+- Canonical contract-dir artifact root is now consistently reflected across runtime helpers, docs, prompts, overlay surfaces, and CI/template flows
+  - `commands/signum.md` and `platforms/claude-code/commands/signum.md` now treat `.signum/contracts/<contractId>/` as the canonical active artifact root throughout CONTRACT, EXECUTE, AUDIT, PACK, archive/finalize flows, and registry-first resume handling
+  - `lib/contract-dir.sh`, `lib/signum-ci.sh`, `lib/snapshot-tree.sh`, `lib/contract-injection-scan.sh`, `lib/proofpack-index.sh`, verifier helpers, anti-entropy helpers, and their overlay twins now prefer canonical contract-dir resolution before legacy root fallback
+  - core docs, quickstarts, architecture notes, skill docs, plan/research docs, and agent prompts now describe root `.signum/` as registry/state plus compatibility surface rather than the primary live artifact location
+  - new regression coverage locks down canonical path behavior and the remaining intentional compatibility mentions
+
 ## [4.19.1] - 2026-04-20
 
 ### Fixed
