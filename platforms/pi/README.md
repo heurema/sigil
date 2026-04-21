@@ -68,6 +68,14 @@ SIGNUM_PI_AUTO_APPROVE=1 pi --no-extensions -e ./platforms/pi/extensions/signum/
 
 Do not rely on `SIGNUM_PI_AUTO_APPROVE=1` for normal usage. It exists only to exercise CONTRACT/EXECUTE/AUDIT/PACK flows without a live TUI confirmation step.
 
+An additional optional self-hosted smoke gate is available for bounded regression coverage:
+
+```bash
+SIGNUM_PI_SELF_HOSTED_SMOKE=1 bash tests/test-pi-self-hosted-smoke.sh
+```
+
+That harness runs the repo-native pi extension entrypoint from a temporary repo copy, not from the source worktree directly, and only verifies bounded CONTRACT/EXECUTE artifact creation.
+
 This path exercises the root `package.json` + `pi` manifest, which is the intended install surface for the pi-native Signum package.
 
 ## Packaging and test checks

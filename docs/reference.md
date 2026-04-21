@@ -406,6 +406,16 @@ Normal behavior. Signum detects existing `contract.json` and offers:
 - **Resume**: continue from Phase 2
 - **Restart**: clear artifacts, start fresh
 
+### Optional self-hosted smoke gate
+
+For a bounded self-hosted regression smoke of the pi runtime:
+
+```bash
+SIGNUM_PI_SELF_HOSTED_SMOKE=1 bash tests/test-pi-self-hosted-smoke.sh
+```
+
+This self-hosted smoke is intentionally narrow. It runs `/signum` from a temporary repo copy via the pi-native extension entrypoint, uses `SIGNUM_PI_AUTO_APPROVE=1` for non-interactive execution, and verifies CONTRACT/EXECUTE evidence such as `.signum/contract.json`, `.signum/execute_log.json`, and `.signum/receipts/execute.json` without mutating the source worktree.
+
 ### Optional: jj-supersede integration (v4.15.0+)
 
 In jj-managed repositories, the contractor can detect ghost solutions — functions that are semantically superseded but still present in the codebase. This requires [jj-supersede](https://github.com/heurema/jj-supersede):
