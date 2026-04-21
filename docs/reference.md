@@ -18,11 +18,36 @@ If a derived doc disagrees with root `commands/signum.md`, treat the command fil
 
 ## Usage
 
+### Canonical runtime
+
 ```
 /signum <task description>
 ```
 
 Signum parses the task description and runs the full 4-phase pipeline automatically.
+
+### pi runtime overlay
+
+The pi-native runtime lives under `platforms/pi/` and exposes the same primary entrypoint as a native pi command:
+
+```text
+/signum explain
+/signum init --harness
+/signum <task description>
+/signum archive <contractId>
+/signum close <contractId>
+```
+
+Install surface for pi is the repo root package:
+
+```bash
+pi install . -l
+```
+
+Important parity note:
+- the pi runtime currently ships **single-pass AUDIT**
+- root `commands/signum.md` remains canonical
+- iterative AUDIT parity is tracked as explicit follow-up work, not silently dropped
 
 ## Examples
 
@@ -86,6 +111,8 @@ Hard stop if `openQuestions` is non-empty — the user must answer before procee
 
 Outputs: `.signum/baseline.json`, `.signum/combined.patch`, `.signum/execute_log.json`.
 
+In the pi runtime, EXECUTE also emits `.signum/receipts/execute.json` and per-run receipt history under `.signum/runs/<runId>/`.
+
 ### Phase 3: AUDIT
 
 Five independent verification layers:
@@ -103,6 +130,8 @@ Synthesizer agent applies deterministic rules:
 
 Pre-existing failures (checks that failed in baseline AND still fail) no longer auto-block.
 
+In the pi runtime overlay, AUDIT currently runs as a **single-pass** flow for MVP coverage. The iterative review/fix loop remains a parity follow-up.
+
 ### Phase 4: PACK
 
 Assembles `.signum/proofpack.json` — self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
@@ -117,6 +146,7 @@ Live working-set artifacts are written to `.signum/` (auto-added to `.gitignore`
 | `baseline.json` | Execute | Pre-change lint/typecheck/test exit codes |
 | `combined.patch` | Execute | Full git diff of all changes |
 | `execute_log.json` | Execute | Attempt history, check results, status |
+| `receipts/execute.json` | Execute | Boundary-verification receipt for execute → audit transition |
 | `mechanic_report.json` | Audit | Lint, typecheck, test results with baseline comparison and regression flags |
 | `holdout_report.json` | Audit | Holdout scenario pass/fail counts |
 | `reviews/claude.json` | Audit | Claude opus semantic review |

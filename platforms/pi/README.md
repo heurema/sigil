@@ -5,7 +5,7 @@ The root `commands/signum.md` remains the canonical pipeline source; this direct
 
 ## Current status
 
-Slice 5 is in progress:
+Slice 6 is in progress:
 - repo root is packable as a pi package
 - pi can load the extension from this repository
 - `/signum explain` returns a pi-native status summary aligned to Signum phases
@@ -70,12 +70,19 @@ Do not rely on `SIGNUM_PI_AUTO_APPROVE=1` for normal usage. It exists only to ex
 
 This path exercises the root `package.json` + `pi` manifest, which is the intended install surface for the pi-native Signum package.
 
-## Packaging check
+## Packaging and test checks
 
 Verify package contents before shipping:
 
 ```bash
 npm run pack:dry-run
+npm run test:pi
+```
+
+Optional live full-pipeline smoke:
+
+```bash
+SIGNUM_PI_LIVE_SMOKE=1 npm run test:pi:live
 ```
 
 The package manifest uses an explicit `files` allowlist so the pi extension, shared `lib/` scripts, and prompt assets can be shipped intentionally.

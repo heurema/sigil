@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+- pi-native Signum runtime MVP from this repo root
+  - root `package.json` now exposes the repo as a pi-installable package with `pi.extensions`
+  - native `/signum` command for pi under `platforms/pi/`
+  - pi runtime support for `explain`, `init --harness`, `archive`, `close`, and `/signum <task>`
+  - pi task path now covers CONTRACT -> EXECUTE -> AUDIT -> PACK
+  - runtime policy-wrapped engineer tools, execute receipts, audit artifacts, and proofpack generation
+  - `tests/test-pi-extension.sh` plus optional live smoke `tests/test-pi-full-pipeline.sh`
+
+### Notes
+- pi AUDIT currently ships as single-pass for MVP coverage; iterative AUDIT parity remains deferred explicitly
+
 ## [4.19.1] - 2026-04-20
 
 ### Fixed

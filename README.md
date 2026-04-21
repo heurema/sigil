@@ -32,6 +32,8 @@ AI can generate a function in seconds; telling you whether it is correct takes l
 
 ## Install
 
+### Claude Code
+
 <!-- INSTALL:START -->
 ```bash
 claude plugin marketplace add heurema/emporium
@@ -50,11 +52,43 @@ claude plugin install .
 
 </details>
 
+### pi
+
+Signum also ships a native pi runtime from this same repo. The root package is the install surface.
+
+```bash
+pi install . -l
+```
+
+Then run inside pi:
+
+```text
+/signum explain
+/signum init --harness
+/signum your task here
+```
+
+For local non-interactive smoke work only, you may use:
+
+```bash
+SIGNUM_PI_AUTO_APPROVE=1 pi --no-extensions -e ./platforms/pi/extensions/signum/index.ts --mode json --no-session '/signum your task here'
+```
+
+`SIGNUM_PI_AUTO_APPROVE=1` is development-only and not the normal approval UX.
+
 ## Quick start
+
+### Claude Code
 
 ```bash
 # Run — describe what you want to build
 /signum "your task description"
+```
+
+### pi
+
+```text
+/signum your task description
 ```
 
 Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.

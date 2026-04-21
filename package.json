@@ -21,7 +21,8 @@
   "scripts": {
     "check": "npm run pack:dry-run && npm run test:pi",
     "pack:dry-run": "npm pack --dry-run",
-    "test:pi": "bash tests/test-pi-extension.sh"
+    "test:pi": "bash tests/test-pi-extension.sh",
+    "test:pi:live": "bash tests/test-pi-full-pipeline.sh"
   },
   "files": [
     "README.md",
