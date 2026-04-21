@@ -21,7 +21,7 @@
   "scripts": {
     "check": "npm run pack:dry-run && npm run test:pi",
     "pack:dry-run": "npm pack --dry-run",
-    "test:pi": "bash tests/test-pi-extension.sh && bash tests/test-pi-verify-normalizer.sh && bash tests/test-pi-policy-tools.sh && bash tests/test-pi-execute-verify.sh && bash tests/test-pi-audit-iterations.sh && bash tests/test-pi-iterative-audit-docs.sh",
+    "test:pi": "bash tests/test-pi-extension.sh && bash tests/test-pi-contract-json.sh && bash tests/test-pi-verify-normalizer.sh && bash tests/test-pi-policy-tools.sh && bash tests/test-pi-execute-verify.sh && bash tests/test-pi-audit-iterations.sh && bash tests/test-pi-iterative-audit-docs.sh",
     "test:pi:live": "bash tests/test-pi-full-pipeline.sh"
   },
   "files": [

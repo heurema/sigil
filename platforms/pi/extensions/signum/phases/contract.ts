@@ -24,6 +24,7 @@ import {
 } from "../runtime/script-adapters/contract-dir.ts"
 import { runJsonScript, runTextScript, sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
+import { parsePossiblyBrokenJsonObject } from "../runtime/contract-json.ts"
 import { analyzePiContractForRuntime, normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
 import { emitSignumMessage, setSignumStatus } from "../ui.ts"
 
@@ -351,7 +352,7 @@ async function salvageContractFromFinalText(projectRoot: string, finalText: stri
   }
 
   try {
-    return await validateParsedContract(projectRoot, JSON.parse(extracted) as ContractDocument, "final-text")
+    return await validateParsedContract(projectRoot, parsePossiblyBrokenJsonObject(extracted) as ContractDocument, "final-text")
   } catch {
     const errors = ["contractor final text contained invalid JSON"]
     await writeContractValidationReport(projectRoot, {
@@ -460,7 +461,7 @@ async function prepareWorkspace(projectRoot: string) {
 async function readAndValidateContract(projectRoot: string): Promise<ContractReadResult> {
   try {
     const raw = await readFile(resolve(projectRoot, ".signum/contract.json"), "utf8")
-    return await validateParsedContract(projectRoot, JSON.parse(raw) as ContractDocument, "file")
+    return await validateParsedContract(projectRoot, parsePossiblyBrokenJsonObject(raw) as ContractDocument, "file")
   } catch {
     const errors = [".signum/contract.json missing or unreadable"]
     await writeContractValidationReport(projectRoot, {
