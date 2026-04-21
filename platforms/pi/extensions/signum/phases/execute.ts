@@ -9,7 +9,7 @@ import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-sessi
 import { sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { createPolicyAwareEngineerTools, deriveExecutionPolicy } from "../runtime/policy-tools.ts"
 import { compilePortableRegex } from "../runtime/portable-regex.ts"
-import { setSignumStatus, withSignumHeartbeat } from "../ui.ts"
+import { pushSignumProgressEvent, setSignumProgress, setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ExecuteResult {
   status: "success" | "blocked" | "failed"
@@ -45,6 +45,7 @@ export async function runExecutePhase(
   const executeStartedAt = toUtcTimestamp()
 
   setSignumStatus(ctx, "execute baseline")
+  setSignumProgress(ctx, "execute", "baseline", "Preparing baseline and snapshots")
   await withSignumHeartbeat(ctx, "execute", "baseline", async () => {
     await captureExecutionBaseline(pi, projectRoot, contract.contractId, executeStartedAt)
     await captureReceiptSnapshot(pi, projectRoot)
@@ -69,6 +70,7 @@ export async function runExecutePhase(
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const policyTools = createPolicyAwareEngineerTools(projectRoot, policy)
     setSignumStatus(ctx, `execute attempt ${attempt}/${maxAttempts}`)
+    setSignumProgress(ctx, "execute", `attempt ${attempt}/${maxAttempts}`, `Engineer attempt ${attempt} started`)
 
     const retryContext =
       attemptLogs.length === 0
@@ -155,7 +157,9 @@ export async function runExecutePhase(
         finished_at: toUtcTimestamp(),
       })
 
+      pushSignumProgressEvent(ctx, `Attempt ${attempt} changed ${changedFiles.length} file(s)`)
       setSignumStatus(ctx, `execute verify boundary ${attempt}/${maxAttempts}`)
+      setSignumProgress(ctx, "execute", "boundary verification", `Checking scope and acceptance evidence for attempt ${attempt}`)
       const boundary = await withSignumHeartbeat(ctx, "execute", "boundary verification", () =>
         runBoundaryVerification(pi, projectRoot, contract, policy, changedFiles),
       )
@@ -180,6 +184,7 @@ export async function runExecutePhase(
       }
 
       setSignumStatus(ctx, `execute verify transition ${attempt}/${maxAttempts}`)
+      setSignumProgress(ctx, "execute", "transition verification", `Verifying EXECUTE to AUDIT transition for attempt ${attempt}`)
       const transition = await withSignumHeartbeat(ctx, "execute", "transition verification", () =>
         runTransitionVerification(pi, projectRoot),
       )

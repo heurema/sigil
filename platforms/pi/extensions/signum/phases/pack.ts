@@ -14,7 +14,7 @@ import {
   writeContractIndex,
 } from "../runtime/script-adapters/contract-dir.ts"
 import { toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
-import { setSignumStatus, withSignumHeartbeat } from "../ui.ts"
+import { pushSignumProgressEvent, setSignumProgress, setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ContractDocument {
   contractId: string
@@ -60,6 +60,7 @@ export async function runPackPhase(
 ): Promise<PackPhaseResult> {
   const projectRoot = ctx.cwd
   setSignumStatus(ctx, "pack assemble")
+  setSignumProgress(ctx, "pack", "assemble", "Building proofpack artifacts")
 
   const contractPath = resolve(projectRoot, ".signum/contract.json")
   const auditPath = resolve(projectRoot, ".signum/audit_summary.json")
@@ -84,14 +85,18 @@ export async function runPackPhase(
     buildProofpack(projectRoot, updatedContract, audit, executeLog, runId, completedAt),
   )
   await writeJson(resolve(projectRoot, ".signum/proofpack.json"), proofpack)
+  pushSignumProgressEvent(ctx, "Proofpack assembled")
 
   setSignumStatus(ctx, "pack anti-entropy")
+  setSignumProgress(ctx, "pack", "anti-entropy", "Running anti-entropy checks")
   await withSignumHeartbeat(ctx, "pack", "anti-entropy", () => runPackAntiEntropy(pi, projectRoot))
 
   setSignumStatus(ctx, "pack index")
+  setSignumProgress(ctx, "pack", "index", "Updating proofpack index")
   await withSignumHeartbeat(ctx, "pack", "index", () => appendProofpackIndex(pi, projectRoot))
 
   setSignumStatus(ctx, "pack sync")
+  setSignumProgress(ctx, "pack", "sync", "Syncing contract artifacts")
   await withSignumHeartbeat(ctx, "pack", "sync", async () => {
     await syncContractArtifacts(projectRoot, updatedContract.contractId)
     await markContractCompleted(projectRoot, updatedContract.contractId)

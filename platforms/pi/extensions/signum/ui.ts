@@ -8,6 +8,17 @@ interface SignumHeartbeatController {
   stop(): void
 }
 
+interface SignumProgressState {
+  phase: string
+  milestone: string
+  startedAt: number
+  recentEvents: string[]
+}
+
+const signumProgressState = new WeakMap<ExtensionCommandContext, SignumProgressState>()
+const SIGNUM_RECENT_EVENT_LIMIT = 5
+const SIGNUM_PROGRESS_WIDGET_ID = "signum-progress"
+
 export function setSignumStatus(ctx: ExtensionCommandContext, text?: string) {
   if (!ctx.hasUI) return
 
@@ -22,6 +33,40 @@ export function setSignumStatus(ctx: ExtensionCommandContext, text?: string) {
   ctx.ui.setStatus("signum", `${prefix}${body}`)
 }
 
+export function clearSignumProgress(ctx: ExtensionCommandContext) {
+  signumProgressState.delete(ctx)
+  if (ctx.hasUI) {
+    ctx.ui.setWidget(SIGNUM_PROGRESS_WIDGET_ID, undefined)
+    ctx.ui.setStatus("signum", undefined)
+  }
+}
+
+export function setSignumProgress(ctx: ExtensionCommandContext, phase: string, milestone: string, event?: string) {
+  const previous = signumProgressState.get(ctx)
+  const next: SignumProgressState = {
+    phase,
+    milestone,
+    startedAt: previous?.phase === phase ? previous.startedAt : Date.now(),
+    recentEvents: [...(previous?.recentEvents ?? [])],
+  }
+
+  if (event) {
+    next.recentEvents.push(event)
+    next.recentEvents = next.recentEvents.slice(-SIGNUM_RECENT_EVENT_LIMIT)
+  }
+
+  signumProgressState.set(ctx, next)
+  renderSignumProgress(ctx)
+}
+
+export function pushSignumProgressEvent(ctx: ExtensionCommandContext, event: string) {
+  const current = signumProgressState.get(ctx)
+  if (!current) return
+  current.recentEvents.push(event)
+  current.recentEvents = current.recentEvents.slice(-SIGNUM_RECENT_EVENT_LIMIT)
+  renderSignumProgress(ctx)
+}
+
 export function startSignumHeartbeat(
   ctx: ExtensionCommandContext,
   phase: string,
@@ -32,10 +77,11 @@ export function startSignumHeartbeat(
     return { stop() {} }
   }
 
-  const startedAt = Date.now()
+  setSignumProgress(ctx, phase, milestone, `Milestone: ${phase} ${milestone}`)
   const setHeartbeatStatus = () => {
-    const elapsed = formatHeartbeatElapsed(Date.now() - startedAt)
-    setSignumStatus(ctx, `${phase} ${milestone} · elapsed ${elapsed}`)
+    const state = signumProgressState.get(ctx)
+    if (!state) return
+    renderSignumProgress(ctx)
   }
 
   setHeartbeatStatus()
@@ -59,6 +105,26 @@ export async function withSignumHeartbeat<T>(
   } finally {
     heartbeat.stop()
   }
+}
+
+function renderSignumProgress(ctx: ExtensionCommandContext) {
+  if (!ctx.hasUI) return
+
+  const state = signumProgressState.get(ctx)
+  if (!state) return
+
+  const elapsed = formatHeartbeatElapsed(Date.now() - state.startedAt)
+  const recentEvents = state.recentEvents.length > 0 ? state.recentEvents : ["waiting for update"]
+  const widgetLines = [
+    "Signum",
+    `phase: ${state.phase}`,
+    `milestone: ${state.milestone}`,
+    `elapsed: ${elapsed}`,
+    "recent:",
+    ...recentEvents.map((event) => `- ${event}`),
+  ]
+  ctx.ui.setWidget(SIGNUM_PROGRESS_WIDGET_ID, widgetLines)
+  setSignumStatus(ctx, `${state.phase} ${state.milestone} · elapsed ${elapsed} · recent events ${recentEvents.join(" · ")}`)
 }
 
 function formatHeartbeatElapsed(durationMs: number): string {

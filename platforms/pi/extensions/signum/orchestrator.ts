@@ -13,7 +13,7 @@ import { runExplainPhase } from "./phases/explain.ts"
 import { runInitPhase } from "./phases/init.ts"
 import { runPackPhase } from "./phases/pack.ts"
 import { clearWorkingSet, detectRunState } from "./state.ts"
-import { promptResumeDecision, setSignumStatus } from "./ui.ts"
+import { clearSignumProgress, promptResumeDecision, setSignumProgress, setSignumStatus } from "./ui.ts"
 
 export interface SignumCommandResult {
   kind: string
@@ -45,6 +45,7 @@ export async function runSignumCommand(
     switch (parsed.command.kind) {
       case "explain": {
         setSignumStatus(ctx, "explain")
+        setSignumProgress(ctx, "explain", "foreground")
         const message = await runExplainPhase()
         return {
           kind: "explain",
@@ -55,6 +56,7 @@ export async function runSignumCommand(
       case "init": {
         const projectRoot = parsed.command.projectRoot ?? ctx.cwd
         setSignumStatus(ctx, `init ${projectRoot}`)
+        setSignumProgress(ctx, "init", "foreground")
         const message = await runInitPhase(pi, ctx, parsed.command)
         return {
           kind: "init",
@@ -69,6 +71,7 @@ export async function runSignumCommand(
 
       case "archive": {
         setSignumStatus(ctx, "archive")
+        setSignumProgress(ctx, "archive", "foreground")
         const message = await runArchivePhase(ctx.cwd, parsed.command.contractId)
         return {
           kind: "archive",
@@ -81,6 +84,7 @@ export async function runSignumCommand(
 
       case "close": {
         setSignumStatus(ctx, "close")
+        setSignumProgress(ctx, "close", "foreground")
         const message = await runClosePhase(ctx.cwd, parsed.command.contractId)
         return {
           kind: "close",
@@ -93,6 +97,7 @@ export async function runSignumCommand(
 
       case "task": {
         setSignumStatus(ctx, "task preflight")
+        setSignumProgress(ctx, "task", "preflight", "Foreground pipeline active")
         const runState = await detectRunState(ctx.cwd)
 
         if (runState.kind !== "none") {
@@ -128,6 +133,7 @@ export async function runSignumCommand(
           if (decision === "restart") {
             const cleared = await clearWorkingSet(ctx.cwd)
             setSignumStatus(ctx, "task contract")
+            setSignumProgress(ctx, "contract", "foreground", "Restart selected")
             const contractResult = await runContractPhase(pi, ctx, { task: parsed.command.task })
             if (contractResult.status !== "approved") {
               return {
@@ -153,6 +159,7 @@ export async function runSignumCommand(
             }
 
             setSignumStatus(ctx, "task execute")
+            setSignumProgress(ctx, "execute", "foreground", "Foreground EXECUTE starting")
             const pipelineResult = await runPipelineFromCurrentState(pi, ctx)
             return {
               kind: "task",
@@ -182,6 +189,7 @@ export async function runSignumCommand(
           }
 
           setSignumStatus(ctx, "task execute")
+          setSignumProgress(ctx, "execute", "foreground", "Resuming foreground pipeline")
           const pipelineResult = await runPipelineFromCurrentState(pi, ctx)
           return {
             kind: "task",
@@ -202,6 +210,7 @@ export async function runSignumCommand(
         }
 
         setSignumStatus(ctx, "task contract")
+        setSignumProgress(ctx, "contract", "foreground", "Foreground CONTRACT starting")
         const contractResult = await runContractPhase(pi, ctx, { task: parsed.command.task })
         if (contractResult.status !== "approved") {
           return {
@@ -217,6 +226,7 @@ export async function runSignumCommand(
         }
 
         setSignumStatus(ctx, "task execute")
+        setSignumProgress(ctx, "execute", "foreground", "Foreground EXECUTE starting")
         const pipelineResult = await runPipelineFromCurrentState(pi, ctx)
         return {
           kind: "task",
@@ -240,6 +250,7 @@ export async function runSignumCommand(
       message: `Signum for pi failed: ${message}`,
     }
   } finally {
+    clearSignumProgress(ctx)
     setSignumStatus(ctx, undefined)
   }
 }
@@ -252,6 +263,7 @@ async function runPipelineFromCurrentState(
   const hasSuccessfulExecute = await readExecuteSuccess(projectRoot)
 
   setSignumStatus(ctx, hasSuccessfulExecute ? "task execute reuse" : "task execute")
+  setSignumProgress(ctx, "execute", hasSuccessfulExecute ? "reuse" : "run", hasSuccessfulExecute ? "Reusing prior EXECUTE artifacts" : "Running EXECUTE inline")
   const executeResult = hasSuccessfulExecute
     ? { status: "success" as const, summary: "EXECUTE already completed earlier in this working set. Reusing existing artifacts." }
     : await runExecutePhase(pi, ctx)
@@ -264,6 +276,7 @@ async function runPipelineFromCurrentState(
   }
 
   setSignumStatus(ctx, "task audit")
+  setSignumProgress(ctx, "audit", "run", "Running AUDIT inline")
   const auditResult = await runAuditPhase(pi, ctx)
   if (auditResult.status !== "ok" || !auditResult.decision) {
     return {
@@ -273,6 +286,7 @@ async function runPipelineFromCurrentState(
   }
 
   setSignumStatus(ctx, "task pack")
+  setSignumProgress(ctx, "pack", "run", "Running PACK inline")
   const packResult = await runPackPhase(pi, ctx)
   return {
     summary: [executeResult.summary, "", auditResult.summary, "", packResult.summary].join("\n"),

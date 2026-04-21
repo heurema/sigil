@@ -20,7 +20,7 @@ import {
 import { collectDiffStatus, evaluateVerifySteps } from "./execute.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
 import { toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
-import { setSignumStatus, withSignumHeartbeat } from "../ui.ts"
+import { pushSignumProgressEvent, setSignumProgress, setSignumStatus, withSignumHeartbeat } from "../ui.ts"
 
 interface ContractDocument {
   contractId: string
@@ -131,6 +131,7 @@ export async function runAuditPhase(
 
   for (let iteration = 1; iteration <= iterationsMax; iteration++) {
     setSignumStatus(ctx, `audit iteration ${iteration}/${iterationsMax}`)
+    setSignumProgress(ctx, "audit", `iteration ${iteration}/${iterationsMax}`, `Audit pass ${iteration} started`)
     auditSummary = await withSignumHeartbeat(ctx, "audit", `iteration ${iteration}/${iterationsMax}`, () =>
       runSingleAuditIteration({
         pi,
@@ -182,6 +183,7 @@ export async function runAuditPhase(
       shouldRepair = true
     }
 
+    pushSignumProgressEvent(ctx, `Iteration ${iteration} decision ${auditSummary.decision}`)
     const currentLog = buildAuditIterationLog(auditIterations, iterationsMax, iterationTerminalReason, shouldStop ? earlyStopReason : "")
     const currentAuditSummary = {
       ...auditSummary,
@@ -209,6 +211,7 @@ export async function runAuditPhase(
     }
 
     const repairBrief = buildRepairBrief(contract, auditSummary, iteration + 1, iterationsMax)
+    setSignumProgress(ctx, "audit", `repair ${iteration + 1}/${iterationsMax}`, `Preparing repair brief for next pass`)
     await writeJson(resolve(projectRoot, ".signum/repair_brief.json"), repairBrief)
     setSignumStatus(ctx, `audit repair ${iteration + 1}/${iterationsMax}`)
     const repair = await withSignumHeartbeat(ctx, "audit", `repair ${iteration + 1}/${iterationsMax}`, () =>
@@ -289,16 +292,20 @@ async function runSingleAuditIteration(input: {
   const { pi, ctx, projectRoot, contract, runner, availableModels, semanticModel, iteration, iterationsMax } = input
 
   setSignumStatus(ctx, `audit mechanic ${iteration}/${iterationsMax}`)
+  setSignumProgress(ctx, "audit", "mechanic", `Mechanic checks for iteration ${iteration}`)
   await mkdir(resolve(projectRoot, ".signum", "reviews"), { recursive: true })
   await runRequiredScript(pi, projectRoot, mechanicParserScriptPath, [".signum/baseline.json"], "mechanic parser")
 
   setSignumStatus(ctx, `audit policy ${iteration}/${iterationsMax}`)
+  setSignumProgress(ctx, "audit", "policy", `Policy scan for iteration ${iteration}`)
   await runScriptAllowFailure(pi, projectRoot, policyScannerScriptPath, [".signum/combined.patch"])
 
   setSignumStatus(ctx, `audit holdout ${iteration}/${iterationsMax}`)
+  setSignumProgress(ctx, "audit", "holdout", `Running holdout validation for iteration ${iteration}`)
   const holdoutReport = await runHoldoutValidation(pi, projectRoot, contract)
 
   setSignumStatus(ctx, `audit review context ${iteration}/${iterationsMax}`)
+  setSignumProgress(ctx, "audit", "review context", `Preparing reviewer context for iteration ${iteration}`)
   await writeReviewContext(pi, projectRoot)
 
   const reviewPlans = buildReviewPlan(contract.riskLevel, availableModels, semanticModel)
@@ -350,6 +357,7 @@ async function runSingleAuditIteration(input: {
   const executeReceipt = await readOptionalJson<ExecuteReceipt>(resolve(projectRoot, ".signum/receipts/execute.json"))
 
   setSignumStatus(ctx, `audit synthesize ${iteration}/${iterationsMax}`)
+  setSignumProgress(ctx, "audit", "synthesize", `Synthesizing reviewer outputs for iteration ${iteration}`)
   const synthOpinion = await runSynthesizer(runner, ctx, projectRoot)
   return buildAuditSummary({
     contract,

@@ -18,10 +18,17 @@ const [uiSource, orchestratorSource, contractSource, executeSource, auditSource,
 ])
 
 assert.match(uiSource, /elapsed/)
+assert.match(uiSource, /(recent|events?)/)
+assert.match(uiSource, /(phase|milestone)/)
 assert.match(uiSource, /setStatus|heartbeat/)
-assert.doesNotMatch(uiSource, /tool log|per-tool/)
+assert.match(uiSource, /setWidget/)
+assert.match(uiSource, /SIGNUM_PROGRESS_WIDGET_ID/)
+assert.doesNotMatch(uiSource, /tool log|per-tool|every tool event|low-level log line/)
+assert.match(uiSource, /ctx\.ui\.setWidget\(SIGNUM_PROGRESS_WIDGET_ID, widgetLines\)/)
+assert.match(uiSource, /clearSignumProgress[\s\S]{0,200}ctx\.ui\.setWidget\(SIGNUM_PROGRESS_WIDGET_ID, undefined\)/)
+assert.doesNotMatch(uiSource, /ctx\.ui\.custom\(|main-window widget[\s\S]{0,80}custom/)
 
-for (const token of ['preflight', 'contract', 'execute', 'audit', 'pack']) {
+for (const token of ['preflight', 'contract', 'execute', 'audit', 'pack', 'foreground']) {
   assert.match(orchestratorSource, new RegExp(token))
 }
 assert.doesNotMatch(orchestratorSource, /background job|queueWorker|detached/)
@@ -31,9 +38,9 @@ for (const token of ['workspace', 'contractor', 'validation', 'deterministic', '
 }
 assert.match(contractSource, new RegExp(String.raw`emitSignumMessage\([\s\S]{0,1200}runContractor\(`))
 
-assert.match(executeSource, /execute/)
-assert.match(auditSource, /audit/)
-assert.match(packSource, /pack/)
+assert.match(executeSource, /(setSignumProgress|pushSignumProgressEvent|milestone|heartbeat)/)
+assert.match(auditSource, /(setSignumProgress|pushSignumProgressEvent|milestone|heartbeat)/)
+assert.match(packSource, /(setSignumProgress|pushSignumProgressEvent|milestone|heartbeat)/)
 
 console.log('PASS: pi progress visibility')
 EOF
