@@ -25,6 +25,7 @@ review_cadence: monthly
 | Root anti-entropy / RECONCILE design | `docs/plans/2026-04-10-root-anti-entropy-reconcile-design.md` | active | Current recommendation: report-only anti-entropy first, no root Phase 5 mutation |
 | Thin CLI extraction | `docs/thin-cli-extraction-plan.md` | active | Tracks deterministic-core extraction to Rust / `signum-core` |
 | Iterative audit behavior | `docs/plans/2026-03-15-iterative-audit-design.md` | active | Design reference for review/fix loop behavior |
+| pi native integration | `docs/plans/2026-04-20-pi-native-integration-plan.md` | active | MVP shipped in repo overlay; current follow-up is docs, tests, and release hardening |
 
 ## Recent Resolved Planning Debt
 - Canonical source policy is now documented in `docs/reference.md`.
@@ -38,6 +39,7 @@ review_cadence: monthly
 - Implement the first report-only anti-entropy artifact without changing the canonical root phase model.
 - Extend thin-cli planning from extraction inventory to a stable protocol/event model for `signum-core`.
 - Decide whether `README.md` and `CHANGELOG.md` need an immediate sync pass for `init --harness`.
+- Finish Slice 6 for pi-native `/signum`: root docs sync, full-pipeline smoke coverage, and release hardening.
 
 ## Archive Rules
 - Keep active planning docs under `docs/plans/`.
