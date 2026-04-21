@@ -74,7 +74,7 @@ assert.equal(contract.acceptanceCriteria[0].verify.timeout_ms, 30000)
 assert.equal(contract.holdoutScenarios[0].verify.steps[0].type, 'gitDiffFiles')
 assert.equal(contract.holdoutScenarios[0].verify.timeout_ms, 10)
 
-const brittleIssues = collectPiContractVerifyIssues({
+const brittleContract = normalizeContractForPiRuntime({
   acceptanceCriteria: [
     {
       id: 'AC9',
@@ -89,10 +89,12 @@ const brittleIssues = collectPiContractVerifyIssues({
     },
   ],
 })
-assert.equal(brittleIssues.length, 3)
-assert.match(brittleIssues[0], /AC9/)
-assert.match(brittleIssues[1], /holdout|engineer-facing/i)
-assert.match(brittleIssues[2], /explicit file\/path assertions/i)
+assert.equal(brittleContract.acceptanceCriteria[0].verify.steps.length, 1)
+assert.equal(brittleContract.acceptanceCriteria[0].verify.steps[0].type, 'assertSemanticAlignment')
+
+const brittleIssues = collectPiContractVerifyIssues(brittleContract)
+assert.equal(brittleIssues.length, 1)
+assert.match(brittleIssues[0], /explicit file\/path assertions/i)
 
 console.log('PASS: pi verify normalizer')
 EOF

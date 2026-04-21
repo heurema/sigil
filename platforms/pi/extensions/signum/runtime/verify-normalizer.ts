@@ -54,7 +54,7 @@ export function normalizeVerifyForPiRuntime(verify: unknown): unknown {
 
   return {
     ...record,
-    steps: record.steps.map((step) => normalizeStep(step)),
+    steps: record.steps.map((step) => normalizeStep(step)).filter((step) => !isSanitizedAway(step)),
     timeout_ms:
       typeof record.timeout_ms === "number" && Number.isFinite(record.timeout_ms) && record.timeout_ms > 0
         ? record.timeout_ms
@@ -72,6 +72,14 @@ export function collectPiContractVerifyIssues(contract: ContractLike): string[] 
     const criterionId = typeof criterion.id === "string" && criterion.id ? criterion.id : "unknown"
     const verify = criterion.verify as VerifyBlock | undefined
     const steps = Array.isArray(verify?.steps) ? verify.steps : []
+
+    if (steps.length === 0) {
+      issues.push({
+        criterionId,
+        message: `${criterionId}: verify.steps must not be empty after pi normalization`,
+      })
+      continue
+    }
 
     for (const rawStep of steps) {
       if (!rawStep || typeof rawStep !== "object") continue
@@ -191,6 +199,18 @@ function normalizeStep(step: unknown): unknown {
   }
 
   return record
+}
+
+function isSanitizedAway(step: unknown): boolean {
+  if (!step || typeof step !== "object") return false
+  const record = step as Record<string, unknown>
+  const type = typeof record.type === "string" ? record.type.toLowerCase().replace(/[-_]/g, "") : ""
+  if (!["assertnotcontains", "assertnotcontainsany"].includes(type)) return false
+
+  const path = typeof record.path === "string" ? record.path : ""
+  if (!isImplementationSourcePath(path)) return false
+
+  return collectStepTexts(record).some((text) => BRITTLE_SECRECY_PATTERN.test(text) || BRITTLE_LITERAL_PATTERN.test(text))
 }
 
 function normalizeType(value: unknown): string | undefined {
