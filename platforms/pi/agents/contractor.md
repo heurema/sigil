@@ -78,7 +78,9 @@ Also include when possible:
 - Prefer exact file/path assertions over vague semantic-only checks when possible
 - When using `assertMatches`, provide a concrete `path` for file-content matching or `valueFrom: "stdout"` for command output matching
 - For secrecy requirements, target engineer-facing repair inputs or repair-brief generation specifically; do not forbid unrelated audit/synthesizer code from reading holdout artifacts when that is not exposed to the engineer
+- Do not write assertions that ban generic identifiers like `holdoutScenarios` from audit implementation files; instead assert that engineer-facing prompts/briefs do not embed holdout definitions or raw holdout payloads
 - For path-construction checks in TypeScript, avoid brittle exact-string expectations when code may use `resolve(..., ".signum", "iterations")`; prefer regexes that match the stable path fragments instead
+- When checking persistence paths, prefer stable fragments like `audit_iteration_log`, `repair_brief`, or `iterations` instead of exact full string literals when implementation may compose paths dynamically
 - Use `text` for string assertions instead of mixing `text` and `value` unless a scalar equality check is intended
 - Use negative AC language where appropriate (`must not`, `reject`, `prevent`, `fail`) so the contract can be tested robustly
 
