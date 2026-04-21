@@ -1,5 +1,7 @@
 import { posix } from "node:path"
 
+import { compilePortableRegex } from "./portable-regex.ts"
+
 interface VerifyStep {
   type?: unknown
   [key: string]: unknown
@@ -104,6 +106,17 @@ export function collectPiContractVerifyIssues(contract: ContractLike): string[] 
           criterionId,
           message: `${criterionId}: avoid ${type}; use explicit file/path assertions in the pi verify dialect`,
         })
+      }
+
+      if (normalizedType === "assertmatches" && typeof step.pattern === "string") {
+        try {
+          compilePortableRegex(step.pattern, { defaultFlags: "m" })
+        } catch (error) {
+          issues.push({
+            criterionId,
+            message: `${criterionId}: assertMatches pattern is not portable to the pi runtime (${error instanceof Error ? error.message : String(error)})`,
+          })
+        }
       }
 
       if (referencesLatePhaseArtifact(step)) {

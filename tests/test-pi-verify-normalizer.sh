@@ -108,5 +108,21 @@ assert.equal(analysis.errors.length, 2)
 assert.match(analysis.warnings[0], /meta-task profile active/i)
 assert.match(analysis.warnings[1], /sanitized 2 brittle visible verify step/i)
 
+const invalidRegexIssues = collectPiContractVerifyIssues(normalizeContractForPiRuntime({
+  acceptanceCriteria: [
+    {
+      id: 'AC10',
+      visibility: 'visible',
+      verify: {
+        steps: [
+          { type: 'assertMatches', path: 'README.md', pattern: '(?x)greet\\(' },
+        ],
+      },
+    },
+  ],
+}))
+assert.equal(invalidRegexIssues.length, 1)
+assert.match(invalidRegexIssues[0], /not portable to the pi runtime/i)
+
 console.log('PASS: pi verify normalizer')
 EOF

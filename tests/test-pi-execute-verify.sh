@@ -50,6 +50,7 @@ assert.equal(classifyVerifyStrength({ steps: [{ type: 'run', command: 'echo ok' 
 
 const projectRoot = await mkdtemp(join(tmpdir(), 'signum-execute-verify-'))
 await writeFile(join(projectRoot, 'sample.txt'), 'iterative audit metadata\n', 'utf8')
+await writeFile(join(projectRoot, 'multiline.txt'), '## Usage\n\nconsole.log(greet("World"))\n', 'utf8')
 
 const ok = await evaluateVerifySteps(projectRoot, {
   steps: [
@@ -92,6 +93,13 @@ const equalsStdout = await evaluateVerifySteps(projectRoot, {
   exec: async (_cmd, _args, _opts) => ({ code: 0, stdout: 'stable', stderr: '' }),
 })
 assert.equal(equalsStdout.exitCode, 0)
+
+const dotAll = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'assertMatches', path: 'multiline.txt', pattern: '(?s)(Usage|Example).*(greet\\s*\\()' },
+  ],
+}, [])
+assert.equal(dotAll.exitCode, 0)
 
 console.log('PASS: pi execute verify classification')
 EOF

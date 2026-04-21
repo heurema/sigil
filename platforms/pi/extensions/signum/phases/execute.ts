@@ -8,6 +8,7 @@ import { selectRoleModel } from "../models.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
 import { sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { createPolicyAwareEngineerTools, deriveExecutionPolicy } from "../runtime/policy-tools.ts"
+import { compilePortableRegex } from "../runtime/portable-regex.ts"
 import { setSignumStatus } from "../ui.ts"
 
 interface ExecuteResult {
@@ -653,7 +654,7 @@ export async function evaluateVerifySteps(
                 : typeof step.value === "string"
                   ? step.value
                   : ""
-          const regex = new RegExp(step.pattern, "m")
+          const regex = compilePortableRegex(step.pattern, { defaultFlags: "m" })
           if (!regex.test(source)) {
             return fail("assert_failed", `FAIL: pattern ${step.pattern} did not match ${JSON.stringify(source)}`)
           }
