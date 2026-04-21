@@ -1,0 +1,27 @@
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+
+const moduleDir = dirname(fileURLToPath(import.meta.url))
+
+export const signumPackageRoot = resolve(moduleDir, "../../../../")
+export const packageJsonPath = resolve(signumPackageRoot, "package.json")
+export const piAgentsRoot = resolve(signumPackageRoot, "platforms/pi/agents")
+export const initSynthesizerPromptPath = resolve(signumPackageRoot, "agents/init-synthesizer.md")
+export const initScannerScriptPath = resolve(signumPackageRoot, "lib/init-scanner.sh")
+export const initHarnessScaffoldScriptPath = resolve(signumPackageRoot, "lib/init-harness-scaffold.sh")
+export const contractInjectionScanScriptPath = resolve(signumPackageRoot, "lib/contract-injection-scan.sh")
+export const glossaryCheckScriptPath = resolve(signumPackageRoot, "lib/glossary-check.sh")
+export const terminologyCheckScriptPath = resolve(signumPackageRoot, "lib/terminology-check.sh")
+export const overlapCheckScriptPath = resolve(signumPackageRoot, "lib/overlap-check.sh")
+export const assumptionCheckScriptPath = resolve(signumPackageRoot, "lib/assumption-check.sh")
+export const adrCheckScriptPath = resolve(signumPackageRoot, "lib/adr-check.sh")
+export const proseCheckScriptPath = resolve(signumPackageRoot, "lib/prose-check.sh")
+export const stalenessCheckScriptPath = resolve(signumPackageRoot, "lib/staleness-check.sh")
+export const dslRunnerScriptPath = resolve(signumPackageRoot, "lib/dsl-runner.sh")
+export const mechanicParserScriptPath = resolve(signumPackageRoot, "lib/mechanic-parser.sh")
+export const policyScannerScriptPath = resolve(signumPackageRoot, "lib/policy-scanner.sh")
+export const snapshotTreeScriptPath = resolve(signumPackageRoot, "lib/snapshot-tree.sh")
+export const boundaryVerifierScriptPath = resolve(signumPackageRoot, "lib/boundary-verifier.sh")
+export const transitionVerifierScriptPath = resolve(signumPackageRoot, "lib/transition-verifier.sh")
+export const packAntiEntropyScriptPath = resolve(signumPackageRoot, "lib/pack-anti-entropy.sh")
+export const proofpackIndexScriptPath = resolve(signumPackageRoot, "lib/proofpack-index.sh")
