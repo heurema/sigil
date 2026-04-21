@@ -37,12 +37,20 @@ fi
 
 node --input-type=module - <<'EOF'
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
+import { runSingleHoldout } from './platforms/pi/extensions/signum/phases/audit.ts'
 import {
   buildAuditIterationLog,
   buildIterativeAuditProofpackSummary,
   computeAuditIterationScore,
   sanitizeRepairText,
 } from './platforms/pi/extensions/signum/runtime/audit-iterations.ts'
+
+const execFileAsync = promisify(execFile)
 
 assert.equal(computeAuditIterationScore({
   findingsCount: { critical: 0, major: 1, minor: 2 },
@@ -99,6 +107,44 @@ assert.equal(proofpackSummary.resolvedFindings.length, 1)
 assert.equal(proofpackSummary.resolvedFindings[0].fingerprint, 'abc12345')
 assert.equal(proofpackSummary.remainingFindings.length, 1)
 assert.equal(proofpackSummary.remainingFindings[0].fingerprint, 'def67890')
+
+const gitRoot = await mkdtemp(join(tmpdir(), 'signum-audit-holdout-'))
+await writeFile(join(gitRoot, 'README.md'), '# Demo\n', 'utf8')
+await mkdir(join(gitRoot, 'tests'), { recursive: true })
+await execFileAsync('git', ['init', '-q'], { cwd: gitRoot })
+await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: gitRoot })
+await execFileAsync('git', ['config', 'user.name', 'test'], { cwd: gitRoot })
+await execFileAsync('git', ['add', 'README.md'], { cwd: gitRoot })
+await execFileAsync('git', ['commit', '-qm', 'init'], { cwd: gitRoot })
+await writeFile(join(gitRoot, 'README.md'), '# Demo\n\nupdated\n', 'utf8')
+await writeFile(join(gitRoot, 'tests', 'self-hosted.sh'), '#!/usr/bin/env bash\n', 'utf8')
+
+const execAdapter = {
+  exec: async (cmd, args, opts = {}) => {
+    try {
+      const { stdout, stderr } = await execFileAsync(cmd, args, {
+        cwd: opts.cwd,
+        timeout: opts.timeout,
+      })
+      return { code: 0, stdout, stderr }
+    } catch (error) {
+      return {
+        code: error.code ?? 1,
+        stdout: error.stdout ?? '',
+        stderr: error.stderr ?? String(error),
+      }
+    }
+  },
+}
+
+const holdoutPass = await runSingleHoldout(execAdapter, gitRoot, 'H1', 'typed holdout', {
+  steps: [
+    { type: 'assertContains', path: 'README.md', text: 'updated' },
+    { type: 'assertOnlyPathsChanged', paths: ['README.md', 'tests/'] },
+  ],
+})
+assert.equal(holdoutPass.status, 'PASS')
+assert.equal(holdoutPass.error, null)
 
 console.log('PASS: pi audit iterations')
 EOF

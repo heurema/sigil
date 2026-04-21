@@ -42,7 +42,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { classifyVerifyStrength, collectDiffStatus, evaluateVerifySteps } from './platforms/pi/extensions/signum/phases/execute.ts'
+import { buildCombinedPatch, classifyVerifyStrength, collectDiffStatus, evaluateVerifySteps } from './platforms/pi/extensions/signum/phases/execute.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -138,6 +138,10 @@ assert.deepEqual(diffStatus.added, ['tests/self-hosted.sh'])
 assert.deepEqual(diffStatus.modified, ['README.md'])
 assert.equal(diffStatus.statusByPath.get('tests/self-hosted.sh'), 'A')
 assert.equal(diffStatus.statusByPath.get('README.md'), 'M')
+
+const combinedPatch = await buildCombinedPatch(execAdapter, gitRoot)
+assert.match(combinedPatch, /README\.md/)
+assert.match(combinedPatch, /tests\/self-hosted\.sh/)
 
 console.log('PASS: pi execute verify classification')
 EOF

@@ -1,12 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
 import { createHash } from "node:crypto"
-import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent"
 import type { Model } from "@mariozechner/pi-ai"
 
-import { dslRunnerScriptPath, mechanicParserScriptPath, policyScannerScriptPath } from "../paths.ts"
+import { mechanicParserScriptPath, policyScannerScriptPath } from "../paths.ts"
 import { selectRoleModel, type SignumRole } from "../models.ts"
 import {
   buildAuditIterationLog,
@@ -18,6 +17,7 @@ import {
   type AuditIterationFinding,
   type AuditIterationLogEntry,
 } from "../runtime/audit-iterations.ts"
+import { collectDiffStatus, evaluateVerifySteps } from "./execute.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
 import { toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { setSignumStatus } from "../ui.ts"
@@ -580,40 +580,39 @@ async function runHoldoutValidation(pi: ExtensionAPI, projectRoot: string, contr
   return report
 }
 
-async function runSingleHoldout(
+export async function runSingleHoldout(
   pi: ExtensionAPI,
   projectRoot: string,
   id: string,
   description: string,
   verify: unknown,
 ): Promise<HoldoutReport["results"][number]> {
-  const tempDir = await mkdtemp(join(tmpdir(), "signum-holdout-"))
-  const verifyPath = join(tempDir, `${id}.json`)
+  if (!verify || typeof verify !== "object" || !Array.isArray((verify as { steps?: unknown[] }).steps)) {
+    return { id, description, status: "ERROR", error: "holdout verify is missing supported steps" }
+  }
 
-  try {
-    await writeFile(verifyPath, `${JSON.stringify(verify ?? null, null, 2)}\n`, "utf8")
-    const validate = await pi.exec("bash", [dslRunnerScriptPath, "validate", verifyPath], {
-      cwd: projectRoot,
-      timeout: 30_000,
-    })
-    if (validate.code !== 0) {
-      return { id, description, status: "ERROR", error: "DSL validation failed" }
-    }
+  const diffStatus = await collectDiffStatus(pi, projectRoot, [])
+  const evaluation = await evaluateVerifySteps(projectRoot, verify as { steps: unknown[] }, diffStatus.changed, pi)
+  const trimmedOutput = evaluation.output.trim()
 
-    const run = await pi.exec("bash", [dslRunnerScriptPath, "run", verifyPath], {
-      cwd: projectRoot,
-      timeout: 60_000,
-    })
-    const parsed = extractJsonObject(run.stdout) ?? extractJsonObject(run.stderr)
-    const status = typeof parsed?.status === "string" ? parsed.status.toUpperCase() : run.code === 0 ? "PASS" : "ERROR"
+  if (evaluation.exitCode === 0) {
+    return { id, description, status: "PASS", error: null }
+  }
+
+  if (["assert_failed", "command_failed"].includes(evaluation.reason)) {
     return {
       id,
       description,
-      status: status === "PASS" || status === "FAIL" ? status : "ERROR",
-      error: typeof parsed?.error === "string" && parsed.error.length > 0 ? parsed.error : null,
+      status: "FAIL",
+      error: trimmedOutput.length > 0 ? trimmedOutput : null,
     }
-  } finally {
-    await rm(tempDir, { recursive: true, force: true })
+  }
+
+  return {
+    id,
+    description,
+    status: "ERROR",
+    error: trimmedOutput.length > 0 ? trimmedOutput : evaluation.reason,
   }
 }
 

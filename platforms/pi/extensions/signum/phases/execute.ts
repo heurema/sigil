@@ -930,16 +930,49 @@ export async function runTransitionVerification(pi: ExtensionAPI, projectRoot: s
   }
 }
 
-export async function buildCombinedPatch(pi: ExtensionAPI, projectRoot: string): Promise<string> {
-  const gitDiff = await pi.exec("git", ["diff", "--", ".", ":(exclude).signum"], { timeout: 30 })
-  if (gitDiff.code === 0 && gitDiff.stdout.trim().length > 0) {
-    return gitDiff.stdout
+export async function buildCombinedPatch(pi: Pick<ExtensionAPI, "exec">, projectRoot: string): Promise<string> {
+  const gitDiff = await pi.exec("git", ["diff", "--", ".", ":(exclude).signum"], {
+    cwd: projectRoot,
+    timeout: 30_000,
+  })
+  const untrackedPatch = await buildUntrackedPatch(pi, projectRoot)
+  const combined = [gitDiff.stdout, untrackedPatch].filter((value) => value.trim().length > 0).join("\n")
+  if (combined.trim().length > 0) {
+    return combined
   }
 
   const afterDir = resolve(projectRoot, ".signum/snapshots/execute-after")
   await snapshotProjectTree(projectRoot, afterDir)
-  const fallback = await pi.exec("diff", ["-ruN", resolve(projectRoot, ".signum/snapshots/execute-before"), afterDir], { timeout: 30 })
+  const fallback = await pi.exec("diff", ["-ruN", resolve(projectRoot, ".signum/snapshots/execute-before"), afterDir], {
+    cwd: projectRoot,
+    timeout: 30_000,
+  })
   return [fallback.stdout, fallback.stderr].filter(Boolean).join("\n")
+}
+
+async function buildUntrackedPatch(pi: Pick<ExtensionAPI, "exec">, projectRoot: string): Promise<string> {
+  const status = await pi.exec("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", ".", ":(exclude).signum"], {
+    cwd: projectRoot,
+    timeout: 30_000,
+  })
+  if (status.code !== 0 || status.stdout.trim().length === 0) {
+    return ""
+  }
+
+  const patches: string[] = []
+  for (const line of status.stdout.split(/\r?\n/)) {
+    if (!line.startsWith("?? ")) continue
+    const path = line.slice(3).trim()
+    if (!path) continue
+    const patch = await pi.exec("git", ["diff", "--no-index", "--", "/dev/null", path], {
+      cwd: projectRoot,
+      timeout: 30_000,
+    })
+    const text = [patch.stdout, patch.stderr].filter(Boolean).join("\n").trim()
+    if (text) patches.push(text)
+  }
+
+  return patches.join("\n")
 }
 
 async function snapshotProjectTree(projectRoot: string, destinationRoot: string) {
