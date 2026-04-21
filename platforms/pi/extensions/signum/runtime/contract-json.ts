@@ -12,9 +12,10 @@ export function parsePossiblyBrokenJsonObject(text: string): Record<string, unkn
 export function escapeControlCharactersInStrings(text: string): string {
   let output = ""
   let inString = false
-  let escaped = false
 
-  for (const char of text) {
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+
     if (!inString) {
       output += char
       if (char === '"') {
@@ -23,21 +24,32 @@ export function escapeControlCharactersInStrings(text: string): string {
       continue
     }
 
-    if (escaped) {
+    if (char === '"') {
       output += char
-      escaped = false
+      inString = false
       continue
     }
 
     if (char === "\\") {
-      output += char
-      escaped = true
-      continue
-    }
+      const next = text[index + 1]
+      if (!next) {
+        output += "\\\\"
+        continue
+      }
 
-    if (char === '"') {
-      output += char
-      inString = false
+      if (/["\\/bfnrt]/.test(next)) {
+        output += `\\${next}`
+        index += 1
+        continue
+      }
+
+      if (next === "u" && /^[0-9a-fA-F]{4}$/.test(text.slice(index + 2, index + 6))) {
+        output += text.slice(index, index + 6)
+        index += 5
+        continue
+      }
+
+      output += "\\\\"
       continue
     }
 
