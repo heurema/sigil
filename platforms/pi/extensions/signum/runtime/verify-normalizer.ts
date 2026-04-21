@@ -21,6 +21,11 @@ interface ContractLike {
   [key: string]: unknown
 }
 
+interface VerifyLintIssue {
+  criterionId: string
+  message: string
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000
 
 export function normalizeContractForPiRuntime<T extends ContractLike>(contract: T): T {
@@ -55,6 +60,58 @@ export function normalizeVerifyForPiRuntime(verify: unknown): unknown {
         ? record.timeout_ms
         : DEFAULT_TIMEOUT_MS,
   }
+}
+
+export function collectPiContractVerifyIssues(contract: ContractLike): string[] {
+  const issues: VerifyLintIssue[] = []
+  const visibleCriteria = Array.isArray(contract.acceptanceCriteria)
+    ? contract.acceptanceCriteria.filter((criterion) => (criterion.visibility ?? "visible") !== "holdout")
+    : []
+
+  for (const criterion of visibleCriteria) {
+    const criterionId = typeof criterion.id === "string" && criterion.id ? criterion.id : "unknown"
+    const verify = criterion.verify as VerifyBlock | undefined
+    const steps = Array.isArray(verify?.steps) ? verify.steps : []
+
+    for (const rawStep of steps) {
+      if (!rawStep || typeof rawStep !== "object") continue
+      const step = rawStep as Record<string, unknown>
+      const type = typeof step.type === "string" ? step.type : ""
+      const normalizedType = type.toLowerCase().replace(/[-_]/g, "")
+      const path = typeof step.path === "string" ? step.path : ""
+      const texts = collectStepTexts(step)
+
+      if (["assertreferencematchesimplementation", "assertsemanticalignment", "assertsemanticconsistency"].includes(normalizedType)) {
+        issues.push({
+          criterionId,
+          message: `${criterionId}: avoid ${type}; use explicit file/path assertions in the pi verify dialect`,
+        })
+      }
+
+      if (!isImplementationSourcePath(path)) continue
+
+      if (["assertnotcontains", "assertnotcontainsany"].includes(normalizedType)) {
+        for (const text of texts) {
+          if (BRITTLE_SECRECY_PATTERN.test(text)) {
+            issues.push({
+              criterionId,
+              message: `${criterionId}: do not ban generic holdout or contract identifiers in implementation source; target engineer-facing repair inputs instead`,
+            })
+            break
+          }
+          if (BRITTLE_LITERAL_PATTERN.test(text)) {
+            issues.push({
+              criterionId,
+              message: `${criterionId}: avoid brittle exact source-literal checks like ${JSON.stringify(text)}`,
+            })
+            break
+          }
+        }
+      }
+    }
+  }
+
+  return issues.map((issue) => issue.message)
 }
 
 export function normalizeScopeList(value: unknown, options: { directoriesOnly?: boolean } = {}): unknown {
@@ -142,6 +199,21 @@ function normalizeType(value: unknown): string | undefined {
   return TYPE_ALIASES[key] ?? value
 }
 
+function collectStepTexts(step: Record<string, unknown>): string[] {
+  const texts: string[] = []
+  if (typeof step.text === "string") texts.push(step.text)
+  if (typeof step.value === "string") texts.push(step.value)
+  if (Array.isArray(step.texts)) {
+    texts.push(...step.texts.filter((value): value is string => typeof value === "string"))
+  }
+  return texts
+}
+
+function isImplementationSourcePath(path: string): boolean {
+  const normalized = path.replace(/^\.\//, "")
+  return /\.(?:ts|tsx|js|jsx|mjs|cjs|py|sh)$/.test(normalized)
+}
+
 function extractPathCandidates(text: string): string[] {
   const pattern = /(?:\.?\/?[A-Za-z0-9_@-]+(?:\/[A-Za-z0-9_.@-]+)+\/?|\.?\/?[A-Za-z0-9_@-]+\/|[A-Za-z0-9_.@-]+\.[A-Za-z0-9]+)/g
   return [...text.matchAll(pattern)].map((match) => match[0])
@@ -184,6 +256,9 @@ function looksLikeFilePath(value: string): boolean {
 function looksLikePath(value: string): boolean {
   return /[/.]/.test(value) && !/^\.[A-Za-z0-9]+$/.test(value) && !/\s/.test(value)
 }
+
+const BRITTLE_SECRECY_PATTERN = /(?:\bholdoutScenarios\b|\bcontract\.holdoutScenarios\b|Read\s+\.signum\/(?:contract|holdout_report)\.json|\.signum\/(?:contract|holdout_report)\.json)/i
+const BRITTLE_LITERAL_PATTERN = /iterativeAuditMode\s*:\s*["']single-pass["']/i
 
 const TYPE_ALIASES: Record<string, string> = {
   readfile: "readFile",

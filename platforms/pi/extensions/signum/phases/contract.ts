@@ -24,7 +24,7 @@ import {
 } from "../runtime/script-adapters/contract-dir.ts"
 import { runJsonScript, runTextScript, sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
-import { normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
+import { collectPiContractVerifyIssues, normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
 import { emitSignumMessage, setSignumStatus } from "../ui.ts"
 
 interface ContractRunOptions {
@@ -50,6 +50,11 @@ interface ContractDocument {
   contextInheritance?: Record<string, unknown>
   readinessForPlanning?: { verdict?: string; summary?: string }
   [key: string]: unknown
+}
+
+interface ContractReadResult {
+  contract: ContractDocument | null
+  errors: string[]
 }
 
 interface SpecQuality {
@@ -115,10 +120,11 @@ export async function runContractPhase(
   } catch (error) {
     throw new Error(`Contractor role session failed on first attempt: ${error instanceof Error ? error.message : String(error)}`)
   }
-  let contract = await readAndValidateContract(projectRoot)
-  if (!contract) {
-    contract = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
+  let contractRead = await readAndValidateContract(projectRoot)
+  if (!contractRead.contract) {
+    contractRead = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
   }
+  let contract = contractRead.contract
 
   if (!contract) {
     const fallbackModel = selectRoleModel("contractor", {
@@ -127,22 +133,22 @@ export async function runContractPhase(
       preferredModelId: promptAsset.preferredModelId,
       preferFallback: true,
     })
-
-    if (!fallbackModel || `${fallbackModel.provider}/${fallbackModel.id}` === `${firstModel.provider}/${firstModel.id}`) {
-      throw new Error(`Contractor agent failed to produce a valid contract.json on the first attempt.${formatContractorFailure(contractorResult)}`)
-    }
+    const retryModel =
+      fallbackModel && `${fallbackModel.provider}/${fallbackModel.id}` !== `${firstModel.provider}/${firstModel.id}` ? fallbackModel : firstModel
+    const retryPrompt = buildContractValidationRetryPrompt(basePrompt, contractRead.errors)
 
     try {
-      contractorResult = await runContractor(runner, projectRoot, fallbackModel, basePrompt)
+      contractorResult = await runContractor(runner, projectRoot, retryModel, retryPrompt)
     } catch (error) {
-      throw new Error(`Contractor role session failed on fallback attempt: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Contractor role session failed on retry attempt: ${error instanceof Error ? error.message : String(error)}`)
     }
-    contract = await readAndValidateContract(projectRoot)
-    if (!contract) {
-      contract = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
+    contractRead = await readAndValidateContract(projectRoot)
+    if (!contractRead.contract) {
+      contractRead = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
     }
+    contract = contractRead.contract
     if (!contract) {
-      throw new Error(`Contractor agent failed to produce a valid contract.json on both attempts.${formatContractorFailure(contractorResult)}`)
+      throw new Error(`Contractor agent failed to produce a valid contract.json after retry.${formatContractorFailure(contractorResult)}${formatContractValidationErrors(contractRead.errors)}`)
     }
   }
 
@@ -192,12 +198,13 @@ export async function runContractPhase(
     } catch (error) {
       throw new Error(`Contractor role session failed during holdout retry: ${error instanceof Error ? error.message : String(error)}`)
     }
-    contract = await readAndValidateContract(projectRoot)
-    if (!contract) {
-      contract = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
+    contractRead = await readAndValidateContract(projectRoot)
+    if (!contractRead.contract) {
+      contractRead = await salvageContractFromFinalText(projectRoot, contractorResult.finalText)
     }
+    contract = contractRead.contract
     if (!contract) {
-      throw new Error(`Contractor retry for holdout generation produced an invalid contract.json.${formatContractorFailure(contractorResult)}`)
+      throw new Error(`Contractor retry for holdout generation produced an invalid contract.json.${formatContractorFailure(contractorResult)}${formatContractValidationErrors(contractRead.errors)}`)
     }
   }
 
@@ -309,17 +316,22 @@ export async function runContractPhase(
   }
 }
 
-async function salvageContractFromFinalText(projectRoot: string, finalText: string): Promise<ContractDocument | null> {
+async function salvageContractFromFinalText(projectRoot: string, finalText: string): Promise<ContractReadResult> {
   const extracted = extractJsonObject(finalText)
-  if (!extracted) return null
+  if (!extracted) {
+    return {
+      contract: null,
+      errors: ["contractor final text did not contain a JSON object"],
+    }
+  }
 
   try {
-    const parsed = normalizeContractForPiRuntime(JSON.parse(extracted) as ContractDocument)
-    if (!isValidContract(parsed)) return null
-    await writeJson(resolve(projectRoot, ".signum/contract.json"), parsed)
-    return parsed
+    return await validateParsedContract(projectRoot, JSON.parse(extracted) as ContractDocument)
   } catch {
-    return null
+    return {
+      contract: null,
+      errors: ["contractor final text contained invalid JSON"],
+    }
   }
 }
 
@@ -348,6 +360,34 @@ function formatContractorFailure(result: { finalText: string; events?: Array<{ t
     pieces.push(`tool events: ${preview}`)
   }
   return pieces.length > 0 ? ` ${pieces.join(" | ")}` : ""
+}
+
+function buildContractValidationRetryPrompt(basePrompt: string, errors: string[]): string {
+  if (errors.length === 0) {
+    return [
+      basePrompt,
+      "",
+      "Rewrite .signum/contract.json so it matches the required pi contract shape and verify dialect exactly.",
+    ].join("\n")
+  }
+
+  return [
+    basePrompt,
+    "",
+    "The previous contract was rejected by deterministic pi validation.",
+    "Rewrite .signum/contract.json and fix ALL of these issues exactly:",
+    ...errors.map((error) => `- ${error}`),
+    "",
+    "Important:",
+    "- keep verify steps in the supported pi dialect only",
+    "- avoid brittle negative source-code assertions",
+    "- secrecy checks must target engineer-facing repair inputs, not generic audit implementation identifiers",
+  ].join("\n")
+}
+
+function formatContractValidationErrors(errors: string[]): string {
+  if (errors.length === 0) return ""
+  return ` Deterministic validation errors: ${errors.slice(0, 8).join(" | ")}`
 }
 
 async function runContractor(
@@ -381,15 +421,37 @@ async function prepareWorkspace(projectRoot: string) {
   }
 }
 
-async function readAndValidateContract(projectRoot: string): Promise<ContractDocument | null> {
+async function readAndValidateContract(projectRoot: string): Promise<ContractReadResult> {
   try {
     const raw = await readFile(resolve(projectRoot, ".signum/contract.json"), "utf8")
-    const parsed = normalizeContractForPiRuntime(JSON.parse(raw) as ContractDocument)
-    if (!isValidContract(parsed)) return null
-    await writeJson(resolve(projectRoot, ".signum/contract.json"), parsed)
-    return parsed
+    return await validateParsedContract(projectRoot, JSON.parse(raw) as ContractDocument)
   } catch {
-    return null
+    return {
+      contract: null,
+      errors: [".signum/contract.json missing or unreadable"],
+    }
+  }
+}
+
+async function validateParsedContract(projectRoot: string, rawContract: ContractDocument): Promise<ContractReadResult> {
+  const parsed = normalizeContractForPiRuntime(rawContract)
+  const errors: string[] = []
+  if (!isValidContract(parsed)) {
+    errors.push("contract is missing required fields or has an invalid top-level shape")
+  }
+  errors.push(...collectPiContractVerifyIssues(parsed))
+
+  if (errors.length > 0) {
+    return {
+      contract: null,
+      errors,
+    }
+  }
+
+  await writeJson(resolve(projectRoot, ".signum/contract.json"), parsed)
+  return {
+    contract: parsed,
+    errors: [],
   }
 }
 
@@ -581,7 +643,9 @@ async function enrichSpecQualityWithDeterministicChecks(
       merged.staleness = result ?? {}
       const status = (result as any)?.status
       if (status === "fresh" || status === "warn" || status === "block") {
-        const contract = (await readAndValidateContract(projectRoot))!
+        const contractRead = await readAndValidateContract(projectRoot)
+        const contract = contractRead.contract
+        if (!contract) return
         contract.contextInheritance = {
           ...(contract.contextInheritance ?? {}),
           stalenessStatus: status === "fresh" ? "fresh" : status === "warn" ? "warning" : "stale",

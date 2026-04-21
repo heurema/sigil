@@ -6,7 +6,7 @@ TARGET="$ROOT/platforms/pi/extensions/signum/runtime/verify-normalizer.ts"
 
 node --input-type=module - <<'EOF'
 import assert from 'node:assert/strict'
-import { normalizeContractForPiRuntime, normalizeVerifyForPiRuntime } from './platforms/pi/extensions/signum/runtime/verify-normalizer.ts'
+import { collectPiContractVerifyIssues, normalizeContractForPiRuntime, normalizeVerifyForPiRuntime } from './platforms/pi/extensions/signum/runtime/verify-normalizer.ts'
 
 const verify = normalizeVerifyForPiRuntime({
   steps: [
@@ -73,6 +73,26 @@ assert.equal(contract.acceptanceCriteria[0].verify.steps[1].text, 'farewell(')
 assert.equal(contract.acceptanceCriteria[0].verify.timeout_ms, 30000)
 assert.equal(contract.holdoutScenarios[0].verify.steps[0].type, 'gitDiffFiles')
 assert.equal(contract.holdoutScenarios[0].verify.timeout_ms, 10)
+
+const brittleIssues = collectPiContractVerifyIssues({
+  acceptanceCriteria: [
+    {
+      id: 'AC9',
+      visibility: 'visible',
+      verify: {
+        steps: [
+          { type: 'assert-not-contains', path: 'platforms/pi/extensions/signum/phases/audit.ts', text: 'iterativeAuditMode: "single-pass"' },
+          { type: 'assert-not-contains-any', path: 'platforms/pi/extensions/signum/phases/audit.ts', texts: ['holdoutScenarios', 'Read .signum/holdout_report.json'] },
+          { type: 'assertSemanticAlignment', sources: ['docs/reference.md', 'platforms/pi/README.md'] },
+        ],
+      },
+    },
+  ],
+})
+assert.equal(brittleIssues.length, 3)
+assert.match(brittleIssues[0], /AC9/)
+assert.match(brittleIssues[1], /holdout|engineer-facing/i)
+assert.match(brittleIssues[2], /explicit file\/path assertions/i)
 
 console.log('PASS: pi verify normalizer')
 EOF
