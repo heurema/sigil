@@ -360,7 +360,7 @@ async function runBoundaryVerification(
       }
 
       if (verifyExitCode === 0) {
-        const evaluation = await evaluateVerifySteps(projectRoot, verify, diffStatus.changed)
+        const evaluation = await evaluateVerifySteps(projectRoot, verify, diffStatus.changed, pi)
         verifyExitCode = evaluation.exitCode
         await writeFile(outputPath, evaluation.output, "utf8")
         if (verifyExitCode !== 0) {
@@ -554,6 +554,7 @@ export async function evaluateVerifySteps(
   projectRoot: string,
   verify: { steps: unknown[] },
   changedPaths: string[],
+  pi?: Pick<ExtensionAPI, "exec">,
 ): Promise<{ exitCode: number; output: string; reason: string }> {
   const cache = new Map<string, string>()
   const state = new Map<string, unknown>()
@@ -633,7 +634,7 @@ export async function evaluateVerifySteps(
           if (typeof step.command !== "string") {
             return fail("invalid_step", `ERROR: step ${index}: run requires command`)
           }
-          const commandResult = await execReadOnlyCommand(projectRoot, step.command)
+          const commandResult = await execReadOnlyCommand(projectRoot, step.command, pi)
           if (commandResult.code !== 0) {
             return fail("command_failed", `FAIL: command exited ${commandResult.code}: ${step.command}`)
           }
@@ -753,7 +754,23 @@ export async function evaluateVerifySteps(
   }
 }
 
-async function execReadOnlyCommand(projectRoot: string, command: string): Promise<{ code: number; stdout: string; stderr: string }> {
+async function execReadOnlyCommand(
+  projectRoot: string,
+  command: string,
+  pi?: Pick<ExtensionAPI, "exec">,
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  if (pi) {
+    const result = await pi.exec("bash", ["-lc", command], {
+      cwd: projectRoot,
+      timeout: 120_000,
+    })
+    return {
+      code: result.code ?? 1,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    }
+  }
+
   const { execFile } = await import("node:child_process")
   return await new Promise((resolveResult) => {
     execFile("bash", ["-lc", command], { cwd: projectRoot, timeout: 30_000 }, (error, stdout, stderr) => {

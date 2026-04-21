@@ -73,5 +73,15 @@ const scoped = await evaluateVerifySteps(projectRoot, {
 }, ['tests/test-pi-full-pipeline.sh'])
 assert.equal(scoped.exitCode, 0)
 
+const runOk = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'run', command: 'printf ok' },
+    { type: 'assertMatches', valueFrom: 'stdout', pattern: 'ok' },
+  ],
+}, [], {
+  exec: async (_cmd, _args, _opts) => ({ code: 0, stdout: 'ok', stderr: '' }),
+})
+assert.equal(runOk.exitCode, 0)
+
 console.log('PASS: pi execute verify classification')
 EOF
