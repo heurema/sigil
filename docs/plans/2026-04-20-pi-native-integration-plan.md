@@ -56,6 +56,8 @@ Ship this in **bounded slices**:
 
 This keeps the work aligned with repo policy: do not mix docs, deterministic-core rewrites, and orchestration changes all at once.
 
+**Status as of 2026-04-21:** Slices 1–6 are complete for the pi-native MVP. Deferred or follow-up work remains for iterative AUDIT parity, optional custom UI, broader test coverage, and npm publish-path decisions.
+
 ---
 
 ## Target Layout
@@ -117,19 +119,19 @@ Notes:
 - Create: `package.json`
 - Optional: `package-lock.json`
 
-- [ ] Add root `package.json` with:
+- [x] Add root `package.json` with:
   - package name (target: `@heurema/signum`, final name after availability check)
   - version aligned with Signum release versioning
   - `type: "module"`
   - `keywords` including `pi-package`
   - `pi.extensions` pointing to `./platforms/pi/extensions/signum/index.ts`
   - `files` allowlist including `platforms/pi/**`, `lib/**`, `agents/**`, `LICENSE`, and runtime-required docs/assets
-- [ ] Keep packaging explicit via `files`; avoid relying on implicit npm inclusion.
-- [ ] Add minimal scripts:
+- [x] Keep packaging explicit via `files`; avoid relying on implicit npm inclusion.
+- [x] Add minimal scripts:
   - `check`
   - `pack:dry-run`
   - `test:pi` (placeholder allowed in first slice)
-- [ ] Verify `npm pack --dry-run` includes all runtime assets required by the extension.
+- [x] Verify `npm pack --dry-run` includes all runtime assets required by the extension.
 
 ### Task 2: Add pi platform scaffold
 
@@ -138,17 +140,17 @@ Notes:
 - Create: `platforms/pi/extensions/signum/index.ts`
 - Create: `platforms/pi/extensions/signum/orchestrator.ts`
 
-- [ ] Create the `platforms/pi/` directory structure.
-- [ ] Add a minimal extension entrypoint that registers `/signum`.
-- [ ] Add a minimal orchestrator skeleton that can route to subcommands.
-- [ ] Document local development in `platforms/pi/README.md`.
+- [x] Create the `platforms/pi/` directory structure.
+- [x] Add a minimal extension entrypoint that registers `/signum`.
+- [x] Add a minimal orchestrator skeleton that can route to subcommands.
+- [x] Document local development in `platforms/pi/README.md`.
 
 ### Task 3: Verify local install path
 
-- [ ] Confirm local dev flow works with:
+- [x] Confirm local dev flow works with:
   - `pi --no-extensions -e ./platforms/pi/extensions/signum/index.ts`
   - `pi install . -l`
-- [ ] Record the expected local install workflow in `platforms/pi/README.md`.
+- [x] Record the expected local install workflow in `platforms/pi/README.md`.
 
 **Exit criteria for Slice 1:**
 - Repo can be treated as a pi package locally.
@@ -165,23 +167,23 @@ Notes:
 - Create: `platforms/pi/extensions/signum/args.ts`
 - Modify: `platforms/pi/extensions/signum/orchestrator.ts`
 
-- [ ] Parse these forms:
+- [x] Parse these forms:
   - `explain`
   - `init [--force] [--harness] [--project-root <path>]`
   - `archive [contractId]`
   - `close [contractId]`
   - default freeform task
-- [ ] Keep parsing deterministic and testable.
-- [ ] Reject ambiguous combinations with explicit user-facing messages.
+- [x] Keep parsing deterministic and testable.
+- [x] Reject ambiguous combinations with explicit user-facing messages.
 
 ### Task 5: Implement `/signum explain`
 
 **Files:**
 - Create: `platforms/pi/extensions/signum/phases/explain.ts`
 
-- [ ] Return a structured summary of the pi-native workflow.
-- [ ] Keep the output aligned with canonical Signum phases.
-- [ ] Do not claim pi-specific behavior that is not yet implemented.
+- [x] Return a structured summary of the pi-native workflow.
+- [x] Keep the output aligned with canonical Signum phases.
+- [x] Do not claim pi-specific behavior that is not yet implemented.
 
 ### Task 6: Implement `/signum init`, `/signum archive`, `/signum close`
 
@@ -191,14 +193,14 @@ Notes:
 - Create: `platforms/pi/extensions/signum/phases/close.ts`
 - Create or reuse: `platforms/pi/extensions/signum/runtime/script-adapters/contract-dir.ts`
 
-- [ ] `/signum init`:
+- [x] `/signum init`:
   - reuse `lib/init-scanner.sh` and `lib/init-harness-scaffold.sh`
   - use pi-native UI for review/accept flows
   - write files directly from the extension runtime, not via heredoc shell
-- [ ] `/signum archive` and `/signum close`:
+- [x] `/signum archive` and `/signum close`:
   - keep `.signum/contracts/index.json` format compatible with existing Signum behavior
   - reuse shell helpers or port tiny directory/index helpers to TS without changing file formats
-- [ ] Confirm these paths work before starting the main task pipeline.
+- [x] Confirm these paths work before starting the main task pipeline.
 
 ### Task 7: Add run-state detection + resume/restart flow
 
@@ -206,16 +208,16 @@ Notes:
 - Create: `platforms/pi/extensions/signum/state.ts`
 - Modify: `platforms/pi/extensions/signum/ui.ts`
 
-- [ ] Detect:
+- [x] Detect:
   - no run
   - contract-only run
   - resumable run
-- [ ] Present user choice through `ctx.ui.select()`:
+- [x] Present user choice through `ctx.ui.select()`:
   - resume
   - restart
   - cancel
-- [ ] On restart, clear only the known `.signum/` working-set artifacts.
-- [ ] Preserve per-contract archives and completed proofpacks.
+- [x] On restart, clear only the known `.signum/` working-set artifacts.
+- [x] Preserve per-contract archives and completed proofpacks.
 
 **Exit criteria for Slice 2:**
 - `/signum explain`, `/signum init`, `/signum archive`, `/signum close` all work natively in pi.
@@ -234,21 +236,21 @@ Notes:
 
 **Implementation choice:** use **pi SDK sessions** as the primary execution mechanism for contractor/engineer/reviewers/synthesizer.
 
-- [ ] Build a `RoleSessionRunner` abstraction that can:
+- [x] Build a `RoleSessionRunner` abstraction that can:
   - launch an isolated pi agent session programmatically
   - choose model/provider per role
   - set role-specific tools
   - inject role prompt assets from `platforms/pi/agents/`
   - capture final text + structured tool events
-- [ ] Keep the launcher behind an interface so a subprocess fallback remains possible if SDK nesting proves unreliable.
-- [ ] Do not depend on skills to load role instructions.
+- [x] Keep the launcher behind an interface so a subprocess fallback remains possible if SDK nesting proves unreliable.
+- [x] Do not depend on skills to load role instructions.
 
 ### Task 9: Add pi-specific role prompt assets
 
 **Files:**
 - Create: `platforms/pi/agents/*.md`
 
-- [ ] Create pi-specific prompt assets for:
+- [x] Create pi-specific prompt assets for:
   - contractor
   - engineer
   - reviewer-semantic
@@ -256,9 +258,9 @@ Notes:
   - reviewer-performance
   - synthesizer
   - init-synthesizer
-- [ ] Normalize tool references to pi semantics (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`).
-- [ ] Preserve canonical Signum behavior wherever practical.
-- [ ] Document intentional pi-only deviations if they are required.
+- [x] Normalize tool references to pi semantics (`read`, `write`, `edit`, `bash`, `grep`, `find`, `ls`).
+- [x] Preserve canonical Signum behavior wherever practical.
+- [x] Document intentional pi-only deviations if they are required.
 
 ### Task 10: Implement CONTRACT phase in TypeScript
 
@@ -266,23 +268,23 @@ Notes:
 - Create: `platforms/pi/extensions/signum/phases/contract.ts`
 - Create: `platforms/pi/extensions/signum/runtime/script-adapters/*.ts`
 
-- [ ] Run contractor role through the role session launcher.
-- [ ] Validate `.signum/contract.json` exists and is structurally valid.
-- [ ] Reuse deterministic checks from `lib/*` where already extracted:
+- [x] Run contractor role through the role session launcher.
+- [x] Validate `.signum/contract.json` exists and is structurally valid.
+- [x] Reuse deterministic checks from `lib/*` where already extracted:
   - contract injection scan
   - prose/glossary/terminology/overlap/assumption/ADR/staleness checks
-- [ ] Re-implement **inline orchestrator-only logic** from `commands/signum.md` as TS modules where no reusable `lib/*` exists yet:
+- [x] Re-implement **inline orchestrator-only logic** from `commands/signum.md` as TS modules where no reusable `lib/*` exists yet:
   - spec quality scoring
   - holdout count gate
   - contract summary extraction
   - approval checklist handling
-- [ ] Use pi-native UI for the human approval checklist.
-- [ ] Write `.signum/approval.json` and anchor the contract hash after user approval.
+- [x] Use pi-native UI for the human approval checklist.
+- [x] Write `.signum/approval.json` and anchor the contract hash after user approval.
 
 ### Task 11: Add `/signum <task>` happy-path entry into CONTRACT only
 
-- [ ] Wire the default `/signum <task>` path to stop after CONTRACT until approval and artifact writing are correct.
-- [ ] Do not begin engineer execution until CONTRACT flow is stable.
+- [x] Wire the default `/signum <task>` path to stop after CONTRACT until approval and artifact writing are correct (completed during Slice 3 before later extension to full pipeline).
+- [x] Do not begin engineer execution until CONTRACT flow is stable.
 
 **Exit criteria for Slice 3:**
 - `/signum <task>` can produce a contract, show a summary, ask for approval, and write the expected CONTRACT artifacts.
@@ -297,35 +299,35 @@ Notes:
 **Files:**
 - Create: `platforms/pi/extensions/signum/runtime/policy-tools.ts`
 
-- [ ] Wrap engineer tools so runtime enforcement happens before mutation:
+- [x] Wrap engineer tools so runtime enforcement happens before mutation:
   - `read`
   - `edit`
   - `write`
   - `bash`
-- [ ] Enforce:
+- [x] Enforce:
   - allowed paths from `inScope` / `allowNewFilesUnder`
   - deny patterns from `contract-policy.json`
   - path deletion rules for removals
   - file-count limits if policy requires them
   - optional network denial
-- [ ] Do not rely solely on prompt discipline for engineer scope control.
+- [x] Do not rely solely on prompt discipline for engineer scope control.
 
 ### Task 13: Implement EXECUTE phase using SDK session + wrapped tools
 
 **Files:**
 - Create: `platforms/pi/extensions/signum/phases/execute.ts`
 
-- [ ] Capture baseline deterministically before engineer execution.
-- [ ] Generate `contract-engineer.json` and `contract-policy.json`.
-- [ ] Launch engineer with the wrapped tool set.
-- [ ] Preserve existing `.signum/execute_log.json` and `.signum/combined.patch` behavior.
-- [ ] Support repair-loop attempts bounded by policy.
+- [x] Capture baseline deterministically before engineer execution.
+- [x] Generate `contract-engineer.json` and `contract-policy.json`.
+- [x] Launch engineer with the wrapped tool set.
+- [x] Preserve existing `.signum/execute_log.json` and `.signum/combined.patch` behavior.
+- [x] Support repair-loop attempts bounded by policy.
 
 ### Task 14: Add scope/policy violation handling
 
-- [ ] When engineer violates policy, stop the run cleanly with a structured message.
-- [ ] Persist violation data to `.signum/` artifacts.
-- [ ] Keep behavior compatible with existing proof/audit expectations.
+- [x] When engineer violates policy, stop the run cleanly with a structured message.
+- [x] Persist violation data to `.signum/` artifacts.
+- [x] Keep behavior compatible with existing proof/audit expectations.
 
 **Exit criteria for Slice 4:**
 - Engineer execution is runtime-constrained, not just post-hoc checked.
@@ -340,32 +342,32 @@ Notes:
 **Files:**
 - Create: `platforms/pi/extensions/signum/phases/audit.ts`
 
-- [ ] Reuse deterministic shell/core steps where possible:
+- [x] Reuse deterministic shell/core steps where possible:
   - mechanic
   - policy scan
   - holdout execution
-- [ ] Launch reviewer roles in parallel where risk requires it.
-- [ ] Route reviewers to different model families/providers where available.
-- [ ] Keep reduced-coverage behavior explicit when providers are unavailable.
+- [x] Launch reviewer roles in parallel where risk requires it.
+- [x] Route reviewers to different model families/providers where available.
+- [x] Keep reduced-coverage behavior explicit when providers are unavailable.
 
 ### Task 16: Implement synthesizer flow
 
-- [ ] Feed reviewer outputs + deterministic reports into a synthesizer role session.
-- [ ] Preserve Signum decision semantics:
+- [x] Feed reviewer outputs + deterministic reports into a synthesizer role session.
+- [x] Preserve Signum decision semantics:
   - `AUTO_OK`
   - `AUTO_BLOCK`
   - `HUMAN_REVIEW`
-- [ ] Keep reasoning structured and artifact-compatible.
+- [x] Keep reasoning structured and artifact-compatible.
 
 ### Task 17: Implement PACK phase
 
 **Files:**
 - Create: `platforms/pi/extensions/signum/phases/pack.ts`
 
-- [ ] Build `proofpack.json` in the same `.signum/` artifact model used by existing Signum.
-- [ ] Reuse anti-entropy report generation where possible.
-- [ ] Sync working-copy artifacts into per-contract directories.
-- [ ] Preserve archive/index compatibility.
+- [x] Build `proofpack.json` in the same `.signum/` artifact model used by existing Signum.
+- [x] Reuse anti-entropy report generation where possible.
+- [x] Sync working-copy artifacts into per-contract directories.
+- [x] Preserve archive/index compatibility.
 
 ### Task 18: Decide parity scope for iterative audit
 
@@ -373,7 +375,7 @@ Notes:
 - MVP may ship with **single-pass AUDIT** if iterative audit would delay the first usable pi-native release too much.
 - Iterative audit must then be tracked as an explicit parity follow-up, not silently dropped.
 
-- [ ] If iterative audit is deferred, document the gap and keep the runtime architecture ready for it.
+- [x] If iterative audit is deferred, document the gap and keep the runtime architecture ready for it.
 - [ ] If implemented immediately, do it in a dedicated slice after single-pass audit is stable.
 
 **Exit criteria for Slice 5:**
@@ -388,10 +390,10 @@ Notes:
 **Files:**
 - Create/Modify: `platforms/pi/extensions/signum/ui.ts`
 
-- [ ] Add phase progress status via `ctx.ui.setStatus()`.
+- [x] Add phase progress status via `ctx.ui.setStatus()`.
 - [ ] Add optional widget for current phase / checklist / reviewer progress.
-- [ ] Use `ctx.ui.confirm()` and `ctx.ui.select()` for approval and resume flows.
-- [ ] Keep the first version simple; custom overlay UI is optional follow-up work.
+- [x] Use `ctx.ui.confirm()` and `ctx.ui.select()` for approval and resume flows.
+- [x] Keep the first version simple; custom overlay UI is optional follow-up work.
 
 ### Task 20: Update documentation
 
@@ -402,10 +404,10 @@ Notes:
 - Modify as needed: `CHANGELOG.md`
 - Create/Modify: `platforms/pi/README.md`
 
-- [ ] Add pi install/use documentation.
-- [ ] Keep root docs explicit about canonical vs overlay behavior.
-- [ ] Document that pi support is command-first, not skill-first.
-- [ ] Document package install and local dev/test workflow.
+- [x] Add pi install/use documentation.
+- [x] Keep root docs explicit about canonical vs overlay behavior.
+- [x] Document that pi support is command-first, not skill-first.
+- [x] Document package install and local dev/test workflow.
 
 ### Task 21: Add tests
 
@@ -417,11 +419,11 @@ Notes:
 - [ ] Add artifact-state tests for resume/restart/archive/close.
 - [ ] Add at least one end-to-end smoke test for `/signum explain` and `/signum init`.
 - [ ] Add at least one fixture-driven task smoke test for CONTRACT-only and full pipeline MVP.
-- [ ] Add `npm pack --dry-run` verification to release/test workflow.
+- [x] Add `npm pack --dry-run` verification to release/test workflow.
 
 ### Task 22: Prepare npm publish path
 
-- [ ] Verify package contents are stable.
+- [x] Verify package contents are stable.
 - [ ] Confirm final npm name availability.
 - [ ] Decide whether the first release is:
   - published under the canonical Signum package name, or
@@ -490,12 +492,12 @@ The workstream is successful when all of the following are true:
 
 ---
 
-## Immediate Next Step
+## Current Next Steps
 
-Start with **Slice 1 only**:
-- add root package metadata
-- add `platforms/pi/` scaffold
-- register a minimal `/signum` command
-- confirm local install with `pi install . -l`
+The MVP slices in this plan are complete. The next bounded follow-up work should be:
+- land verify-dialect normalization and simplify compatibility-heavy EXECUTE verification logic
+- implement iterative AUDIT parity in a dedicated slice
+- expand pi-specific tests (argument parsing, adapter coverage, resume/restart, and `/signum init` smoke coverage)
+- finalize npm publish-path decisions and document the end-user install command
 
-Do not start the full task-path orchestration before packaging and command registration are stable.
+Keep these as separate bounded follow-ups rather than reopening the original MVP slice as one large diff.
