@@ -77,6 +77,7 @@ export async function runExecutePhase(
       "Implement only what the contract requires.",
       "Use edit/write for mutations. Use bash only for read-only inspection or checks.",
       "Do not modify .signum artifacts directly.",
+      "If acceptance criteria mention .signum outputs, change source code so later phases generate them; do not create .signum files during EXECUTE.",
       `Attempt ${attempt} of ${maxAttempts}.`,
       retryContext,
     ]

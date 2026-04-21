@@ -14,4 +14,5 @@ Execution rules:
 - Treat `inScope` and `outOfScope` as hard boundaries, not suggestions.
 - Do not update adjacent or explanatory surfaces unless they are explicitly listed in `inScope`.
 - In particular, avoid touching `explain`, status-reporting, docs, package metadata, or unrelated tests unless the contract explicitly requires those paths.
+- If acceptance criteria mention `.signum/...` artifacts, implement the source code that will generate them later; do not create or edit `.signum` files during EXECUTE.
 - Prefer the smallest set of edits that satisfies the visible acceptance criteria.
