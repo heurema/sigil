@@ -786,9 +786,12 @@ function withDefaultDslTimeout(verify: unknown): unknown {
   }
 }
 
-function classifyVerifyStrength(verify: { steps: unknown[] }): string {
+export function classifyVerifyStrength(verify: { steps: unknown[] }): string {
   const steps = verify.steps.filter((step): step is Record<string, unknown> => Boolean(step && typeof step === "object"))
-  const hasTypedAssertions = steps.some((step) => typeof step.type === "string" && /^(read-file|assert-)/.test(step.type))
+  const hasTypedAssertions = steps.some((step) => {
+    const type = typeof step.type === "string" ? step.type.toLowerCase().replace(/[-_]/g, "") : ""
+    return type === "readfile" || type.startsWith("assert") || type === "gitdiff" || type === "gitdifffiles"
+  })
   if (hasTypedAssertions) return "observational"
   const hasObservational = steps.some((step) => {
     const expect = step.expect
