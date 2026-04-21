@@ -117,6 +117,13 @@ export function collectPiContractVerifyIssues(contract: ContractLike): string[] 
             message: `${criterionId}: assertMatches pattern is not portable to the pi runtime (${error instanceof Error ? error.message : String(error)})`,
           })
         }
+
+        if (isBrittleShellEntrypointAssertion(path, step.pattern)) {
+          issues.push({
+            criterionId,
+            message: `${criterionId}: avoid brittle shell-command regexes that require the literal pi command and extension path on the same line; assert the entrypoint path and $EXT usage separately`,
+          })
+        }
       }
 
       if (referencesLatePhaseArtifact(step)) {
@@ -321,6 +328,19 @@ function collectStepTexts(step: Record<string, unknown>): string[] {
 function isImplementationSourcePath(path: string): boolean {
   const normalized = path.replace(/^\.\//, "")
   return /\.(?:ts|tsx|js|jsx|mjs|cjs|py|sh)$/.test(normalized)
+}
+
+function isShellHarnessPath(path: string): boolean {
+  return /\.sh$/i.test(path.replace(/^\.\//, ""))
+}
+
+function isBrittleShellEntrypointAssertion(path: string, pattern: string): boolean {
+  if (!isShellHarnessPath(path)) return false
+  const normalized = pattern
+    .replace(/\\\//g, "/")
+    .replace(/\\\./g, ".")
+    .toLowerCase()
+  return normalized.includes("pi") && normalized.includes("--no-extensions") && normalized.includes("platforms/pi/extensions/signum/index")
 }
 
 function extractPathCandidates(text: string): string[] {

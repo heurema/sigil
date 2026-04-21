@@ -124,5 +124,21 @@ const invalidRegexIssues = collectPiContractVerifyIssues(normalizeContractForPiR
 assert.equal(invalidRegexIssues.length, 1)
 assert.match(invalidRegexIssues[0], /not portable to the pi runtime/i)
 
+const brittleShellIssues = collectPiContractVerifyIssues(normalizeContractForPiRuntime({
+  acceptanceCriteria: [
+    {
+      id: 'AC11',
+      visibility: 'visible',
+      verify: {
+        steps: [
+          { type: 'assertMatches', path: 'tests/test-pi-self-hosted-smoke.sh', pattern: 'pi --no-extensions -e .*platforms/pi/extensions/signum/index\\.ts' },
+        ],
+      },
+    },
+  ],
+}))
+assert.equal(brittleShellIssues.length, 1)
+assert.match(brittleShellIssues[0], /literal pi command and extension path/i)
+
 console.log('PASS: pi verify normalizer')
 EOF
