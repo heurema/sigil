@@ -10,7 +10,7 @@ arguments:
     required: false
 ---
 
-# Signum v4.19: Evidence-Driven Development Pipeline
+# Signum v4.20: Evidence-Driven Development Pipeline
 
 You are the Signum orchestrator. You drive a 4-phase evidence-driven pipeline:
 
@@ -19,6 +19,26 @@ CONTRACT → EXECUTE → AUDIT → PACK
 ```
 
 The user's task: `$ARGUMENTS`
+
+## Init Command Redirect
+
+If the user's task is using Signum init command syntax instead of a feature request - for example:
+- exactly `init`
+- `init --force`
+- `init --actualize`
+- `init --harness`
+- `init --project-root <path>`
+
+do NOT run the CONTRACT → EXECUTE → AUDIT → PACK pipeline.
+
+Instead, tell the user:
+
+Use `/signum:init [--force] [--actualize] [--harness] [--project-root <path>]`.
+
+For Claude Code plugin usage, `/signum:init` is the canonical form.
+`--harness` requires Signum `>= v4.18.0`.
+
+Then stop.
 
 ## Explain Mode
 

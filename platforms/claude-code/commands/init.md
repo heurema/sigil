@@ -29,19 +29,47 @@ Parse `$ARGUMENTS`:
 - If `--harness` is present, set HARNESS_MODE=true (scaffold repo-level harness docs)
 - If `--project-root <path>` is present, use that path. Otherwise use current directory.
 - If both `--force` and `--actualize` are present: error "Cannot combine --force and --actualize. Use --actualize for section-by-section updates." and stop.
-- If both `--actualize` and `--harness` are present: error "Cannot combine --actualize and --harness in one run. Actualize intent first, then run /signum init --harness." and stop.
+- If both `--actualize` and `--harness` are present: error "Cannot combine --actualize and --harness in one run. Actualize intent first, then run /signum:init --harness." and stop.
 - Any other argument: print usage and stop.
 
 **Usage:**
 ```
-/signum init [--force] [--actualize] [--harness] [--project-root <path>]
+/signum:init [--force] [--actualize] [--harness] [--project-root <path>]
 ```
+
+For Claude Code plugin usage, `/signum:init` is the canonical form. `--harness` requires Signum `>= v4.18.0`.
 
 ---
 
 ## Step 1: SCAN (deterministic)
 
-### 1a. Check for existing files
+### 1a. Resolve Signum helper paths
+
+Run:
+```bash
+resolve_signum_helper() {
+  local helper="$1"
+  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/lib/${helper}" ]; then
+    printf '%s\n' "${CLAUDE_PLUGIN_ROOT}/lib/${helper}"
+    return 0
+  fi
+  if [ -f "lib/${helper}" ]; then
+    printf '%s\n' "lib/${helper}"
+    return 0
+  fi
+  echo "ERROR: Signum helper not found: ${helper}" >&2
+  return 1
+}
+
+INIT_SCANNER_PATH=$(resolve_signum_helper "init-scanner.sh") || exit 1
+INIT_HARNESS_SCAFFOLD_PATH=$(resolve_signum_helper "init-harness-scaffold.sh") || exit 1
+printf 'INIT_SCANNER_PATH=%s\n' "$INIT_SCANNER_PATH"
+printf 'INIT_HARNESS_SCAFFOLD_PATH=%s\n' "$INIT_HARNESS_SCAFFOLD_PATH"
+```
+
+Save the resolved helper paths as `INIT_SCANNER_PATH` and `INIT_HARNESS_SCAFFOLD_PATH`.
+
+### 1b. Check for existing files
 
 Run:
 ```bash
@@ -51,7 +79,7 @@ ls project.glossary.json 2>/dev/null && echo "GLOSSARY_EXISTS=true" || echo "GLO
 
 If `HARNESS_MODE=true`, also run:
 ```bash
-bash lib/init-harness-scaffold.sh --project-root "${PROJECT_ROOT:-.}" 2>/dev/null
+bash "$INIT_HARNESS_SCAFFOLD_PATH" --project-root "${PROJECT_ROOT:-.}" 2>/dev/null
 ```
 
 Save this JSON as HARNESS_SCAFFOLD. It contains the additional harness-doc drafts plus `.missingCount` / `.existingCount`.
@@ -59,7 +87,7 @@ Save this JSON as HARNESS_SCAFFOLD. It contains the additional harness-doc draft
 **If ACTUALIZE_MODE=true:**
 - If `project.intent.md` does NOT exist: print error and STOP:
   ```
-  actualize requires an existing project.intent.md. Run /signum init first.
+  actualize requires an existing project.intent.md. Run /signum:init first.
   ```
 - If `project.glossary.json` does NOT exist: print warning "Glossary will be created fresh." and continue.
 - Do NOT prompt about overwrite — actualize uses section-by-section confirmation.
@@ -77,17 +105,17 @@ Save this JSON as HARNESS_SCAFFOLD. It contains the additional harness-doc draft
   ```
   project.intent.md already exists.
 
-  To overwrite, run: /signum init --force
-  To update with diff review, run: /signum init --actualize
+  To overwrite, run: /signum:init --force
+  To update with diff review, run: /signum:init --actualize
   ```
 
 **If FORCE_MODE=true AND ACTUALIZE_MODE=false:**
 - Continue with full overwrite (existing behavior).
 
-### 1b. Run scanner
+### 1c. Run scanner
 
 ```bash
-bash lib/init-scanner.sh --project-root "${PROJECT_ROOT:-.}" 2>/dev/null
+bash "$INIT_SCANNER_PATH" --project-root "${PROJECT_ROOT:-.}" 2>/dev/null
 ```
 
 Save the output JSON as SCAN_SIGNALS. This contains all signals needed for synthesis.
@@ -111,7 +139,7 @@ SCAN complete. Found signals:
 
 ## Step 2: SYNTHESIZE (LLM)
 
-If `HARNESS_MODE=true`, harness docs come from `lib/init-harness-scaffold.sh` (deterministic; do NOT ask the synthesizer to invent them).
+If `HARNESS_MODE=true`, harness docs come from `INIT_HARNESS_SCAFFOLD_PATH` (deterministic; do NOT ask the synthesizer to invent them).
 
 If existing `project.intent.md` **and** `project.glossary.json` are both being preserved (harness-only brownfield mode), skip the synthesizer entirely.
 
@@ -423,7 +451,7 @@ Next steps:
 - If jq/python3 unavailable: skip verification step, still write files
 - If project has no signals at all (no README, no manifest, no git): warn and emit minimal template with TODO markers throughout
 - If actualize with no existing intent: error and stop (must run init first)
-- If `lib/init-harness-scaffold.sh` fails in `--harness` mode: print error and stop (do not synthesize partial state)
+- If `INIT_HARNESS_SCAFFOLD_PATH` fails in `--harness` mode: print error and stop (do not synthesize partial state)
 
 ---
 

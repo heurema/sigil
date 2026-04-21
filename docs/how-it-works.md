@@ -175,13 +175,15 @@ Signum also ships a maintainer-facing offline eval harness under `evals/`. It is
 - The scope is contract/audit/proofpack semantics for prompt/orchestration work.
 - No live provider calls, no LLM judge, no trajectory evaluation.
 
-## Project Context Bootstrap: /signum init
+## Project Context Bootstrap: /signum:init
 
-Before running the main pipeline on an unfamiliar project, use `/signum init` to generate project context files that the Contractor agent reads automatically. Use `--harness` when you also want repo-level harness docs scaffolded.
+Before running the main pipeline on an unfamiliar project, use `/signum:init` to generate project context files that the Contractor agent reads automatically. Use `--harness` when you also want repo-level harness docs scaffolded.
 
 ```
-/signum init [--force] [--harness] [--project-root <path>]
+/signum:init [--force] [--harness] [--project-root <path>]
 ```
+
+For Claude Code plugin usage, `/signum:init` is the canonical form. `--harness` requires Signum `>= v4.18.0`.
 
 ### Pipeline
 
@@ -189,7 +191,7 @@ Before running the main pipeline on an unfamiliar project, use `/signum init` to
 SCAN → SYNTHESIZE → PRESENT → VERIFY
 ```
 
-**SCAN** (deterministic, ~5s): `lib/init-scanner.sh` reads known-location files using Claude's native tools. Signal hierarchy (ranked, not averaged):
+**SCAN** (deterministic, ~5s): Signum resolves the plugin-owned `init-scanner.sh` helper first, then falls back to repo-local `lib/init-scanner.sh` when run inside the Signum source tree. The scanner reads known-location files using Claude's native tools. Signal hierarchy (ranked, not averaged):
 1. `docs/how-it-works.md`, `docs/architecture.md` — authoritative (Goal, Capabilities)
 2. `CLAUDE.md`, `AGENTS.md` — explicit conventions and exclusions (Non-Goals)
 3. `README.md` first 150 lines — fallback goal description
@@ -207,7 +209,7 @@ SCAN → SYNTHESIZE → PRESENT → VERIFY
 
 **VERIFY**: reports `Glossary has N terms, M aliases` and `Intent covers: N capabilities, N non-goals`.
 
-When `--harness` is enabled, Signum also runs `lib/init-harness-scaffold.sh` and scaffolds deterministic drafts for repo-level docs. In brownfield repos where both `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves those files and only creates missing harness docs unless `--force` is also provided.
+When `--harness` is enabled, Signum also resolves the plugin-owned `init-harness-scaffold.sh` helper first, then falls back to repo-local `lib/init-harness-scaffold.sh` when run inside the Signum source tree. It scaffolds deterministic drafts for repo-level docs. In brownfield repos where both `project.intent.md` and `project.glossary.json` already exist, `--harness` preserves those files and only creates missing harness docs unless `--force` is also provided.
 
 ### Generated Files
 
