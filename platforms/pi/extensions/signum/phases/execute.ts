@@ -662,41 +662,71 @@ export async function evaluateVerifySteps(
           break
         }
         case "assertcontains": {
-          if (typeof step.path !== "string") {
-            return fail("invalid_step", `ERROR: step ${index}: assertContains requires path`)
-          }
           const expected = typeof step.text === "string" ? step.text : typeof step.value === "string" ? step.value : null
           if (expected === null) {
             return fail("invalid_step", `ERROR: step ${index}: assertContains requires text/value`)
           }
-          const content = await readCached(step.path)
-          if (!content.includes(expected)) {
-            return fail("assert_failed", `FAIL: ${step.path} does not contain ${JSON.stringify(expected)}`)
+          const source =
+            typeof step.path === "string"
+              ? await readCached(step.path)
+              : step.valueFrom === "stdout"
+                ? lastStdout
+                : typeof step.value === "string"
+                  ? step.value
+                  : null
+          if (source === null) {
+            return fail("invalid_step", `ERROR: step ${index}: assertContains requires path, valueFrom: \"stdout\", or value`)
+          }
+          const sourceLabel =
+            typeof step.path === "string" ? step.path : step.valueFrom === "stdout" ? "stdout" : "inline value"
+          if (!source.includes(expected)) {
+            return fail("assert_failed", `FAIL: ${sourceLabel} does not contain ${JSON.stringify(expected)}`)
           }
           break
         }
         case "assertnotcontains": {
-          if (typeof step.path !== "string") {
-            return fail("invalid_step", `ERROR: step ${index}: assertNotContains requires path`)
-          }
           const unexpected = typeof step.text === "string" ? step.text : typeof step.value === "string" ? step.value : null
           if (unexpected === null) {
             return fail("invalid_step", `ERROR: step ${index}: assertNotContains requires text/value`)
           }
-          const content = await readCached(step.path)
-          if (content.includes(unexpected)) {
-            return fail("assert_failed", `FAIL: ${step.path} unexpectedly contains ${JSON.stringify(unexpected)}`)
+          const source =
+            typeof step.path === "string"
+              ? await readCached(step.path)
+              : step.valueFrom === "stdout"
+                ? lastStdout
+                : typeof step.value === "string"
+                  ? step.value
+                  : null
+          if (source === null) {
+            return fail("invalid_step", `ERROR: step ${index}: assertNotContains requires path, valueFrom: \"stdout\", or value`)
+          }
+          const sourceLabel =
+            typeof step.path === "string" ? step.path : step.valueFrom === "stdout" ? "stdout" : "inline value"
+          if (source.includes(unexpected)) {
+            return fail("assert_failed", `FAIL: ${sourceLabel} unexpectedly contains ${JSON.stringify(unexpected)}`)
           }
           break
         }
         case "assertnotcontainsany": {
-          if (typeof step.path !== "string" || !Array.isArray(step.texts)) {
-            return fail("invalid_step", `ERROR: step ${index}: assertNotContainsAny requires path and texts`)
+          if (!Array.isArray(step.texts)) {
+            return fail("invalid_step", `ERROR: step ${index}: assertNotContainsAny requires texts`)
           }
-          const content = await readCached(step.path)
-          const offending = step.texts.filter((value): value is string => typeof value === "string" && content.includes(value))
+          const source =
+            typeof step.path === "string"
+              ? await readCached(step.path)
+              : step.valueFrom === "stdout"
+                ? lastStdout
+                : typeof step.value === "string"
+                  ? step.value
+                  : null
+          if (source === null) {
+            return fail("invalid_step", `ERROR: step ${index}: assertNotContainsAny requires path, valueFrom: \"stdout\", or value`)
+          }
+          const sourceLabel =
+            typeof step.path === "string" ? step.path : step.valueFrom === "stdout" ? "stdout" : "inline value"
+          const offending = step.texts.filter((value): value is string => typeof value === "string" && source.includes(value))
           if (offending.length > 0) {
-            return fail("assert_failed", `FAIL: ${step.path} unexpectedly contains ${offending.map((value) => JSON.stringify(value)).join(", ")}`)
+            return fail("assert_failed", `FAIL: ${sourceLabel} unexpectedly contains ${offending.map((value) => JSON.stringify(value)).join(", ")}`)
           }
           break
         }

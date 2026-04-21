@@ -98,6 +98,27 @@ const equalsStdout = await evaluateVerifySteps(projectRoot, {
 })
 assert.equal(equalsStdout.exitCode, 0)
 
+const containsStdout = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'run', command: 'printf stable-output' },
+    { type: 'assertContains', valueFrom: 'stdout', text: 'stable' },
+    { type: 'assertNotContains', valueFrom: 'stdout', text: 'missing' },
+    { type: 'assertNotContainsAny', valueFrom: 'stdout', texts: ['missing', 'absent'] },
+  ],
+}, [], {
+  exec: async (_cmd, _args, _opts) => ({ code: 0, stdout: 'stable-output', stderr: '' }),
+})
+assert.equal(containsStdout.exitCode, 0)
+
+const containsInline = await evaluateVerifySteps(projectRoot, {
+  steps: [
+    { type: 'assertContains', value: 'inline stable value', text: 'stable' },
+    { type: 'assertNotContains', value: 'inline stable value', text: 'missing' },
+    { type: 'assertNotContainsAny', value: 'inline stable value', texts: ['missing', 'absent'] },
+  ],
+}, [])
+assert.equal(containsInline.exitCode, 0)
+
 const dotAll = await evaluateVerifySteps(projectRoot, {
   steps: [
     { type: 'assertMatches', path: 'multiline.txt', pattern: '(?s)(Usage|Example).*(greet\\s*\\()' },
