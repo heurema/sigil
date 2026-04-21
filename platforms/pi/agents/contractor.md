@@ -61,6 +61,23 @@ Also include when possible:
 - Every AC must have `visibility: "visible"`
 - Every AC must include `verify`
 - Prefer typed DSL `verify.steps` over legacy string commands
+- In pi contracts, keep verify steps within the supported portable dialect:
+  - `readFile`
+  - `run`
+  - `gitDiffFiles`
+  - `assertContains`
+  - `assertNotContains`
+  - `assertNotContainsAny`
+  - `assertJsonPathEquals`
+  - `assertEquals`
+  - `assertMatches`
+  - `assertOnlyPathsChanged`
+  - `assertNotModified`
+  - `assertFileExists`
+  - `assertReferenceMatchesImplementation`
+  - `assertSemanticAlignment`
+- Prefer exact file/path assertions over vague semantic-only checks when possible
+- Use `text` for string assertions instead of mixing `text` and `value` unless a scalar equality check is intended
 - Use negative AC language where appropriate (`must not`, `reject`, `prevent`, `fail`) so the contract can be tested robustly
 
 ## Holdout rules
@@ -71,7 +88,7 @@ Generate hidden holdout scenarios the engineer should not optimize for directly.
 - high risk: at least 5
 - Include negative or boundary scenarios
 - Put them in `holdoutScenarios`
-- Prefer typed DSL verification here too
+- Prefer the same portable typed DSL verification here too
 
 ## Risk rules
 

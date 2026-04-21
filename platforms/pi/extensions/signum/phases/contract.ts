@@ -24,6 +24,7 @@ import {
 } from "../runtime/script-adapters/contract-dir.ts"
 import { runJsonScript, runTextScript, sha256File, toUtcTimestamp } from "../runtime/script-adapters/checks.ts"
 import { loadRolePromptAsset, SdkRoleSessionRunner } from "../runtime/role-session.ts"
+import { normalizeContractForPiRuntime } from "../runtime/verify-normalizer.ts"
 import { emitSignumMessage, setSignumStatus } from "../ui.ts"
 
 interface ContractRunOptions {
@@ -313,7 +314,7 @@ async function salvageContractFromFinalText(projectRoot: string, finalText: stri
   if (!extracted) return null
 
   try {
-    const parsed = JSON.parse(extracted) as ContractDocument
+    const parsed = normalizeContractForPiRuntime(JSON.parse(extracted) as ContractDocument)
     if (!isValidContract(parsed)) return null
     await writeJson(resolve(projectRoot, ".signum/contract.json"), parsed)
     return parsed
@@ -383,8 +384,9 @@ async function prepareWorkspace(projectRoot: string) {
 async function readAndValidateContract(projectRoot: string): Promise<ContractDocument | null> {
   try {
     const raw = await readFile(resolve(projectRoot, ".signum/contract.json"), "utf8")
-    const parsed = JSON.parse(raw) as ContractDocument
+    const parsed = normalizeContractForPiRuntime(JSON.parse(raw) as ContractDocument)
     if (!isValidContract(parsed)) return null
+    await writeJson(resolve(projectRoot, ".signum/contract.json"), parsed)
     return parsed
   } catch {
     return null
