@@ -133,6 +133,7 @@ const brittleShellRaw = {
         steps: [
           { type: 'assertContains', path: 'tests/test-pi-self-hosted-smoke.sh', text: 'platforms/pi/extensions/signum/index.ts' },
           { type: 'assertMatches', path: 'tests/test-pi-self-hosted-smoke.sh', pattern: 'pi --no-extensions -e .*platforms/pi/extensions/signum/index\\.ts' },
+          { type: 'assertMatches', path: 'tests/test-pi-self-hosted-smoke.sh', pattern: 'python3 - .*json' },
         ],
       },
     },
@@ -142,9 +143,9 @@ const brittleShellContract = normalizeContractForPiRuntime(brittleShellRaw)
 assert.equal(brittleShellContract.acceptanceCriteria[0].verify.steps.length, 1)
 assert.equal(brittleShellContract.acceptanceCriteria[0].verify.steps[0].type, 'assertContains')
 const brittleShellAnalysis = analyzePiContractForRuntime(brittleShellRaw, brittleShellContract)
-assert.equal(brittleShellAnalysis.sanitizedVisibleVerifySteps, 1)
+assert.equal(brittleShellAnalysis.sanitizedVisibleVerifySteps, 2)
 assert.equal(brittleShellAnalysis.errors.length, 0)
-assert.match(brittleShellAnalysis.warnings[0], /sanitized 1 brittle visible verify step/i)
+assert.match(brittleShellAnalysis.warnings[0], /sanitized 2 brittle visible verify step/i)
 
 console.log('PASS: pi verify normalizer')
 EOF

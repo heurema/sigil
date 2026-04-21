@@ -299,7 +299,7 @@ function isSanitizedAway(step: unknown): boolean {
   if (type === "assertmatches") {
     const path = typeof record.path === "string" ? record.path : ""
     const pattern = typeof record.pattern === "string" ? record.pattern : ""
-    if (isBrittleShellEntrypointAssertion(path, pattern)) {
+    if (isBrittleShellEntrypointAssertion(path, pattern) || isBrittleShellHelperAssertion(path, pattern)) {
       return true
     }
   }
@@ -344,6 +344,12 @@ function isBrittleShellEntrypointAssertion(path: string, pattern: string): boole
     .replace(/\\\./g, ".")
     .toLowerCase()
   return normalized.includes("pi") && normalized.includes("--no-extensions") && normalized.includes("platforms/pi/extensions/signum/index")
+}
+
+function isBrittleShellHelperAssertion(path: string, pattern: string): boolean {
+  if (!isShellHarnessPath(path)) return false
+  const normalized = pattern.toLowerCase()
+  return (normalized.includes("python3") || normalized.includes("jq")) && normalized.includes("json")
 }
 
 function extractPathCandidates(text: string): string[] {
