@@ -1,0 +1,59 @@
+name: Release Guardrails
+
+on:
+  workflow_dispatch:
+    inputs:
+      emporium_repo:
+        description: Emporium repository to inspect
+        required: false
+        default: heurema/emporium
+      emporium_ref:
+        description: Emporium git ref to inspect
+        required: false
+        default: main
+      emporium_path:
+        description: Marketplace file path inside Emporium
+        required: false
+        default: .claude-plugin/marketplace.json
+  release:
+    types:
+      - published
+  push:
+    branches:
+      - main
+    paths:
+      - .claude-plugin/plugin.json
+      - README.md
+      - CHANGELOG.md
+      - docs/RELIABILITY.md
+      - .github/workflows/release-guardrails.yml
+      - lib/check-emporium-sync.sh
+      - lib/release-smoke.sh
+
+permissions:
+  contents: read
+
+jobs:
+  release-guardrails:
+    if: github.repository == 'heurema/signum'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Signum
+        uses: actions/checkout@v4
+
+      - name: Checkout Emporium registry
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}
+          ref: ${{ github.event.inputs.emporium_ref || 'main' }}
+          path: _external/emporium
+
+      - name: Run release smoke path
+        env:
+          EMPORIUM_REPO: ${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}
+          EMPORIUM_GIT_REF: ${{ github.event.inputs.emporium_ref || 'main' }}
+          EMPORIUM_PATH: ${{ github.event.inputs.emporium_path || '.claude-plugin/marketplace.json' }}
+          EMPORIUM_MARKETPLACE_PATH: ${{ format('{0}/_external/emporium/{1}', github.workspace, github.event.inputs.emporium_path || '.claude-plugin/marketplace.json') }}
+        run: bash lib/release-smoke.sh

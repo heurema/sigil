@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- Release guardrails for marketplace sync:
+  - `lib/check-emporium-sync.sh` — fail-loud check that compares local Signum release metadata against the `signum` entry in `heurema/emporium/.claude-plugin/marketplace.json`
+  - `lib/release-smoke.sh` — maintainer smoke path that runs the Emporium sync check plus `/signum:init --harness` coverage
+  - `.github/workflows/release-guardrails.yml` — CI workflow that checks out Emporium and runs the same release smoke path on `workflow_dispatch`, published releases, and release-related pushes to `main`, while skipping fork/canonical-repo mismatches
+  - `tests/test-emporium-sync.sh`, `tests/test-release-smoke.sh` — regression coverage for the sync check and smoke/workflow wiring
+
+### Documentation
+- `README.md`, `docs/RELIABILITY.md` now document the Emporium update step for Signum releases and point maintainers at `bash lib/release-smoke.sh`
+
 ### Fixed
 - `/signum init` now treats root `ARCHITECTURE.md` as an authoritative input alongside legacy `docs/architecture.md`, so harness-generated architecture docs are actually read back by the scanner
 - Claude overlay PACK parity test now follows the current `sync_contract_artifacts` implementation instead of the removed direct `cp` command
