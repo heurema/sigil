@@ -94,6 +94,28 @@ python3 evals/run.py
 
 It is fixture-driven and snapshot-based by design. It does not call live providers and it does not extend the runtime pipeline.
 
+## Release guardrails (maintainers)
+
+Issue #26 showed that bumping Signum itself is not enough for fresh marketplace installs. Emporium is a separate registry surface.
+
+When cutting a Signum release:
+
+1. Update `heurema/emporium/.claude-plugin/marketplace.json` for `signum` so both `version` and `source.ref` point to the local `.claude-plugin/plugin.json` release version.
+2. Run the maintainer smoke path:
+
+```bash
+bash lib/release-smoke.sh
+```
+
+`bash lib/release-smoke.sh` fails loudly when Emporium drifts from local Signum release metadata and includes `/signum:init --harness` coverage via:
+- `tests/test-init-command-surface.sh`
+- `tests/test-init-harness-scaffold.sh`
+- `tests/test-brownfield-harness-flow.sh`
+
+CI runs the same smoke path in `.github/workflows/release-guardrails.yml`, so marketplace drift is visible before users install the wrong version.
+To keep normal contributor flows stable, the cross-repo check is scoped to `workflow_dispatch`, published `release` events, and `push` to `main` only when release-guardrail files changed. The workflow also only runs in the canonical `heurema/signum` repo, avoiding fork PR brittleness.
+For manual runs, the workflow accepts `EMPORIUM_REPO`, `EMPORIUM_GIT_REF`, and `EMPORIUM_PATH` equivalents as dispatch inputs so maintainers can inspect a different registry repo/ref/path without changing the script.
+
 ## Features
 
 **Spec quality gate** — Before implementation starts, your spec is scored across seven dimensions: Testability, Negative coverage, Clarity, Scope boundedness, Completeness, Boundary cases, NL Consistency. Grade D (below 60) is a hard stop with specific feedback on what's missing. The gate runs on the specification, not the code.
