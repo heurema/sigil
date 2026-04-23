@@ -39,7 +39,7 @@ assert_exit_contains() {
 cat > "$WORK/plugin.json" <<'EOF'
 {
   "name": "signum",
-  "version": "4.20.0"
+  "version": "4.20.1"
 }
 EOF
 
@@ -48,9 +48,9 @@ cat > "$WORK/marketplace-ok.json" <<'EOF'
   "plugins": [
     {
       "name": "signum",
-      "version": "4.20.0",
+      "version": "4.20.1",
       "source": {
-        "ref": "v4.20.0"
+        "ref": "v4.20.1"
       }
     }
   ]
@@ -64,7 +64,7 @@ cat > "$WORK/marketplace-version-drift.json" <<'EOF'
       "name": "signum",
       "version": "4.19.2",
       "source": {
-        "ref": "v4.20.0"
+        "ref": "v4.20.1"
       }
     }
   ]
@@ -76,7 +76,7 @@ cat > "$WORK/marketplace-ref-drift.json" <<'EOF'
   "plugins": [
     {
       "name": "signum",
-      "version": "4.20.0",
+      "version": "4.20.1",
       "source": {
         "ref": "v4.19.2"
       }

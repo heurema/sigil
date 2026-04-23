@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [4.20.1] - 2026-04-23
+
 ### Added
 - Release guardrails for marketplace sync:
   - `lib/check-emporium-sync.sh` — fail-loud check that compares local Signum release metadata against the `signum` entry in `heurema/emporium/.claude-plugin/marketplace.json`
@@ -13,6 +15,9 @@
 - `README.md`, `docs/RELIABILITY.md` now document the Emporium update step for Signum releases and point maintainers at `bash lib/release-smoke.sh`
 
 ### Fixed
+- Completed contracts now stay active until explicit archive/close/finalize instead of clearing `.signum/contracts/index.json.activeContractId` as soon as PACK marks them `completed`
+  - `lib/contract-dir.sh` and `platforms/claude-code/lib/contract-dir.sh` now clear the active contract only for explicit terminal states (`archived`, `closed`, `superseded`)
+  - `tests/test-contract-dir.sh` and `platforms/claude-code/tests/test-contract-dir.sh` now cover the regression so completed contracts still resolve the canonical active artifact root
 - `/signum init` now treats root `ARCHITECTURE.md` as an authoritative input alongside legacy `docs/architecture.md`, so harness-generated architecture docs are actually read back by the scanner
 - Claude overlay PACK parity test now follows the current `sync_contract_artifacts` implementation instead of the removed direct `cp` command
 - Claude overlay runtime assets now include the helper scripts, schemas, agents, and review prompts that its packaged commands reference, instead of pointing at missing or stale copies
