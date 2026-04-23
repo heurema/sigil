@@ -102,7 +102,7 @@ When cutting a Signum release:
 
 1. Let `.github/workflows/release-guardrails.yml` sync `heurema/emporium/.claude-plugin/marketplace.json` for `signum` so both `version` and `source.ref` point to the local `.claude-plugin/plugin.json` release version.
    - The workflow step is named `Sync Emporium marketplace entry`.
-   - For actual cross-repo writes, configure the `EMPORIUM_PUSH_TOKEN` repo secret in `heurema/signum` with write access to `heurema/emporium`.
+   - For actual cross-repo writes, configure the `EMPORIUM_SSH_KEY` repo secret in `heurema/signum` with the private half of a dedicated GitHub SSH key whose account can push to `heurema/emporium`.
    - If that secret is absent and drift exists, the workflow fails loudly instead of silently shipping a stale marketplace entry.
 2. Run the maintainer smoke path locally when changing the release wiring itself:
 

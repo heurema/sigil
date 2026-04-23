@@ -49,6 +49,8 @@ jobs:
           repository: ${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}
           ref: ${{ github.event.inputs.emporium_ref || 'main' }}
           path: _external/emporium
+          ssh-key: ${{ secrets.EMPORIUM_SSH_KEY }}
+          persist-credentials: true
 
       - name: Sync Emporium marketplace entry
         env:
@@ -56,7 +58,7 @@ jobs:
           EMPORIUM_GIT_REF: ${{ github.event.inputs.emporium_ref || 'main' }}
           EMPORIUM_PATH: ${{ github.event.inputs.emporium_path || '.claude-plugin/marketplace.json' }}
           EMPORIUM_MARKETPLACE_PATH: ${{ format('{0}/_external/emporium/{1}', github.workspace, github.event.inputs.emporium_path || '.claude-plugin/marketplace.json') }}
-          EMPORIUM_PUSH_TOKEN: ${{ secrets.EMPORIUM_PUSH_TOKEN }}
+          EMPORIUM_SSH_KEY: ${{ secrets.EMPORIUM_SSH_KEY }}
         run: |
           set -euo pipefail
 
@@ -67,9 +69,9 @@ jobs:
             exit 0
           fi
 
-          if [ -z "${EMPORIUM_PUSH_TOKEN:-}" ]; then
-            echo "ERROR: EMPORIUM_PUSH_TOKEN secret is required to update ${EMPORIUM_REPO}/${EMPORIUM_PATH}." >&2
-            echo "Add a write-capable cross-repo token for heurema/emporium, or update the marketplace manually." >&2
+          if [ -z "${EMPORIUM_SSH_KEY:-}" ]; then
+            echo "ERROR: EMPORIUM_SSH_KEY secret is required to update ${EMPORIUM_REPO}/${EMPORIUM_PATH}." >&2
+            echo "Add a write-capable SSH key for a GitHub account that can push to heurema/emporium, or update the marketplace manually." >&2
             exit 1
           fi
 
@@ -83,7 +85,7 @@ jobs:
           git -C _external/emporium config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git -C _external/emporium add "${EMPORIUM_PATH}"
           git -C _external/emporium commit -m "Sync Signum marketplace version to ${LOCAL_VERSION}"
-          git -C _external/emporium remote set-url origin "https://x-access-token:${EMPORIUM_PUSH_TOKEN}@github.com/${EMPORIUM_REPO}.git"
+          git -C _external/emporium remote set-url origin "git@github.com:${EMPORIUM_REPO}.git"
           git -C _external/emporium push origin "HEAD:${EMPORIUM_GIT_REF}"
 
       - name: Run release smoke path
