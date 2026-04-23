@@ -34,6 +34,19 @@ assert_section_absent() {
   fi
 }
 
+assert_absent_in_file() {
+  local name="$1"
+  local pattern="$2"
+  local file="$3"
+  if grep -Fq "$pattern" "$file"; then
+    printf '  FAIL: %s | found forbidden pattern: %s\n' "$name" "$pattern"
+    failed=$((failed + 1))
+  else
+    printf '  PASS: %s\n' "$name"
+    passed=$((passed + 1))
+  fi
+}
+
 phase_section() {
   local file="$1"
   awk '
@@ -53,16 +66,16 @@ for command in "$ROOT_COMMAND" "$OVERLAY_COMMAND"; do
   fi
   section=$(phase_section "$command")
 
-  assert_pass "${label} links repo contract baseline view" \
-    grep -Fq 'link_active_artifact "repo_contract_baseline.json"' "$command"
-  assert_pass "${label} links repo contract violations view" \
-    grep -Fq 'link_active_artifact "repo_contract_violations.json"' "$command"
-  assert_pass "${label} links review context view" \
-    grep -Fq 'link_active_artifact "review_context.json"' "$command"
-  assert_pass "${label} links codex review prompt view" \
-    grep -Fq 'link_active_artifact "review_prompt_codex.txt"' "$command"
-  assert_pass "${label} links gemini review prompt view" \
-    grep -Fq 'link_active_artifact "review_prompt_gemini.txt"' "$command"
+  assert_absent_in_file "${label} does not eagerly link repo contract baseline view" \
+    'link_active_artifact "repo_contract_baseline.json"' "$command"
+  assert_absent_in_file "${label} does not eagerly link repo contract violations view" \
+    'link_active_artifact "repo_contract_violations.json"' "$command"
+  assert_absent_in_file "${label} does not eagerly link review context view" \
+    'link_active_artifact "review_context.json"' "$command"
+  assert_absent_in_file "${label} does not eagerly link codex review prompt view" \
+    'link_active_artifact "review_prompt_codex.txt"' "$command"
+  assert_absent_in_file "${label} does not eagerly link gemini review prompt view" \
+    'link_active_artifact "review_prompt_gemini.txt"' "$command"
 
   assert_pass "${label} declares repo baseline canonical path" \
     grep -Fq 'REPO_CONTRACT_BASELINE_PATH="${ARTIFACT_ROOT}repo_contract_baseline.json"' "$command"
@@ -74,6 +87,8 @@ for command in "$ROOT_COMMAND" "$OVERLAY_COMMAND"; do
     grep -Fq 'REVIEW_PROMPT_CODEX_PATH="${ARTIFACT_ROOT}review_prompt_codex.txt"' "$command"
   assert_pass "${label} declares gemini prompt canonical path" \
     grep -Fq 'REVIEW_PROMPT_GEMINI_PATH="${ARTIFACT_ROOT}review_prompt_gemini.txt"' "$command"
+  assert_pass "${label} documents lazy/on-demand compatibility policy" \
+    grep -Fq 'lazy/on-demand' "$command"
 
   assert_section_absent "${label} no root repo baseline path in phase section" '.signum/repo_contract_baseline.json' "$section"
   assert_section_absent "${label} no root repo violations path in phase section" '.signum/repo_contract_violations.json' "$section"

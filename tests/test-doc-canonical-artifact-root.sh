@@ -41,10 +41,16 @@ assert_pass "README mentions canonical contract artifact root" \
   grep -Fq '.signum/contracts/<contractId>/' "$README"
 assert_pass "README describes root signum as registry/state surface" \
   grep -Fq 'registry/state surface' "$README"
+assert_pass "README describes root compatibility views as lazy/on-demand" \
+  grep -Fq 'lazy/on-demand compatibility views' "$README"
 assert_pass "reference doc mentions active contract artifact root" \
   grep -Fq 'active contract artifact root' "$REFERENCE"
 assert_pass "how-it-works mentions active contract artifact root" \
   grep -Fq 'active contract artifact root' "$HOW_IT_WORKS"
+assert_pass "reference doc says root compatibility views are fallback surfaces" \
+  grep -Fq 'fallback surfaces, not a precreated second working set' "$REFERENCE"
+assert_pass "how-it-works says root compatibility views are fallback surfaces" \
+  grep -Fq 'fallback surfaces, not a precreated second working set' "$HOW_IT_WORKS"
 
 assert_absent "README no longer says root signum is live working set" \
   '.signum/` remains the live working set for the current run' "$README"

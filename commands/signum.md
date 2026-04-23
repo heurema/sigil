@@ -564,7 +564,7 @@ If exit code is 0: clean, continue.
 
 ### Step 1.2.5: Finalize canonical contract bootstrap
 
-After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and expose the remaining Phase 1 compatibility views. Contract-owned artifacts, selected downstream file artifacts, and active run directories stay canonical under that active contract root.
+After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and keep only the root contract compatibility path eagerly materialized. Other root `.signum/` compatibility views stay lazy/on-demand during the migration; contract-owned artifacts, downstream file artifacts, and active run directories stay canonical under the active contract root.
 
 Use the Bash tool:
 
@@ -584,41 +584,10 @@ echo "contractId: $CONTRACT_ID"
 
 register_contract "$CONTRACT_ID" "draft"
 
-# Expose Phase 1 artifact ownership through compatibility views.
+# Keep only the root contract compatibility path eagerly materialized.
+# Other root `.signum/` compatibility views stay lazy/on-demand and should be
+# created only by legacy promotion or explicit fallback helpers.
 link_active_artifact "contract.json"
-link_active_artifact "spec_quality.json"
-link_active_artifact "spec_validation.json"
-link_active_artifact "clover_report.json"
-link_active_artifact "intent_check.json"
-link_active_artifact "approval.json"
-link_active_artifact "contract-hash.txt"
-link_active_artifact "contract-engineer.json"
-link_active_artifact "contract-policy.json"
-link_active_artifact "execution_context.json"
-link_active_artifact "baseline.json"
-link_active_artifact "combined.patch"
-link_active_artifact "execute_log.json"
-link_active_artifact "iteration_delta.patch"
-link_active_artifact "mechanic_report.json"
-link_active_artifact "holdout_report.json"
-link_active_artifact "policy_violations.json"
-link_active_artifact "policy_scan.json"
-link_active_artifact "repo_contract_baseline.json"
-link_active_artifact "repo_contract_violations.json"
-link_active_artifact "audit_iteration_log.json"
-link_active_artifact "repair_brief.json"
-link_active_artifact "flaky_tests.json"
-link_active_artifact "audit_summary.json"
-link_active_artifact "proofpack.json"
-link_active_artifact "anti_entropy_report.json"
-link_active_artifact "review_context.json"
-link_active_artifact "review_prompt_codex.txt"
-link_active_artifact "review_prompt_gemini.txt"
-ensure_active_artifact_dir "reviews"
-ensure_active_artifact_dir "iterations"
-ensure_active_artifact_dir "receipts"
-ensure_active_artifact_dir "runs"
-ensure_active_artifact_dir "snapshots"
 echo "ARTIFACT_ROOT=$ARTIFACT_ROOT"
 ```
 
