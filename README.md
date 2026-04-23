@@ -284,6 +284,15 @@ If Signum saves you time, consider sponsoring its development:
 - [Reference](docs/reference.md) — artifacts schema, troubleshooting
 - [Report an issue](https://github.com/heurema/signum/issues)
 
+## Open source and community
+
+- [CONTRIBUTING](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md)
+- [SECURITY](SECURITY.md)
+- [SUPPORT](SUPPORT.md)
+- [TRADEMARKS](TRADEMARKS.md)
+- [DCO](DCO.md)
+
 ## License
 
 [MIT](LICENSE)

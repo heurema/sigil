@@ -1,0 +1,48 @@
+name: Question
+description: Ask a bounded public question about usage, setup, or repo behavior
+title: "[Question]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security issues, do not use this form. See SECURITY.md.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Question summary
+      placeholder: Ask the question in one sentence
+    validations:
+      required: true
+
+  - type: textarea
+    id: trying
+    attributes:
+      label: What are you trying to do?
+      placeholder: Describe the task or goal
+    validations:
+      required: true
+
+  - type: textarea
+    id: checked
+    attributes:
+      label: What have you already checked?
+      placeholder: README.md, QUICKSTART.md, docs/reference.md, discussions, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocker
+    attributes:
+      label: Where are you blocked?
+      placeholder: Explain what is unclear or missing
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      description: Commands, screenshots, environment, links, or examples

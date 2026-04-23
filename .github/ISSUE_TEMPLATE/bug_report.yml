@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a defect, inconsistency, or broken Signum behavior
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report.
+
+        Please keep it bounded and concrete. Include the exact command, artifact path, or file surface when possible.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      placeholder: A short one-line summary
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - commands/signum.md pipeline
+        - commands/init.md / harness bootstrap
+        - deterministic lib/ behavior
+        - schemas / compatibility
+        - tests / evals
+        - release / marketplace wiring
+        - docs / parity
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Commands, steps, fixtures, contract paths, screenshots, or logs
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context
+      description: Version, OS, shell, relevant files, branch, screenshots, logs, etc.
