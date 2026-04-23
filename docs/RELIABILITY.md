@@ -49,4 +49,4 @@ review_cadence: quarterly
 - There is now a maintainer-facing release smoke path, but there is still no single runtime end-to-end CI smoke test for `/signum <task>`.
 - Most reliability evidence is still shell-script unit coverage plus documentation, not integrated scenario runs.
 - Anti-entropy / recurring cleanup mode is planned but not yet a canonical root feature.
-- Cross-repo marketplace writes require the `EMPORIUM_PUSH_TOKEN` secret in `heurema/signum`; without it, guardrails still fail loudly on drift but cannot self-heal.
+- Cross-repo marketplace writes require the `EMPORIUM_SSH_KEY` secret in `heurema/signum`; without it, guardrails still fail loudly on drift but cannot self-heal.
