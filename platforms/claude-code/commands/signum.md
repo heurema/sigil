@@ -563,7 +563,7 @@ If the file is STILL missing or INVALID after retry, stop and report: "Contracto
 
 ### Step 1.2.5: Finalize canonical contract bootstrap
 
-After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and keep only the root contract compatibility path eagerly materialized. Other root `.signum/` compatibility views stay lazy/on-demand during the migration; contract-owned artifacts, downstream file artifacts, and active run directories stay canonical under the active contract root.
+After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and keep only the minimal root compatibility set eagerly materialized: `contract.json` plus the `reviews/` bridge used by graceful-degradation review flows. Other root `.signum/` compatibility views stay lazy/on-demand during the migration; contract-owned artifacts, downstream file artifacts, and active run directories stay canonical under the active contract root.
 
 Use the Bash tool:
 
@@ -583,10 +583,13 @@ echo "contractId: $CONTRACT_ID"
 
 register_contract "$CONTRACT_ID" "draft"
 
-# Keep only the root contract compatibility path eagerly materialized.
-# Other root `.signum/` compatibility views stay lazy/on-demand and should be
-# created only by legacy promotion or explicit fallback helpers.
+# Keep only the minimal root compatibility set eagerly materialized:
+# the root contract path plus the `reviews/` bridge required by graceful
+# degradation review flows. Other root `.signum/` compatibility views stay
+# lazy/on-demand and should be created only by legacy promotion or explicit
+# fallback helpers.
 link_active_artifact "contract.json"
+ensure_active_artifact_dir "reviews"
 echo "ARTIFACT_ROOT=$ARTIFACT_ROOT"
 ```
 

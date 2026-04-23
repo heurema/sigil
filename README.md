@@ -62,7 +62,8 @@ claude plugin install .
 Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.
 
 Storage model:
-- `.signum/` is now mainly a registry/state surface for the repo, plus lazy/on-demand compatibility views during the contract-dir migration
+- `.signum/` is now mainly a registry/state surface for the repo, plus mostly lazy/on-demand compatibility views during the contract-dir migration
+- a minimal eager compatibility set remains for root `contract.json` and the `reviews/` bridge used by degraded review flows
 - `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history, including receipt-chain evidence, and is now the canonical root for the contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`)
 - `.signum/contracts/index.json.activeContractId` selects the current resumable contract; resume checks should use the registry first, not root `.signum/contract.json`
 - the per-contract directory is not a second active workspace; root compatibility views are fallback surfaces, not a precreated second working set
