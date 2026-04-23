@@ -100,14 +100,17 @@ Issue #26 showed that bumping Signum itself is not enough for fresh marketplace 
 
 When cutting a Signum release:
 
-1. Update `heurema/emporium/.claude-plugin/marketplace.json` for `signum` so both `version` and `source.ref` point to the local `.claude-plugin/plugin.json` release version.
-2. Run the maintainer smoke path:
+1. Let `.github/workflows/release-guardrails.yml` sync `heurema/emporium/.claude-plugin/marketplace.json` for `signum` so both `version` and `source.ref` point to the local `.claude-plugin/plugin.json` release version.
+   - The workflow step is named `Sync Emporium marketplace entry`.
+   - For actual cross-repo writes, configure the `EMPORIUM_PUSH_TOKEN` repo secret in `heurema/signum` with write access to `heurema/emporium`.
+   - If that secret is absent and drift exists, the workflow fails loudly instead of silently shipping a stale marketplace entry.
+2. Run the maintainer smoke path locally when changing the release wiring itself:
 
 ```bash
 bash lib/release-smoke.sh
 ```
 
-`bash lib/release-smoke.sh` fails loudly when Emporium drifts from local Signum release metadata and includes `/signum:init --harness` coverage via:
+`bash lib/release-smoke.sh` fails loudly when Emporium still drifts from local Signum release metadata after the sync step and includes `/signum:init --harness` coverage via:
 - `tests/test-init-command-surface.sh`
 - `tests/test-init-harness-scaffold.sh`
 - `tests/test-brownfield-harness-flow.sh`
