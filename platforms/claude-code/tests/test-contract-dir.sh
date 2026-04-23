@@ -195,6 +195,14 @@ echo ""
 echo "=== update_contract_status ==="
 
 assert_ok "re-sets active contract for terminal status test" set_active_contract "sig-test-002"
+assert_ok "updates existing status to completed" update_contract_status "sig-test-002" "completed"
+STATUS=$(jq -r '.contracts[] | select(.contractId == "sig-test-002") | .status' .signum/contracts/index.json)
+assert_eq "status is completed" "completed" "$STATUS"
+ACTIVE=$(jq -r '.activeContractId' .signum/contracts/index.json)
+assert_eq "completed status keeps active contract" "sig-test-002" "$ACTIVE"
+ACTIVE_ROOT=$(active_artifact_root)
+assert_eq "completed contract still resolves active artifact root" ".signum/contracts/sig-test-002/" "$ACTIVE_ROOT"
+
 assert_ok "updates existing status" update_contract_status "sig-test-002" "archived"
 STATUS=$(jq -r '.contracts[] | select(.contractId == "sig-test-002") | .status' .signum/contracts/index.json)
 assert_eq "status is archived" "archived" "$STATUS"

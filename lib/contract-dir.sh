@@ -256,10 +256,11 @@ clear_active_contract() {
 }
 
 # _is_terminal_status <status>
-# Returns success for statuses that must not remain active.
+# Returns success for statuses that must clear activeContractId immediately.
+# `completed` intentionally stays active until an explicit archive/close/finalize step.
 _is_terminal_status() {
   case "${1:-}" in
-    completed|archived|closed|superseded)
+    archived|closed|superseded)
       return 0
       ;;
     *)
