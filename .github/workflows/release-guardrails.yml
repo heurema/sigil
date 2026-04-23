@@ -50,6 +50,42 @@ jobs:
           ref: ${{ github.event.inputs.emporium_ref || 'main' }}
           path: _external/emporium
 
+      - name: Sync Emporium marketplace entry
+        env:
+          EMPORIUM_REPO: ${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}
+          EMPORIUM_GIT_REF: ${{ github.event.inputs.emporium_ref || 'main' }}
+          EMPORIUM_PATH: ${{ github.event.inputs.emporium_path || '.claude-plugin/marketplace.json' }}
+          EMPORIUM_MARKETPLACE_PATH: ${{ format('{0}/_external/emporium/{1}', github.workspace, github.event.inputs.emporium_path || '.claude-plugin/marketplace.json') }}
+          EMPORIUM_PUSH_TOKEN: ${{ secrets.EMPORIUM_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          bash lib/update-emporium-marketplace.sh
+
+          if git -C _external/emporium diff --quiet -- "${EMPORIUM_PATH}"; then
+            echo "Emporium marketplace already in sync."
+            exit 0
+          fi
+
+          if [ -z "${EMPORIUM_PUSH_TOKEN:-}" ]; then
+            echo "ERROR: EMPORIUM_PUSH_TOKEN secret is required to update ${EMPORIUM_REPO}/${EMPORIUM_PATH}." >&2
+            echo "Add a write-capable cross-repo token for heurema/emporium, or update the marketplace manually." >&2
+            exit 1
+          fi
+
+          LOCAL_VERSION="$(jq -r '.version // empty' .claude-plugin/plugin.json)"
+          if [ -z "$LOCAL_VERSION" ] || [ "$LOCAL_VERSION" = "null" ]; then
+            echo "ERROR: missing local version in .claude-plugin/plugin.json" >&2
+            exit 1
+          fi
+
+          git -C _external/emporium config user.name "github-actions[bot]"
+          git -C _external/emporium config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C _external/emporium add "${EMPORIUM_PATH}"
+          git -C _external/emporium commit -m "Sync Signum marketplace version to ${LOCAL_VERSION}"
+          git -C _external/emporium remote set-url origin "https://x-access-token:${EMPORIUM_PUSH_TOKEN}@github.com/${EMPORIUM_REPO}.git"
+          git -C _external/emporium push origin "HEAD:${EMPORIUM_GIT_REF}"
+
       - name: Run release smoke path
         env:
           EMPORIUM_REPO: ${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}

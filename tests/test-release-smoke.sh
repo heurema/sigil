@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SMOKE_SCRIPT="$REPO_ROOT/lib/release-smoke.sh"
 WORKFLOW_FILE="$REPO_ROOT/.github/workflows/release-guardrails.yml"
+UPDATE_SCRIPT="$REPO_ROOT/lib/update-emporium-marketplace.sh"
 README_FILE="$REPO_ROOT/README.md"
 RELIABILITY_FILE="$REPO_ROOT/docs/RELIABILITY.md"
 
@@ -41,7 +42,17 @@ assert_contains "smoke covers init harness scaffold" "$SMOKE_SCRIPT" 'bash tests
 assert_contains "smoke covers brownfield harness flow" "$SMOKE_SCRIPT" 'bash tests/test-brownfield-harness-flow.sh'
 
 echo ""
+echo "=== Update script wiring ==="
+assert_contains "update script reads local plugin metadata" "$UPDATE_SCRIPT" 'SIGNUM_PLUGIN_JSON_PATH'
+assert_contains "update script requires marketplace path" "$UPDATE_SCRIPT" 'EMPORIUM_MARKETPLACE_PATH'
+assert_contains "update script updates source ref" "$UPDATE_SCRIPT" 'source["ref"] = expected_ref'
+assert_contains "update script reports unchanged state" "$UPDATE_SCRIPT" 'UNCHANGED:'
+
+echo ""
 echo "=== Workflow wiring ==="
+assert_contains "workflow syncs marketplace entry before smoke" "$WORKFLOW_FILE" 'bash lib/update-emporium-marketplace.sh'
+assert_contains "workflow requires write token when drift exists" "$WORKFLOW_FILE" 'EMPORIUM_PUSH_TOKEN'
+assert_contains "workflow pushes updated Emporium ref" "$WORKFLOW_FILE" 'git -C _external/emporium push origin "HEAD:${EMPORIUM_GIT_REF}"'
 assert_contains "workflow runs release smoke path" "$WORKFLOW_FILE" 'run: bash lib/release-smoke.sh'
 assert_contains "workflow injects Emporium marketplace path" "$WORKFLOW_FILE" 'EMPORIUM_MARKETPLACE_PATH:'
 assert_contains "workflow checks out Emporium" "$WORKFLOW_FILE" "repository: \${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}"
@@ -56,11 +67,14 @@ assert_not_contains "workflow no longer runs on every pull request" "$WORKFLOW_F
 echo ""
 echo "=== Documentation wiring ==="
 assert_contains "README documents Emporium release step" "$README_FILE" 'heurema/emporium/.claude-plugin/marketplace.json'
+assert_contains "README documents automation token" "$README_FILE" 'EMPORIUM_PUSH_TOKEN'
+assert_contains "README documents automatic sync workflow" "$README_FILE" 'Sync Emporium marketplace entry'
 assert_contains "README documents release smoke command" "$README_FILE" 'bash lib/release-smoke.sh'
 assert_contains "README documents harness smoke coverage" "$README_FILE" '/signum:init --harness'
 assert_contains "README documents trigger rationale" "$README_FILE" 'workflow_dispatch'
 assert_contains "Reliability doc includes release smoke" "$RELIABILITY_FILE" 'bash lib/release-smoke.sh'
 assert_contains "Reliability doc mentions marketplace install journey" "$RELIABILITY_FILE" 'Fresh marketplace install resolves current Signum release'
+assert_contains "Reliability doc documents automation token" "$RELIABILITY_FILE" 'EMPORIUM_PUSH_TOKEN'
 
 echo ""
 echo "=== Results ==="
