@@ -266,8 +266,8 @@ printf '{"goal":"canonical"}\n' > .signum/contract.json
 assert_ok "promotes root contract into active root" promote_root_artifact_to_active "contract.json"
 assert_eq "promoted contract now exists in active root" "true" \
   "$([ -f .signum/contracts/${ACTIVE_ID}/contract.json ] && echo true || echo false)"
-assert_eq "root contract path becomes symlink" "true" \
-  "$([ -L .signum/contract.json ] && echo true || echo false)"
+assert_eq "root contract path is removed after one-time promotion" "false" \
+  "$([ -e .signum/contract.json ] || [ -L .signum/contract.json ] && echo true || echo false)"
 PROMOTED_CONTENT=$(cat ".signum/contracts/${ACTIVE_ID}/contract.json")
 assert_eq "promoted contract content preserved" '{"goal":"canonical"}' "$PROMOTED_CONTENT"
 
@@ -328,21 +328,23 @@ assert_eq "root reviews view removed" "false" \
 assert_eq "canonical reviews dir preserved" "true" \
   "$([ -f ".signum/contracts/${ACTIVE_ID}/reviews/claude.json" ] && echo true || echo false)"
 
-assert_ok "resets dir artifact and re-links it" reset_active_artifact "reviews" "dir"
-assert_eq "reviews root relinked after reset" "true" \
-  "$([ -L .signum/reviews ] && echo true || echo false)"
+assert_ok "resets dir artifact without re-linking root view" reset_active_artifact "reviews" "dir"
+assert_eq "reviews root view stays absent after reset" "false" \
+  "$([ -e .signum/reviews ] || [ -L .signum/reviews ] && echo true || echo false)"
 assert_eq "reviews canonical contents cleared on reset" "false" \
   "$([ -f ".signum/contracts/${ACTIVE_ID}/reviews/claude.json" ] && echo true || echo false)"
-printf '{"decision":"RETRY"}\n' > .signum/reviews/codex.json
+assert_eq "reviews canonical dir exists after reset" "true" \
+  "$([ -d ".signum/contracts/${ACTIVE_ID}/reviews" ] && echo true || echo false)"
+printf '{"decision":"RETRY"}\n' > ".signum/contracts/${ACTIVE_ID}/reviews/codex.json"
 assert_eq "reviews dir can be reused after reset" '{"decision":"RETRY"}' \
   "$(cat ".signum/contracts/${ACTIVE_ID}/reviews/codex.json")"
 
-assert_ok "resets file artifact and re-links it" reset_active_artifact "iteration_delta.patch"
-assert_eq "iteration delta path is symlink after reset" "true" \
-  "$([ -L .signum/iteration_delta.patch ] && echo true || echo false)"
+assert_ok "resets file artifact without re-linking root view" reset_active_artifact "iteration_delta.patch"
+assert_eq "iteration delta root view stays absent after reset" "false" \
+  "$([ -e .signum/iteration_delta.patch ] || [ -L .signum/iteration_delta.patch ] && echo true || echo false)"
 assert_eq "iteration delta target cleared on reset" "false" \
   "$([ -e ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch" ] && echo true || echo false)"
-printf 'delta-v2\n' > .signum/iteration_delta.patch
+printf 'delta-v2\n' > ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch"
 assert_eq "iteration delta writes canonically after reset" 'delta-v2' \
   "$(cat ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch")"
 

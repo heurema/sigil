@@ -580,8 +580,8 @@ ensure_active_artifact_dir() {
 }
 
 # reset_active_artifact <relative_path> [file|dir]
-# Clears both the root compatibility path and the canonical active artifact,
-# then recreates the compatibility link for the requested kind.
+# Clears both the root compatibility path and the canonical active artifact.
+# For dir artifacts, recreates only the canonical active directory.
 reset_active_artifact() {
   local rel="${1:-}"
   local kind="${2:-file}"
@@ -598,10 +598,10 @@ reset_active_artifact() {
 
   case "$kind" in
     file)
-      link_active_artifact "$rel" >/dev/null
+      mkdir -p "$(dirname "$active_path")"
       ;;
     dir)
-      ensure_active_artifact_dir "$rel" >/dev/null
+      mkdir -p "$active_path"
       ;;
     *)
       echo "reset_active_artifact: kind must be file or dir" >&2
@@ -613,8 +613,8 @@ reset_active_artifact() {
 }
 
 # promote_root_artifact_to_active <relative_path>
-# Moves an existing root .signum artifact into the active contract dir, then
-# recreates the root path as a compatibility symlink to the canonical location.
+# Moves an existing root .signum artifact into the active contract dir.
+# This is a one-time legacy import helper; it does not recreate a root view.
 promote_root_artifact_to_active() {
   local rel="${1:-}"
   if [[ -z "$rel" ]]; then
@@ -643,7 +643,6 @@ promote_root_artifact_to_active() {
     fi
   fi
 
-  link_active_artifact "$rel" >/dev/null
   echo "Promoted ${root_path} -> ${active_path}"
 }
 

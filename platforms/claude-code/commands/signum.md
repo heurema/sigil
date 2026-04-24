@@ -271,7 +271,7 @@ Use the Bash tool to prepare the workspace (in PROJECT_ROOT):
 
 ```bash
 cd "$PROJECT_ROOT" || exit 1
-mkdir -p .signum/reviews .signum/contracts
+mkdir -p .signum/contracts
 touch .gitignore
 grep -q '^\.signum/$' .gitignore || echo '.signum/' >> .gitignore
 
@@ -434,16 +434,12 @@ for rel in \
   repair_brief.json flaky_tests.json audit_summary.json proofpack.json anti_entropy_report.json; do
   if [ -e ".signum/$rel" ] || [ -L ".signum/$rel" ]; then
     promote_root_artifact_to_active "$rel"
-  else
-    link_active_artifact "$rel"
   fi
 done
 
 for rel in reviews iterations receipts runs snapshots; do
   if [ -e ".signum/$rel" ] || [ -L ".signum/$rel" ]; then
     promote_root_artifact_to_active "$rel"
-  else
-    ensure_active_artifact_dir "$rel"
   fi
 done
 
@@ -498,7 +494,6 @@ set_active_contract "$CONTRACT_ID"
 
 ARTIFACT_ROOT="$(active_artifact_root)"
 CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
-link_active_artifact "contract.json"
 
 if [ -n "${SIGNUM_CONTRACT_PATH:-}" ]; then
   test -f "$SIGNUM_CONTRACT_PATH" || { echo "ERROR: SIGNUM_CONTRACT_PATH not found: $SIGNUM_CONTRACT_PATH"; exit 1; }
@@ -524,7 +519,7 @@ CONTRACT_ID: <value emitted above>
 CANONICAL_ARTIFACT_ROOT: <value emitted above>
 
 Scan the codebase, assess risk, and write `contract.json` to the canonical artifact root above.
-The `.signum/contract.json` compatibility path points there, but the canonical file is the one under the contract directory.
+Do not write root `.signum/contract.json`; root artifact paths are legacy migration inputs only.
 ```
 
 ### Step 1.2: Validate contract
@@ -563,7 +558,7 @@ If the file is STILL missing or INVALID after retry, stop and report: "Contracto
 
 ### Step 1.2.5: Finalize canonical contract bootstrap
 
-After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and keep only the minimal root compatibility set eagerly materialized: `contract.json` plus the `reviews/` bridge used by graceful-degradation review flows. Other root `.signum/` compatibility views stay lazy/on-demand during the migration; contract-owned artifacts, downstream file artifacts, and active run directories stay canonical under the active contract root.
+After contractor creates `contract.json` in the active contract root, persist the preallocated `contractId` into the file, refresh index metadata, and create only the canonical runtime directories needed by the current run. Normal runs must not materialize root `.signum/` artifact views; root artifact paths are legacy migration inputs only.
 
 Use the Bash tool:
 
@@ -583,13 +578,9 @@ echo "contractId: $CONTRACT_ID"
 
 register_contract "$CONTRACT_ID" "draft"
 
-# Keep only the minimal root compatibility set eagerly materialized:
-# the root contract path plus the `reviews/` bridge required by graceful
-# degradation review flows. Other root `.signum/` compatibility views stay
-# lazy/on-demand and should be created only by legacy promotion or explicit
-# fallback helpers.
-link_active_artifact "contract.json"
-ensure_active_artifact_dir "reviews"
+# Keep normal runs canonical-only. The reviews directory is required by
+# graceful-degradation review flows, but it lives only under ARTIFACT_ROOT.
+mkdir -p "${ARTIFACT_ROOT}reviews"
 echo "ARTIFACT_ROOT=$ARTIFACT_ROOT"
 ```
 
@@ -2272,6 +2263,16 @@ Save CODEX_AVAILABLE and GEMINI_AVAILABLE for use in the next step.
 
 ### Step 3.2.5: Launch reviews
 
+Before choosing the risk-proportional review launch path, ensure the canonical reviews directory exists. This applies to low-risk foreground Claude reviews and medium/high parallel reviews:
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+mkdir -p "$REVIEWS_DIR"
+echo "REVIEWS_DIR=$REVIEWS_DIR"
+```
+
 **Risk-proportional launch:**
 - **Low risk:** Launch Claude reviewer ONLY (foreground, not background). Write UNAVAILABLE stubs for codex and gemini immediately. Skip to Step 3.3 (no TaskOutput wait needed since Claude ran foreground, but still verify claude.json output).
 - **Medium/High risk:** Use a single message with multiple tool use blocks to launch all available reviewers simultaneously. Do NOT wait between launches.
@@ -2350,6 +2351,7 @@ After all complete (or if they were never launched), verify the claude output:
 source lib/contract-dir.sh 2>/dev/null || true
 ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
+mkdir -p "$REVIEWS_DIR"
 CLAUDE_REVIEW_PATH="${REVIEWS_DIR}/claude.json"
 test -f "$CLAUDE_REVIEW_PATH" && jq -e '.verdict' "$CLAUDE_REVIEW_PATH" > /dev/null \
   && echo "claude review OK" || echo "WARNING: claude.json missing or invalid"
@@ -2416,6 +2418,7 @@ source lib/contract-dir.sh 2>/dev/null || true
 ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
 CODEX_JSON_PATH="${REVIEWS_DIR}/codex.json"
+mkdir -p "$REVIEWS_DIR"
 echo '{"verdict":"UNAVAILABLE","findings":[],"summary":"Codex CLI not installed","available":false}' \
   > "$CODEX_JSON_PATH"
 ```
@@ -2484,6 +2487,7 @@ source lib/contract-dir.sh 2>/dev/null || true
 ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
 GEMINI_JSON_PATH="${REVIEWS_DIR}/gemini.json"
+mkdir -p "$REVIEWS_DIR"
 echo '{"verdict":"UNAVAILABLE","findings":[],"summary":"Gemini CLI not installed","available":false}' \
   > "$GEMINI_JSON_PATH"
 ```
@@ -2773,7 +2777,7 @@ if [ -f "$COMBINED_PATCH_PATH" ]; then
   cp "$COMBINED_PATCH_PATH" "$_SEED_PATCH"
 fi
 
-# Remove stale artifacts from both the root view and canonical active root.
+# Remove stale artifacts from any root compatibility view and from the canonical active root.
 source lib/contract-dir.sh
 reset_active_artifact "combined.patch"
 reset_active_artifact "execute_log.json"

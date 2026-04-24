@@ -231,9 +231,7 @@ You receive:
 
 Write `contract.json` under the canonical active contract root provided by the orchestrator, following the schema at `lib/schemas/contract.schema.json`.
 
-If both paths are shown to you:
-- canonical path under `.signum/contracts/<contractId>/` is the source of truth
-- `.signum/contract.json` is only a compatibility view pointing at that canonical file
+Use the canonical path under `.signum/contracts/<contractId>/` as the source of truth. Do not write root `.signum/contract.json`; that path is only a legacy import signal.
 
 If you have unresolvable questions (can't determine scope, ambiguous requirement, missing context), set `openQuestions` to a non-empty array and `requiredInputsProvided` to false. The orchestrator will HARD STOP and ask the user.
 

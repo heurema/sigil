@@ -29,8 +29,8 @@ check_file() {
   local label="$2"
 
   assert_contains "$file" 'Write `contract.json` under the canonical active contract root provided by the orchestrator' "$label"
-  assert_contains "$file" 'canonical path under `.signum/contracts/<contractId>/` is the source of truth' "$label"
-  assert_contains "$file" '`.signum/contract.json` is only a compatibility view pointing at that canonical file' "$label"
+  assert_contains "$file" 'Use the canonical path under `.signum/contracts/<contractId>/` as the source of truth' "$label"
+  assert_contains "$file" 'Do not write root `.signum/contract.json`; that path is only a legacy import signal' "$label"
   assert_contains "$file" 'you MUST call Write for canonical `contract.json` by turn 10' "$label"
   assert_not_contains "$file" 'Write `.signum/contract.json` following the schema' "$label"
   assert_not_contains "$file" 'you MUST call Write for `.signum/contract.json` by turn 10' "$label"
