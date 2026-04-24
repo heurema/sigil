@@ -4,6 +4,16 @@
 
 ## [4.20.1] - 2026-04-23
 
+### Added
+- Release guardrails for marketplace sync:
+  - `lib/check-emporium-sync.sh` — fail-loud check that compares local Signum release metadata against the `signum` entry in `heurema/emporium/.claude-plugin/marketplace.json`
+  - `lib/release-smoke.sh` — maintainer smoke path that runs the Emporium sync check plus `/signum:init --harness` coverage
+  - `.github/workflows/release-guardrails.yml` — CI workflow that checks out Emporium and runs the same release smoke path on `workflow_dispatch`, published releases, and release-related pushes to `main`, while skipping fork/canonical-repo mismatches
+  - `tests/test-emporium-sync.sh`, `tests/test-release-smoke.sh` — regression coverage for the sync check and smoke/workflow wiring
+
+### Documentation
+- `README.md`, `docs/RELIABILITY.md` now document the Emporium update step for Signum releases and point maintainers at `bash lib/release-smoke.sh`
+
 ### Fixed
 - Completed contracts now stay active until explicit archive/close/finalize instead of clearing `.signum/contracts/index.json.activeContractId` as soon as PACK marks them `completed`
   - `lib/contract-dir.sh` and `platforms/claude-code/lib/contract-dir.sh` now clear the active contract only for explicit terminal states (`archived`, `closed`, `superseded`)

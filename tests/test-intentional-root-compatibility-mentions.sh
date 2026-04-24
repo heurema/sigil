@@ -72,20 +72,20 @@ assert_exact_file_set \
   "$EXPECTED_CONTRACT_HITS"
 
 assert_contains "$ROOT_DIR/README.md" \
-  'resume checks should use the registry first, not root `.signum/contract.json`' \
-  "README frames root contract path as non-primary resume fallback"
+  'resume checks use the registry first, with root `.signum/contract.json` only as a legacy import signal' \
+  "README frames root contract path as legacy import signal"
 assert_contains "$ROOT_DIR/docs/reference.md" \
-  'with a root `.signum/contract.json` compatibility path during the migration' \
-  "reference doc frames root contract path as compatibility path"
+  'Root `.signum/contract.json` is only a legacy import signal' \
+  "reference doc frames root contract path as legacy import signal"
 assert_contains "$ROOT_DIR/platforms/claude-code/docs/reference.md" \
-  'with a root `.signum/contract.json` compatibility path during the migration' \
-  "overlay reference doc frames root contract path as compatibility path"
+  'Root `.signum/contract.json` is only a legacy import signal' \
+  "overlay reference doc frames root contract path as legacy import signal"
 assert_contains "$ROOT_DIR/agents/contractor.md" \
-  '`.signum/contract.json` is only a compatibility view pointing at that canonical file' \
-  "root contractor prompt frames root contract path as compatibility view"
+  'Do not write root `.signum/contract.json`; that path is only a legacy import signal' \
+  "root contractor prompt blocks root contract writes"
 assert_contains "$ROOT_DIR/platforms/claude-code/agents/contractor.md" \
-  '`.signum/contract.json` is only a compatibility view pointing at that canonical file' \
-  "overlay contractor prompt frames root contract path as compatibility view"
+  'Do not write root `.signum/contract.json`; that path is only a legacy import signal' \
+  "overlay contractor prompt blocks root contract writes"
 
 assert_no_matches \
   "no stray root proofpack path remains outside legacy helpers and tests" \

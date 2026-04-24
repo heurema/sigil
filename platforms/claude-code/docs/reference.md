@@ -74,7 +74,7 @@ CONTRACT → EXECUTE → AUDIT → PACK
 
 ### Phase 1: CONTRACT
 
-Contractor agent (haiku) scans the codebase and produces `contract.json` under the active contract artifact root (`.signum/contracts/<contractId>/`), with a root `.signum/contract.json` compatibility path during the migration.
+Contractor agent (haiku) scans the codebase and produces `contract.json` under the active contract artifact root (`.signum/contracts/<contractId>/`). Root `.signum/contract.json` is only a legacy import signal.
 
 Hard stop if `openQuestions` is non-empty — the user must answer before proceeding.
 
@@ -109,7 +109,7 @@ Assembles `proofpack.json` under the active contract artifact root — a self-co
 
 ## Artifacts
 
-Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and now mainly holds registry/state surfaces plus compatibility views during the contract-dir migration. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory.
+Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and is a registry/state/archive namespace, not a runtime workspace. Normal runs do not create root artifact files or root runtime dirs; root artifact paths are legacy migration inputs only. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory.
 
 | File | Phase | Contents |
 |------|-------|----------|
