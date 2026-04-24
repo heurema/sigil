@@ -2263,13 +2263,7 @@ Save CODEX_AVAILABLE and GEMINI_AVAILABLE for use in the next step.
 
 ### Step 3.2.5: Launch reviews
 
-**Risk-proportional launch:**
-- **Low risk:** Launch Claude reviewer ONLY (foreground, not background). Write UNAVAILABLE stubs for codex and gemini immediately. Skip to Step 3.3 (no TaskOutput wait needed since Claude ran foreground, but still verify claude.json output).
-- **Medium/High risk:** Use a single message with multiple tool use blocks to launch all available reviewers simultaneously. Do NOT wait between launches.
-
-For medium/high risk, launch the reviewer-claude Agent with `run_in_background: true`, the Codex Bash with `run_in_background: true`, and the Gemini Bash with `run_in_background: true` — all in the same message:
-
-Before launching reviewers, ensure the canonical reviews directory exists:
+Before choosing the risk-proportional review launch path, ensure the canonical reviews directory exists. This applies to low-risk foreground Claude reviews and medium/high parallel reviews:
 
 ```bash
 source lib/contract-dir.sh 2>/dev/null || true
@@ -2278,6 +2272,12 @@ REVIEWS_DIR="${ARTIFACT_ROOT}reviews"
 mkdir -p "$REVIEWS_DIR"
 echo "REVIEWS_DIR=$REVIEWS_DIR"
 ```
+
+**Risk-proportional launch:**
+- **Low risk:** Launch Claude reviewer ONLY (foreground, not background). Write UNAVAILABLE stubs for codex and gemini immediately. Skip to Step 3.3 (no TaskOutput wait needed since Claude ran foreground, but still verify claude.json output).
+- **Medium/High risk:** Use a single message with multiple tool use blocks to launch all available reviewers simultaneously. Do NOT wait between launches.
+
+For medium/high risk, launch the reviewer-claude Agent with `run_in_background: true`, the Codex Bash with `run_in_background: true`, and the Gemini Bash with `run_in_background: true` — all in the same message:
 
 **Claude (Agent tool, `run_in_background: true`):**
 
