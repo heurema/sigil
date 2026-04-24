@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [4.20.2] - 2026-04-24
+
+### Fixed
+- Normal runs no longer materialize root `.signum/` artifact views; root artifact paths are now legacy migration inputs only.
+- Legacy root promotion and artifact reset no longer recreate root compatibility symlinks after moving artifacts into the canonical contract directory.
+- Review launch setup now creates the canonical `reviews/` directory before the risk split, covering low-risk foreground reviews and medium/high parallel reviews.
+
 ## [4.20.1] - 2026-04-23
 
 ### Added
