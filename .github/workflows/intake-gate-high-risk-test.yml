@@ -1,0 +1,14 @@
+name: Intake Gate High Risk Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: No-op
+        run: echo "intake gate high-risk test"
