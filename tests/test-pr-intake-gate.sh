@@ -88,11 +88,33 @@ PY
   echo "ok - $name"
 }
 
+python3 - <<'PY'
+from scripts.pr_intake_gate import is_gate_comment, path_matches
+
+marker = "<!-- pr-intake-gate -->"
+assert path_matches("README.md", "*.md")
+assert path_matches("docs/usage.md", "docs/**")
+assert not path_matches("src/runtime.md", "*.md")
+assert path_matches("scripts/check.sh", "scripts/**/*.sh")
+assert path_matches("scripts/nested/check.sh", "scripts/**/*.sh")
+assert not is_gate_comment({"body": marker, "user": {"login": "contributor", "type": "User"}}, marker)
+assert is_gate_comment({"body": marker, "user": {"login": "github-actions[bot]", "type": "Bot"}}, marker)
+print("ok - helper semantics")
+PY
+
 run_case \
   "docs_only_passes" \
   0 \
   "pass" \
   '[{"filename":"README.md","additions":2,"deletions":1}]' \
+  '' \
+  '[]'
+
+run_case \
+  "nested_markdown_without_intent_fails" \
+  1 \
+  "needs-issue" \
+  '[{"filename":"src/runtime.md","additions":1,"deletions":0}]' \
   '' \
   '[]'
 
@@ -109,6 +131,14 @@ run_case \
   1 \
   "high-risk" \
   '[{"filename":".github/workflows/ci.yml","additions":1,"deletions":0}]' \
+  '' \
+  '[]'
+
+run_case \
+  "high_risk_script_shell_fails" \
+  1 \
+  "high-risk" \
+  '[{"filename":"scripts/check.sh","additions":1,"deletions":0}]' \
   '' \
   '[]'
 

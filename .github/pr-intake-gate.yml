@@ -23,7 +23,7 @@ high_risk_path_globs:
   - 'Dockerfile'
   - 'docker/**'
   - 'scripts/install*'
-  - 'scripts/**.sh'
+  - 'scripts/**/*.sh'
   - 'commands/**'
   - 'agents/**'
   - 'lib/**'

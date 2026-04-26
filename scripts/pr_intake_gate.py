@@ -290,14 +290,24 @@ def load_changed_files(ctx: PullRequestContext) -> list[ChangedFile]:
 def path_matches(path: str, pattern: str) -> bool:
     normalized = path.strip("/")
     pattern = pattern.strip("/")
-    pure = PurePosixPath(normalized)
-    if fnmatchcase(normalized, pattern):
-        return True
-    if pure.match(pattern):
-        return True
-    if pattern.startswith("**/") and (fnmatchcase(normalized, pattern[3:]) or pure.match(pattern[3:])):
-        return True
-    return False
+    if not normalized or not pattern:
+        return normalized == pattern
+    return match_path_parts(tuple(PurePosixPath(normalized).parts), tuple(PurePosixPath(pattern).parts))
+
+
+def match_path_parts(path_parts: tuple[str, ...], pattern_parts: tuple[str, ...]) -> bool:
+    if not pattern_parts:
+        return not path_parts
+
+    head, *tail = pattern_parts
+    if head == "**":
+        if not tail:
+            return True
+        return any(match_path_parts(path_parts[index:], tuple(tail)) for index in range(len(path_parts) + 1))
+
+    if not path_parts:
+        return False
+    return fnmatchcase(path_parts[0], head) and match_path_parts(path_parts[1:], tuple(tail))
 
 
 def matching_patterns(path: str, patterns: Iterable[str]) -> list[str]:
@@ -382,7 +392,7 @@ def upsert_comment(ctx: PullRequestContext, marker: str, body: str) -> None:
     token = get_token()
     repo = urllib.parse.quote(ctx.repository, safe="/")
     for comment in list_comments(ctx):
-        if marker in str(comment.get("body") or ""):
+        if is_gate_comment(comment, marker):
             comment_id = comment.get("id")
             if comment_id:
                 api_request("PATCH", f"/repos/{repo}/issues/comments/{comment_id}", token, {"body": body})
@@ -396,11 +406,27 @@ def update_existing_gate_comment(ctx: PullRequestContext, marker: str, body: str
     token = get_token()
     repo = urllib.parse.quote(ctx.repository, safe="/")
     for comment in list_comments(ctx):
-        if marker in str(comment.get("body") or ""):
+        if is_gate_comment(comment, marker):
             comment_id = comment.get("id")
             if comment_id:
                 api_request("PATCH", f"/repos/{repo}/issues/comments/{comment_id}", token, {"body": body})
             return
+
+
+def gate_comment_bot_logins() -> set[str]:
+    raw = os.environ.get("PR_INTAKE_GATE_COMMENT_BOT_LOGINS", "github-actions[bot]")
+    return {item.strip() for item in raw.split(",") if item.strip()}
+
+
+def is_gate_comment(comment: dict[str, Any], marker: str) -> bool:
+    if marker not in str(comment.get("body") or ""):
+        return False
+    user = comment.get("user") or {}
+    if not isinstance(user, dict):
+        return False
+    login = str(user.get("login") or "")
+    user_type = str(user.get("type") or "")
+    return login in gate_comment_bot_logins() and user_type in {"", "Bot"}
 
 
 def write_step_summary(summary: dict[str, Any]) -> None:
