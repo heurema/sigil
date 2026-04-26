@@ -3,53 +3,69 @@ description: Propose a bounded improvement that fits current Signum scope
 title: "[Feature]: "
 labels:
   - enhancement
+  - intake/needs-maintainer-decision
 body:
   - type: markdown
     attributes:
       value: |
-        Please ground proposals in Signum's current scope as a contract-first development pipeline.
-
-  - type: input
-    id: summary
-    attributes:
-      label: Summary
-      placeholder: A short one-line proposal
-    validations:
-      required: true
+        Please describe the intent before opening a non-trivial PR.
 
   - type: textarea
     id: problem
     attributes:
-      label: Problem / opportunity
-      placeholder: Describe the user or maintainer problem first
+      label: Problem
+      description: What user, maintainer, or project problem should be solved?
+      placeholder: Describe the problem before describing code.
     validations:
       required: true
 
   - type: textarea
-    id: proposal
+    id: expected_outcome
     attributes:
-      label: Proposed change
-      placeholder: Describe the bounded change
+      label: Expected outcome
+      description: What should be true after this is solved?
     validations:
       required: true
 
   - type: textarea
-    id: fit
+    id: current_workaround
     attributes:
-      label: Why this fits Signum now
-      description: Explain how this stays within the current product/repo shape
-      placeholder: Reference README, AGENTS.md, docs/how-it-works.md, or docs/reference.md
+      label: Current workaround
+      description: How can users or maintainers handle this today?
     validations:
       required: true
 
   - type: textarea
-    id: non_goals
+    id: insufficiency
     attributes:
-      label: Out of scope / non-goals
-      placeholder: What this request should explicitly not become
+      label: Why current behavior/options are insufficient
+      description: Explain why existing behavior, docs, configuration, or process is not enough.
+    validations:
+      required: true
 
   - type: textarea
-    id: proof
+    id: minimal_solution
     attributes:
-      label: Supporting material
-      description: Related issues, repros, design notes, examples, or references
+      label: Minimal acceptable solution
+      description: What is the smallest useful change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include no-code, docs-only, process, or configuration alternatives.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willingness_to_pr
+    attributes:
+      label: Willingness to submit PR
+      options:
+        - I can submit a PR if maintainers accept the intent
+        - I can help test or review
+        - I am only reporting the request
+    validations:
+      required: true

@@ -1,0 +1,68 @@
+trivial:
+  max_changed_lines: 30
+  allowed_path_globs:
+    - 'README.md'
+    - 'QUICKSTART.md'
+    - 'docs/**'
+    - '*.md'
+    - 'tests/**'
+    - 'test/**'
+
+high_risk_path_globs:
+  - '.github/workflows/**'
+  - '.github/actions/**'
+  - '.github/pr-intake-gate.yml'
+  - 'scripts/pr_intake_gate.py'
+  - 'package.json'
+  - 'package-lock.json'
+  - 'pnpm-lock.yaml'
+  - 'yarn.lock'
+  - 'requirements*.txt'
+  - 'pyproject.toml'
+  - 'poetry.lock'
+  - 'Dockerfile'
+  - 'docker/**'
+  - 'scripts/install*'
+  - 'scripts/**/*.sh'
+  - 'commands/**'
+  - 'agents/**'
+  - 'lib/**'
+  - 'lib/schemas/**'
+  - 'evals/**'
+  - '**/auth/**'
+  - '**/security/**'
+  - '**/crypto/**'
+  - '**/migrations/**'
+
+labels:
+  pass: 'intake/pass'
+  needs_issue: 'intake/needs-issue'
+  needs_more_context: 'intake/needs-more-context'
+  no_code_alternative: 'intake/no-code-alternative'
+  high_risk: 'intake/high-risk'
+  needs_maintainer: 'intake/needs-maintainer-decision'
+  accepted_for_pr: 'intake/accepted-for-pr'
+  override: 'maintainer/override-intake'
+
+verdicts:
+  pass: 'pass'
+  needs_issue: 'needs-issue'
+  high_risk: 'high-risk'
+
+linked_intent:
+  accept_patterns:
+    - '#\d+'
+    - 'issues/\d+'
+    - 'discussions/\d+'
+    - '(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+'
+    - 'https://github.com/[^/\s]+/[^/\s]+/(issues|discussions)/\d+'
+
+bot_comment:
+  marker: '<!-- pr-intake-gate -->'
+
+llm:
+  enabled: false
+  provider: 'openai'
+  model_fast: 'gpt-5.4-mini'
+  model_reasoning: 'gpt-5.5'
+  max_diff_chars: 30000

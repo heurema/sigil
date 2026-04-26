@@ -82,6 +82,44 @@ Examples:
 
 For deterministic bug fixes, a failing test first is strongly preferred.
 
+
+## PR Intake Gate
+
+This repository uses a deterministic PR Intake Gate before ordinary code review.
+
+For non-trivial changes, open an Issue or Discussion first and link it from the PR body. The intent should explain:
+- the problem;
+- the expected outcome;
+- why existing behavior/options are insufficient;
+- alternatives considered;
+- why this cannot be solved without code.
+
+Direct PRs are allowed for:
+- typo/docs fixes;
+- small test-only changes;
+- clearly scoped bug fixes;
+- maintainer-approved changes.
+
+PRs touching security, auth, dependencies, workflows, public APIs, install scripts, schemas, command behavior, or runtime behavior require maintainer attention.
+
+Maintainers can bypass the intake gate with the `maintainer/override-intake` label. Use that label only when taking explicit responsibility for reviewing the PR without the normal intake path.
+
+### PR Intake Gate self-check
+
+Expected behavior:
+- docs-only PR: passes and receives `intake/pass`;
+- non-trivial PR without linked Issue/Discussion: fails with `intake/needs-issue` and a short bot comment;
+- PR touching `.github/workflows/**`: fails with `intake/high-risk` and a maintainer-review comment;
+- PR with `maintainer/override-intake`: passes.
+
+Local deterministic checks:
+
+```bash
+python3 -m py_compile scripts/pr_intake_gate.py
+bash tests/test-pr-intake-gate.sh
+```
+
+
 ## Commit sign-off (DCO)
 
 This repository uses the **Developer Certificate of Origin (DCO)** instead of a CLA.

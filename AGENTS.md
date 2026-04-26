@@ -51,3 +51,12 @@ review_cadence: quarterly
 - Update this file when a new agent-facing surface, canonical source, or high-risk path is introduced.
 - Keep this file short; move detailed rationale into `ARCHITECTURE.md`, `docs/SECURITY.md`, `docs/RELIABILITY.md`, or `docs/QUALITY_SCORE.md`.
 - Review after major pipeline, schema, or platform overlay changes.
+
+## Review guidelines
+- First check whether the PR should exist at all: non-trivial changes need linked Issue or Discussion intent before code review.
+- Prefer no-code alternatives when possible: docs, configuration, process changes, or clearer existing workflows beat new code.
+- Do not recommend adding dependencies unless the benefit is explicit and stdlib/built-in options are insufficient.
+- Treat workflow, dependency, auth, security, eval/subprocess/shell, install scripts, public API, schema, command behavior, and runtime behavior changes as high-risk.
+- For high-risk PRs, ask for maintainer attention instead of continuing ordinary review unless `maintainer/override-intake` is present.
+- Public comments must be polite, concise, and actionable.
+- Do not publish contributor trust scores.
