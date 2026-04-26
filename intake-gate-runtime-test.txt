@@ -1,0 +1,1 @@
+This temporary PR validates that a non-trivial path without linked intent is blocked by the intake gate.
