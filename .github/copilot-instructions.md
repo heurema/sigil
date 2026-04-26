@@ -1,28 +1,29 @@
-# Signum — AI Agent Instructions
+# Signum Copilot Review Instructions
 
-Signum is a Claude Code plugin that implements evidence-driven development:
-contract-first spec, multi-model audit (Claude + Codex + Gemini), and
-tamper-evident proofpacks.
+Review code only after the PR intake gate is satisfied (`intake/pass` or maintainer override). If intake is not satisfied, focus on the missing intent/risk signal instead of detailed code style.
 
-## Architecture
+Priorities, in order:
+1. Correctness and regressions.
+2. Security and trust boundaries.
+3. Maintainability and minimal scope.
+4. Minimal dependencies.
 
-- `commands/` — slash commands (entry points: `/signum`, `/signum:init`)
-- `agents/` — subagents (contractor, engineer, reviewer-claude, synthesizer)
-- `lib/` — shared shell modules (contract, audit, proofpack, policy scanner)
-- `tests/` — test suite (run with `bash tests/run.sh`)
-- `modules.yaml` — agent/skill/hook declarations
+Flag risky changes in:
+- `.github/workflows/**` and custom GitHub Actions.
+- Dependencies, lockfiles, install scripts, Docker files, and release wiring.
+- Auth, security, crypto, subprocess/shell/eval, and file-system execution paths.
+- Public APIs, schemas, command behavior, and runtime behavior.
 
-## Conventions
+Do not recommend new dependencies unless the benefit is explicit and smaller stdlib/built-in options are insufficient.
 
-- Shell (bash 4+) for all pipeline code — no external runtimes required
-- JSON for structured data (contract.json, proofpack manifests)
-- Deterministic outputs: same input must produce same contract hash
-- All file paths relative to project root
-- Error messages go to stderr, structured output to stdout
+Do not treat stylistic issues as blockers unless they affect correctness, security, maintainability, or contributor usability.
 
-## Contributing
+Keep public review comments concise, polite, and actionable. Do not publish contributor trust scores.
 
-- Bug fixes: include a failing test case
-- New agents: must declare tools explicitly in frontmatter
-- Security findings: open a private advisory, not a public issue
-- Keep shell portable — no bashisms beyond bash 4.0
+Repo map:
+- `commands/signum.md` is the canonical Signum pipeline surface.
+- `commands/init.md` is the canonical init/bootstrap surface.
+- `agents/` contains LLM prompt surfaces.
+- `lib/` contains deterministic behavior.
+- `lib/schemas/` is compatibility-sensitive.
+- `tests/` contains verification.

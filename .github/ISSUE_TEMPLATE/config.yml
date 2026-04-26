@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Support and usage questions
+  - name: Discussions
     url: https://github.com/heurema/signum/discussions
-    about: Use Discussions for setup help, usage questions, and broader product discussion.
+    about: Use Discussions for design questions, contribution intent, setup help, and broader product discussion.
   - name: Contribution guide
     url: https://github.com/heurema/signum/blob/main/CONTRIBUTING.md
-    about: Read contribution rules, validation expectations, and DCO requirements first.
+    about: Read contribution rules, intake expectations, validation expectations, and DCO requirements first.
   - name: Security policy
     url: https://github.com/heurema/signum/blob/main/SECURITY.md
     about: Do not use public issues for vulnerabilities. Follow the private reporting guidance in SECURITY.md.

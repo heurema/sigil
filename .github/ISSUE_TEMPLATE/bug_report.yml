@@ -7,55 +7,29 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for filing a bug report.
+        Thanks for filing a bug report. Please keep it bounded and reproducible.
 
-        Please keep it bounded and concrete. Include the exact command, artifact path, or file surface when possible.
-
-  - type: input
-    id: summary
+  - type: textarea
+    id: what_happened
     attributes:
-      label: Summary
-      placeholder: A short one-line summary
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: Affected area
-      options:
-        - commands/signum.md pipeline
-        - commands/init.md / harness bootstrap
-        - deterministic lib/ behavior
-        - schemas / compatibility
-        - tests / evals
-        - release / marketplace wiring
-        - docs / parity
-        - other
+      label: What happened
+      description: Describe the observed behavior.
     validations:
       required: true
 
   - type: textarea
-    id: current
-    attributes:
-      label: Current behavior
-      placeholder: What happened?
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
+    id: expected_behavior
     attributes:
       label: Expected behavior
-      placeholder: What should have happened instead?
+      description: What should have happened instead?
     validations:
       required: true
 
   - type: textarea
-    id: repro
+    id: reproduction_steps
     attributes:
-      label: Reproduction
-      description: Commands, steps, fixtures, contract paths, screenshots, or logs
+      label: Reproduction steps
+      description: Include exact commands, files, fixtures, or links where possible.
       placeholder: |
         1. Run ...
         2. Open ...
@@ -64,7 +38,31 @@ body:
       required: true
 
   - type: textarea
-    id: context
+    id: environment
     attributes:
-      label: Extra context
-      description: Version, OS, shell, relevant files, branch, screenshots, logs, etc.
+      label: Environment
+      description: OS, shell, Signum version/ref, relevant tool versions, and any important context.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Regression or not
+      options:
+        - Yes, this worked before
+        - No, this never worked for me
+        - Unsure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willingness_to_pr
+    attributes:
+      label: Willingness to submit PR
+      options:
+        - I can submit a PR if maintainers accept the intent
+        - I can help test or review
+        - I am only reporting the bug
+    validations:
+      required: true

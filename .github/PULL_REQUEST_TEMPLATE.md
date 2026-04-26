@@ -1,3 +1,32 @@
+## Linked intent
+
+Link the Issue or Discussion this PR implements.
+
+- Issue / Discussion:
+- Closes/Fixes/Resolves:
+
+For non-trivial changes, open an Issue or Discussion before code review. Direct PRs are intended only for typo/docs fixes, small test-only changes, clearly scoped bug fixes, or maintainer-approved work.
+
+## Problem
+
+What problem does this solve?
+
+## Why now
+
+Why is this needed now?
+
+## Existing options
+
+Why are existing options or current behavior insufficient?
+
+## Alternatives considered
+
+What alternatives did you consider?
+
+## No-code alternative
+
+Why cannot this be solved without code?
+
 ## Summary
 
 Describe the change in 2-5 bullets.
@@ -20,32 +49,31 @@ Mark all that apply.
 - [ ] refactor
 - [ ] other
 
-## Goal / intent
-
-What problem does this PR solve? Why now?
-
 ## Scope
 
 In:
-- 
+-
 
 Out:
-- 
+-
 
-## Linked issue
-
-Closes #
-
-## Sensitive surfaces
+## Risk areas
 
 Mark anything touched in this PR.
 
+- [ ] public API
+- [ ] dependency change
+- [ ] CI/workflow change
+- [ ] auth/security
+- [ ] database/schema
+- [ ] runtime behavior
+- [ ] docs-only
+- [ ] test-only
 - [ ] `commands/signum.md`
 - [ ] `commands/init.md`
 - [ ] `agents/*`
 - [ ] `lib/*`
 - [ ] `lib/schemas/*`
-- [ ] `.claude-plugin/*`
 - [ ] `.github/workflows/*`
 - [ ] none of the above
 
@@ -59,7 +87,7 @@ Mark anything touched in this PR.
 - [ ] follow-up docs work is needed
 
 Docs / rationale:
-- 
+-
 
 ## Validation / proof
 
