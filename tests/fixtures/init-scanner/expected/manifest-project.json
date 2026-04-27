@@ -12,7 +12,7 @@
     "cargo_toml": "[package]\nname = \"manifest-project\"\nversion = \"0.1.0\"",
     "go_mod": "module example.com/manifest-project\n\ngo 1.22",
     "ci_signals": "",
-    "entrypoints": "\n=== bin/ ===\nbin/manifest.js\n\n=== commands/ ===\ncommands/run.md\n\n=== skills/ ===\nskills/main.md\n",
+    "entrypoints": "\n=== bin/ ===\nbin/manifest.js\n\n=== commands/ ===\ncommands/nested-group/run.md\ncommands/run.md\n\n=== skills/ ===\nskills/main.md\n",
     "console_scripts": "[project.scripts]\nmanifest-py = \"manifest_project.cli:main\"",
     "pkg_bin": "manifest-cli: bin/manifest.js",
     "git_dirstat": "",

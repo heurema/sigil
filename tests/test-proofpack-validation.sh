@@ -103,6 +103,17 @@ printf '{"goal":"fixture"}\n' > "$INFER_ROOT/contract.json"
 assert_ok "validator infers canonical contract root from proofpack path" \
   python3 "$VALIDATOR" "$INFER_ROOT/proofpack.json" --repo-root "$REPO_ROOT"
 
+# Regression for issue #42: when --repo-root points to a project that ships its
+# own .claude-plugin/plugin.json with a different version, the validator must
+# still resolve signumVersion from the Signum install, not from the scanned
+# project. Otherwise valid runs against plugin-shipping projects fail.
+PROJECT_WITH_PLUGIN="$WORK/project-with-conflicting-plugin"
+mkdir -p "$PROJECT_WITH_PLUGIN/.claude-plugin"
+printf '{"name":"unrelated","version":"0.0.0-conflicting"}\n' \
+  > "$PROJECT_WITH_PLUGIN/.claude-plugin/plugin.json"
+assert_ok "validator prefers Signum plugin metadata over scanned project's plugin.json" \
+  python3 "$VALIDATOR" "$FIXTURES/valid-minimal.json" --repo-root "$PROJECT_WITH_PLUGIN"
+
 echo ""
 echo "=== Invalid proofpacks ==="
 assert_fail_contains "malformed JSON fails" "invalid JSON" \

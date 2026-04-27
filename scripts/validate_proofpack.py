@@ -76,14 +76,18 @@ def _script_root() -> Path:
 
 
 def _candidate_roots(repo_root: Path | None) -> list[Path]:
+    # Resolve Signum-owned metadata (plugin.json, schema, command file) from the
+    # Signum install location first. A scanned project may ship its own
+    # .claude-plugin/plugin.json, which would otherwise hijack signumVersion
+    # source-of-truth checks and produce false mismatches.
     roots: list[Path] = []
-    if repo_root is not None:
-        roots.append(repo_root)
     script_root = _script_root()
     roots.append(script_root)
     # When running a mirrored platform script, script_root is platforms/claude-code.
     # When running root script, this duplicate is harmless.
     roots.append(script_root.parent)
+    if repo_root is not None:
+        roots.append(repo_root)
 
     unique: list[Path] = []
     seen: set[Path] = set()
