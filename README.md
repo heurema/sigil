@@ -1,298 +1,379 @@
-```
-         _
-   _____(_)___ _____  __  ______ ___
-  / ___/ / __ `/ __ \/ / / / __ `__ \
- (__  ) / /_/ / / / / /_/ / / / / / /
-/____/_/\__, /_/ /_/\__,_/_/ /_/ /_/
-       /____/
-```
+<p align="center">
+  <img src="assets/signum-hero-dark.png" alt="Signum — deterministic proof gate for agentic development">
+</p>
 
-**Write contracts before writing code.**
+# Signum
 
-> **Experimental software:** Signum is an active experiment. It may be incomplete, unstable, or wrong. We do not guarantee correctness or fitness for production use. Use it at your own risk and verify results independently.
+**A deterministic proof gate for agentic software development.**
 
-[![Claude Code Plugin](https://img.shields.io/badge/Claude_Code-Plugin-5b21b6?style=flat-square)]()
-[![Version](https://img.shields.io/github/v/tag/heurema/signum?label=version&style=flat-square&color=5b21b6)](https://github.com/heurema/signum)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+Signum helps teams use AI coding agents more safely by turning every change into a contract-driven, auditable workflow.
 
-> Your AI agent writes code. Signum makes sure it writes the *right* code.
+Instead of trusting that an agent “probably did the right thing”, Signum asks for evidence:
 
-[Landing page](https://skill7.dev/signum?ref=readme) · [Book a setup call](https://skill7.dev/signum?ref=readme#setup-call) · [Discussions](https://github.com/heurema/signum/discussions)
+- What was the contract?
+- What changed?
+- Which checks passed?
+- What risks were found?
+- What artifacts prove the result?
+- Is this safe enough to merge?
+
+At the end, Signum produces a **proofpack**: a structured evidence bundle that CI and humans can inspect.
 
 ---
 
-## What it does
+## Why Signum?
 
-AI can generate a function in seconds; telling you whether it is correct takes longer, because "correct" isn't defined until someone writes it down. Signum is a contract-first development pipeline for Claude Code that defines correctness before a line is written, then verifies against it deterministically — not by asking another model if the code looks right, but by running acceptance criteria the implementing agent never fully saw. Unlike generic code review, Signum produces a tamper-evident `proofpack.json` artifact that CI can gate on, plus an advisory `anti_entropy_report.json` for follow-up hygiene work.
+AI agents can move fast, but fast changes need reliable boundaries.
 
-| Phase | What happens |
-|-------|-------------|
-| **CONTRACT** | Spec graded A–F. Codex + Gemini validate for gaps. |
-| **EXECUTE** | Engineer builds against a redacted contract. |
-| **AUDIT** | Deterministic checks + 3-model parallel review + iterative fix loop. |
-| **PACK** | Self-contained `proofpack.json` for CI gating + advisory `anti_entropy_report.json`. |
+Signum adds a release-style verification layer around agentic work:
 
-## Install
+- **Contract-first execution** — define intent, scope, and acceptance criteria before implementation.
+- **Deterministic checks** — validate what can be checked without relying on model judgment.
+- **Policy scanning** — catch risky code patterns, dependency changes, secrets, and incomplete work.
+- **Proofpack output** — package evidence into a structured artifact.
+- **GitHub-ready CI gate** — make merge decisions easier to review.
 
-<!-- INSTALL:START -->
-```bash
-claude plugin marketplace add heurema/emporium
-claude plugin install signum@emporium
-```
-<!-- INSTALL:END -->
+Signum is not a replacement for engineering judgment. It is a guardrail system that makes agentic changes easier to inspect, reproduce, and trust.
 
-<details>
-<summary>Manual install from source</summary>
+---
 
-```bash
-git clone https://github.com/heurema/signum.git
-cd signum
-claude plugin install .
+## How it works
+
+Signum follows a simple flow:
+
+```text
+Contract → Execute → Audit → Pack → CI Gate
 ```
 
-</details>
+### 1. Contract
+
+A change starts with a contract: the requested outcome, boundaries, risks, and acceptance criteria.
+
+### 2. Execute
+
+The implementation runs against the contract. Signum keeps the work tied to the original intent.
+
+### 3. Audit
+
+Signum runs deterministic checks and policy scans. Optional reviewer tools can add additional review signals.
+
+### 4. Pack
+
+Signum creates a proofpack: a structured evidence bundle containing the contract, diff, checks, audit summary, and decision metadata.
+
+### 5. CI Gate
+
+GitHub Actions can validate the proofpack and expose the result as a merge gate.
+
+---
+
+## What Signum produces
+
+The `.signum/` directory is a structured registry/state/archive namespace; normal runs do not create root artifact files or root runtime dirs directly in the root `.signum/` folder.
+
+- Normal runs do not create root runtime dirs like `.signum/reviews/`.
+- resume checks use the registry first, with root `.signum/contract.json` only as a legacy import signal.
+
+A Signum run writes canonical artifacts under:
+
+```text
+.signum/contracts/<contractId>/
+```
+
+Typical artifacts include:
+
+```text
+contract.json
+contract-engineer.json
+contract-policy.json
+combined.patch
+execute_log.json
+mechanic_report.json
+policy_scan.json
+holdout_report.json
+audit_summary.json
+proofpack.json
+```
+
+The most important output is:
+
+```text
+proofpack.json
+```
+
+This is the evidence bundle used by CI and reviewers.
+
+---
 
 ## Quick start
 
-```bash
-# Run — describe what you want to build
-/signum "your task description"
+### Requirements
+
+Signum expects a minimal local toolchain (>= v4.18.0):
+
+```text
+bash
+git
+jq
+python3
 ```
 
-Signum grades your spec, shows the contract for approval, implements with an automatic repair loop, audits from multiple angles, and produces `proofpack.json` plus an advisory `anti_entropy_report.json`.
+### Initialize a project
 
-Storage model:
-- `.signum/` is now a registry/state/archive namespace, not a runtime workspace
-- normal runs do not create root artifact files or root runtime dirs like `.signum/reviews/`
-- `.signum/contracts/<contractId>/` stores durable per-contract snapshots/history, including receipt-chain evidence, and is the canonical root for the contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`)
-- `.signum/contracts/index.json.activeContractId` selects the current resumable contract; resume checks use the registry first, with root `.signum/contract.json` only as a legacy import signal
-- root artifact paths are legacy migration inputs only, not compatibility views for normal runs
-
-For an existing repo, bootstrap project context first:
+Use the canonical init command:
 
 ```bash
 /signum:init --harness
 ```
 
-For Claude Code plugin usage, `/signum:init` is the canonical form. `--harness` requires Signum `>= v4.18.0`.
+For Claude Code usage, install the Claude Code CLI according to your environment.
 
-This generates `project.intent.md`, `project.glossary.json`, and repo-level harness docs such as `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. In brownfield repos, existing context files are preserved unless you also pass `--force`.
+Optional reviewer tools may be used when available, but Signum keeps deterministic checks separate from model-based review.
 
-## Commands
+### Run local deterministic checks
 
-| Command | Description |
-|---------|-------------|
-| `/signum <task>` | Run the full CONTRACT → EXECUTE → AUDIT → PACK pipeline |
-| `/signum:init [--force] [--harness] [--project-root <path>]` | Bootstrap `project.intent.md` / `project.glossary.json`; `--harness` also scaffolds repo-level harness docs |
+```bash
+bash scripts/run-deterministic-tests.sh
+```
 
-## Maintenance checks
+### Run clean-room smoke
 
-For prompt/orchestration-sensitive changes, run the offline eval harness:
+```bash
+bash scripts/run-cleanroom-smoke.sh
+```
+
+For a deeper pre-publish check:
+
+```bash
+SIGNUM_CLEANROOM_FULL=1 bash scripts/run-cleanroom-smoke.sh
+```
+
+### Validate a proofpack
+
+```bash
+python3 scripts/validate_proofpack.py \
+  .signum/contracts/<contractId>/proofpack.json \
+  --repo-root .
+```
+
+---
+
+## GitHub CI gate
+
+Signum includes a GitHub Actions template for validating proofpacks in CI.
+
+The CI path is intentionally deterministic:
+
+- no hidden background work;
+- no required external AI reviewer;
+- no secrets needed for deterministic tests;
+- pinned GitHub Actions refs;
+- fixed Ubuntu runner label;
+- clean-room smoke coverage.
+
+The high-risk PR intake gate is intentionally strict. PRs touching sensitive paths such as workflows, scripts, command orchestration, or policy logic may require maintainer review or override.
+
+---
+
+## Safety model
+
+Signum separates three kinds of evidence.
+
+### Deterministic evidence
+
+Checks that can run without model judgment:
+
+- proofpack validation;
+- policy scanner;
+- DSL runner validation;
+- artifact path guards;
+- command renderer parity;
+- clean-room smoke tests.
+
+### Model-assisted review
+
+Optional reviewer outputs can be included when available, but they are treated as review signals, not as the only source of truth.
+
+### Human review
+
+Large or high-risk changes still require human judgment. Signum makes that review easier by packaging the relevant evidence.
+
+---
+
+## Policy scanner
+
+Signum includes a deterministic policy scanner with stable rule IDs.
+
+It can detect patterns such as:
+
+- dynamic code execution;
+- XSS sinks;
+- SQL injection patterns;
+- shell injection risks;
+- weak crypto;
+- suspicious incomplete code markers;
+- dependency additions.
+
+False positives can be explicitly suppressed with a visible rule-based marker:
+
+```text
+SIGNUM_POLICY_ALLOW:<RULE_ID>:<reason>
+```
+
+Critical findings are not suppressible by default.
+
+---
+
+## Proofpack validation
+
+Proofpacks are validated before CI consumes their result.
+
+The validator checks:
+
+- required fields;
+- schema and Signum version;
+- decision metadata;
+- artifact references;
+- safe relative paths;
+- optional removal evidence shape when present.
+
+Run it directly:
+
+```bash
+python3 scripts/validate_proofpack.py path/to/proofpack.json --repo-root .
+```
+
+---
+
+## Command renderer
+
+The main Signum command is generated from fragments.
+
+Runtime command files remain checked in, but renderer checks ensure fragments reproduce them byte-for-byte:
+
+```bash
+python3 scripts/render_signum_command.py \
+  --manifest commands/signum.fragments/manifest.json \
+  --output commands/signum.md \
+  --check
+```
+
+Claude Code overlay rendering is checked separately:
+
+```bash
+python3 platforms/claude-code/scripts/render_signum_command.py \
+  --manifest platforms/claude-code/commands/signum.fragments/manifest.json \
+  --output platforms/claude-code/commands/signum.md \
+  --check
+```
+
+---
+
+## When to use Signum
+
+Use Signum when:
+
+- AI agents are modifying important code;
+- changes need auditability;
+- PRs should include structured evidence;
+- you want deterministic gates before merge;
+- you need a repeatable contract-first workflow.
+
+Signum is especially useful for:
+
+- AI coding agent workflows;
+- internal developer tools;
+- CI/CD guardrails;
+- security-sensitive automation;
+- multi-agent development experiments.
+
+---
+
+## When not to use Signum
+
+Signum may be too heavy if:
+
+- you only need a simple one-off script;
+- there is no CI or review process;
+- you do not need audit artifacts;
+- you want fully autonomous merging without human oversight.
+
+Signum is designed to make agentic work safer, not invisible.
+
+---
+
+## Current limitations
+
+Signum is a stabilized baseline, not a full production certification system.
+
+Known limitations:
+
+- policy scanning is still regex-based, not a full semantic parser;
+- optional reviewer tools depend on external CLI availability and authentication;
+- GitHub-hosted runner images can still receive upstream patch updates;
+- clean-room smoke is not a real package publish/install test;
+- remote Emporium push is not tested by the local smoke path;
+- high-risk PRs may still require maintainer review or override.
+
+---
+
+## Development
+
+Run the deterministic suite:
+
+```bash
+bash scripts/run-deterministic-tests.sh
+```
+
+Run clean-room smoke:
+
+```bash
+bash scripts/run-cleanroom-smoke.sh
+```
+
+Run evals:
 
 ```bash
 python3 evals/run.py
 ```
 
-It is fixture-driven and snapshot-based by design. It does not call live providers and it does not extend the runtime pipeline.
-
-## Release guardrails (maintainers)
-
-Issue #26 showed that bumping Signum itself is not enough for fresh marketplace installs. Emporium is a separate registry surface.
-
-When cutting a Signum release:
-
-1. Let `.github/workflows/release-guardrails.yml` sync `heurema/emporium/.claude-plugin/marketplace.json` for `signum` so both `version` and `source.ref` point to the local `.claude-plugin/plugin.json` release version.
-   - The workflow step is named `Sync Emporium marketplace entry`.
-   - For actual cross-repo writes, configure the `EMPORIUM_SSH_KEY` repo secret in `heurema/signum` with the private half of a dedicated GitHub SSH key whose account can push to `heurema/emporium`.
-   - If that secret is absent and drift exists, the workflow fails loudly instead of silently shipping a stale marketplace entry.
-2. Run the maintainer smoke path locally when changing the release wiring itself:
+Run renderer checks:
 
 ```bash
-bash lib/release-smoke.sh
+python3 scripts/render_signum_command.py \
+  --manifest commands/signum.fragments/manifest.json \
+  --output commands/signum.md \
+  --check
+
+python3 platforms/claude-code/scripts/render_signum_command.py \
+  --manifest platforms/claude-code/commands/signum.fragments/manifest.json \
+  --output platforms/claude-code/commands/signum.md \
+  --check
 ```
 
-`bash lib/release-smoke.sh` fails loudly when Emporium still drifts from local Signum release metadata after the sync step and includes `/signum:init --harness` coverage via:
-- `tests/test-init-command-surface.sh`
-- `tests/test-init-harness-scaffold.sh`
-- `tests/test-brownfield-harness-flow.sh`
-
-CI runs the same smoke path in `.github/workflows/release-guardrails.yml`, so marketplace drift is visible before users install the wrong version.
-To keep normal contributor flows stable, the cross-repo check is scoped to `workflow_dispatch`, published `release` events, and `push` to `main` only when release-guardrail files changed. The workflow also only runs in the canonical `heurema/signum` repo, avoiding fork PR brittleness.
-For manual runs, the workflow accepts `EMPORIUM_REPO`, `EMPORIUM_GIT_REF`, and `EMPORIUM_PATH` equivalents as dispatch inputs so maintainers can inspect a different registry repo/ref/path without changing the script.
-
-## Features
-
-**Spec quality gate** — Before implementation starts, your spec is scored across seven dimensions: Testability, Negative coverage, Clarity, Scope boundedness, Completeness, Boundary cases, NL Consistency. Grade D (below 60) is a hard stop with specific feedback on what's missing. The gate runs on the specification, not the code.
-
-**Holdout scenarios** — The Contractor generates hidden acceptance criteria the Engineer never sees. When implementation is complete, holdouts run against the result — blind testing for cases the agent couldn't optimize for. Verification uses a typed DSL with `http`, `exec` (whitelisted binaries only), and `expect` primitives — no shell execution, no `eval`. Minimum counts enforced by risk level: 0 for low, 2 for medium, 5 for high.
-
-**Project intent alignment** — If the target project has a `project.intent.md` at its root, the contractor reads it before generating contracts. Non-goals and glossary terms flow into contract scope and terminology. For medium/high-risk tasks, missing project intent triggers a blocking question. An LLM-based alignment check warns when the contract diverges from project goals. `/signum:init` bootstraps this file from an existing codebase.
-
-**Glossary enforcement** — A `project.glossary.json` at the project root defines canonical terms and forbidden synonyms. `glossary_check` scans contracts for alias usage, `terminology_consistency_check` detects synonym proliferation across active contracts. Both are WARN-only.
-
-**Harness bootstrap** — `/signum:init --harness` adds deterministic repo-level scaffolding for `AGENTS.md`, `ARCHITECTURE.md`, `docs/PLANS.md`, `docs/RELIABILITY.md`, `docs/SECURITY.md`, and `docs/QUALITY_SCORE.md`. These files make repo conventions, architecture, planning, and review policy explicit without changing Signum runtime behavior.
-
-**Brownfield validation pattern** — When extending harness bootstrap or advisory anti-entropy behavior, prefer a downstream-style temporary repo test that preserves existing `project.intent.md` / `project.glossary.json`, materializes scaffold docs, and checks the resulting `anti_entropy_report.json` under the active contract artifact root. `tests/test-brownfield-harness-flow.sh` is the reference pattern.
-
-**Cross-contract coherence** — `overlap_check` detects inScope file overlap between active contracts. `assumption_check` flags contradictions in assumptions across related contracts. `adr_check` warns when relevant ADRs exist but aren't referenced. Contract lineage is tracked via `parentContractId`, `relatedContractIds`, and `interfacesTouched`.
-
-**Upstream staleness detection** — Contractor computes SHA-256 over upstream artifacts (`project.intent.md`, `project.glossary.json`) at contract creation. `staleness_check` recomputes the hash at execution time. Configurable policy: `warn` (default) or `block`.
-
-**Within-task refinement** — For medium/high-risk tasks, the contractor runs a 4-pass self-critique (ambiguity, missing-input, contradiction, coverage), capped at 2 auto-revision rounds. Typed findings and a `readinessForPlanning` gate are written to the contract.
-
-**Data-level blinding** — The Engineer reads `contract-engineer.json`, not `contract.json`. Holdout scenarios are physically removed from the file — not hidden by instruction. The agent cannot infer them from context or structure.
-
-**Execution policy** — `contract-policy.json` is derived from the contract before EXECUTE begins. It defines which tools the Engineer may use, which bash commands are denied, and which paths are in scope. Policy violations after execution are `AUTO_BLOCK`.
-
-**Repo invariant contracts** — Add `repo-contract.json` to your project root — invariants that must always hold, independent of task. Any regression is `AUTO_BLOCK`, regardless of task-level acceptance criteria results.
-
-```json
-{
-  "schemaVersion": "1.0",
-  "invariants": [
-    { "id": "I-1", "description": "All tests pass", "verify": "pytest -q", "severity": "critical" },
-    { "id": "I-2", "description": "No type errors", "verify": "mypy src/", "severity": "critical" },
-    { "id": "I-3", "description": "No lint errors", "verify": "ruff check src/", "severity": "high" }
-  ],
-  "owner": "human"
-}
-```
-
-**Immutable audit chain** — At user approval, Signum computes SHA-256 of the contract and records the timestamp. The base commit is captured before the Engineer runs. `proofpack.json` anchors the full chain: contract hash → approval timestamp → base commit → implementation diff → audit results.
-
-**Multi-model audit panel** — Claude, Codex, and Gemini review the diff independently in parallel. The Mechanic runs first — deterministic checks: lint, typecheck, new test failures (by name, not exit code). Then models weigh in. Critical findings from any model block.
-
-**Iterative review-fix loop** — When reviewers find MAJOR or CRITICAL issues, the AUDIT phase doesn't stop — it iterates. A fresh Engineer agent receives a repair brief with specific findings, fixes them, and the full review cycle re-runs from scratch. Best-of-N selection keeps the highest-scoring candidate across iterations. Early stop halts after 2 consecutive non-improving rounds. Up to 20 iterations (configurable via `SIGNUM_AUDIT_MAX_ITERATIONS`). Holdout details are never revealed to the engineer — only failure categories.
-
-**Diff progression** — On review pass 2+, reviewers receive both the full feature diff and an iteration delta showing only what changed in the fix. This focuses review on the actual repair, reduces noise from re-discovering accepted code, and improves convergence speed.
-
-**Module lifecycle tracking** — A `modules.yaml` manifest at the project root declares module status: `active`, `experimental`, `deprecated`, or `removed`. Deprecated modules carry `remove_after` deadlines and `replaced_by` pointers. The contractor reads this before generating contracts — cleanup tasks auto-detect removal candidates and generate structured `removals` and `cleanupObligations` entries.
-
-**Cleanup contracts** — Contract schema v3.8 adds first-class support for code removal. `removals` entries specify files/directories to delete with `preventReintroduction` flags. `cleanupObligations` use K8s Finalizer semantics — blocking obligations (e.g., "remove all imports of deleted module") must be fulfilled before `AUTO_OK`. The DSL supports `file_not_exists` assertions and `grep` for reference-checking verify blocks. Evidence of successful removals is captured in `proofpack.json`.
-
-**Advisory anti-entropy report** — PACK also writes `anti_entropy_report.json` under the active contract artifact root. It is a non-blocking follow-up report that can surface unresolved cleanup evidence, overdue `modules.yaml` lifecycle drift, and optional imported metric regressions. It never changes the pipeline decision.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  PHASE 1: CONTRACT                                      │
-│                                                         │
-│  Contractor → spec quality gate (A–F)                  │
-│            → prose check (lib/prose-check.sh)           │
-│            → glossary check (lib/glossary-check.sh)     │
-│            → terminology check (lib/terminology-check.sh)│
-│            → overlap check (lib/overlap-check.sh)       │
-│            → assumption check (lib/assumption-check.sh) │
-│            → ADR check (lib/adr-check.sh)               │
-│            → staleness check (lib/staleness-check.sh)   │
-│            → spec validation (Codex + Gemini, parallel) │
-│            → holdout count gate (by risk level)         │
-│            → [user approval + contract-hash.txt]        │
-│            → contract-engineer.json  (holdouts removed) │
-│            → contract-policy.json    (execution rules)  │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│  PHASE 2: EXECUTE                                       │
-│                                                         │
-│  baseline (lint, typecheck, per-test failing names)     │
-│  + repo-contract baseline                               │
-│  → Engineer (no holdouts, policy-constrained)           │
-│  → scope gate → policy compliance check                 │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│  PHASE 3: AUDIT                                         │
-│                                                         │
-│  repo-contract invariant check                          │
-│  → Mechanic (deterministic, zero LLM)                   │
-│  → Claude + Codex + Gemini (parallel, independent)      │
-│  → holdout verification                                 │
-│  → Synthesizer (verdict + confidence score)             │
-│  → if MAJOR/CRITICAL: iterative fix loop ───────┐      │
-│      engineer fixes → full re-review → repeat   │      │
-│      best-of-N selection, up to 20 iterations   │      │
-│      diff progression: full patch + delta ◄─────┘      │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│  PHASE 4: PACK                                          │
-│                                                         │
-│  all artifacts embedded → self-contained proofpack.json  │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Provider Configuration (optional)
-
-Create `~/.claude/emporium-providers.local.md` to customize which models Codex and Gemini use:
-
-```yaml
 ---
-version: 1
-defaults:
-  codex:
-    model: "gpt-5.3-codex"
-  gemini:
-    model: "gemini-3.1-pro"
-routing:
-  review:
-    gemini: "gemini-3-flash"
+
+### Maintainer release process
+
+Signum includes a maintainer release path for syncing the plugin entry with the Emporium marketplace.
+
+- **Release smoke test**: run `bash lib/release-smoke.sh` before publishing release metadata.
+- **Marketplace sync**: the `Sync Emporium marketplace entry` workflow updates `heurema/emporium/.claude-plugin/marketplace.json`.
+- **Automation secret**: non-dry-run cross-repo sync requires `EMPORIUM_SSH_KEY`.
+- **Manual trigger**: the workflow supports `workflow_dispatch` so maintainers can run a controlled release dry-run or sync.
+- **Release trigger**: the workflow also runs on release publication so marketplace metadata stays aligned with Signum releases.
+
+This is maintainer-facing release documentation. It does not change the user-facing Signum runtime flow.
+
 ---
-```
 
-Without this file, signum uses each CLI's default model. See `forge doctor` to validate your config.
+## Philosophy
 
-## Requirements
+Signum is built around a simple principle:
 
-- Claude Code v2.1+
-- `git`, `jq`, `python3`
-- Optional: [Codex CLI](https://github.com/openai/codex), [Gemini CLI](https://github.com/google-gemini/gemini-cli)
+> AI-generated changes should be easy to inspect, reproduce, and verify.
 
-## Privacy
+A good agentic workflow should not ask reviewers to trust invisible reasoning.  
+It should produce a clear contract, deterministic checks, and a verifiable proofpack.
 
-All orchestration runs inside Claude Code. External providers (Codex CLI, Gemini CLI) receive the diff only — never the full codebase. Signum degrades gracefully if either is unavailable. No API keys required beyond standard CLI auth. No telemetry. Canonical run artifacts live under `.signum/contracts/<contractId>/`; root `.signum/` stays a registry/state/archive namespace and remains auto-added to `.gitignore`.
-
-## Why Signum
-
-| | Signum | CodeRabbit | Codacy |
-|---|---|---|---|
-| **Approach** | Contract-first: define correctness before code | Post-hoc review | Static analysis |
-| **Models** | 3 independent (Claude + Codex + Gemini) | Single model | Rule-based |
-| **Proof artifact** | `proofpack.json` — tamper-evident, CI-gatable | Comment on PR | Report |
-| **Blind testing** | Holdout scenarios engineer never sees | None | None |
-| **Iterative fix** | Auto-repair loop (up to 20 iterations) | Manual fix cycle | Manual |
-| **SOC2 evidence** | Proofpack = CC8.1 attestation | None | Partial |
-
-## Support the project
-
-If Signum saves you time, consider sponsoring its development:
-
-[![Sponsor](https://img.shields.io/badge/Sponsor-♥-ea4aaa?style=flat-square)](https://github.com/sponsors/heurema)
-
-- **$5/mo** — Individual: early access to new check types
-- **$20/mo** — Team: priority support + roadmap input
-
-## See also
-
-- [skill7.dev/signum](https://skill7.dev/signum?ref=readme) — landing page, setup call, email updates
-- [heurema/emporium](https://github.com/heurema/emporium) — plugin registry
-- [How it works](docs/how-it-works.md) — agents, trust boundaries, limitations
-- [Reference](docs/reference.md) — artifacts schema, troubleshooting
-- [Report an issue](https://github.com/heurema/signum/issues)
-
-## Open source and community
-
-- [CONTRIBUTING](CONTRIBUTING.md)
-- [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md)
-- [SECURITY](SECURITY.md)
-- [SUPPORT](SUPPORT.md)
-- [TRADEMARKS](TRADEMARKS.md)
-- [DCO](DCO.md)
-
-## License
-
-[MIT](LICENSE)
+Signum is the seal on that process.

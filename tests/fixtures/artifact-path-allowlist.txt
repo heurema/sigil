@@ -1,8 +1,6 @@
 # artifact-path-allowlist.txt -- live root .signum usage inventory for tests/test-artifact-path-inventory.sh
 # Format: category|file|expected_count|pattern
 # Canonical .signum/contracts/* and archive paths are intentionally excluded from this allowlist.
-docs-legacy-note|README.md|1|.signum/contract.json
-docs-legacy-note|README.md|1|.signum/reviews/
 legacy-import|commands/signum.md|4|.signum/$rel
 legacy-restart-cleanup|commands/signum.md|1|.signum/approval.json
 legacy-restart-cleanup|commands/signum.md|1|.signum/audit_iteration_log.json
@@ -81,3 +79,5 @@ project-bootstrap-input|platforms/claude-code/scripts/init_scanner.py|1|.signum/
 project-bootstrap-input|platforms/claude-code/scripts/init_scanner.py|1|.signum/project.intent.md
 project-metrics|platforms/claude-code/lib/pack-anti-entropy.sh|3|.signum/metrics/ratchet-report.json
 ci-legacy-fallback|platforms/claude-code/lib/signum-ci.sh|2|.signum/proofpack.json
+docs-legacy-note|README.md|1|.signum/contract.json
+docs-legacy-note|README.md|1|.signum/reviews/
