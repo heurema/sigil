@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_CMD="/Users/vi/personal/heurema/signum/commands/signum.md"
-OVERLAY_CMD="/Users/vi/personal/heurema/signum/platforms/claude-code/commands/signum.md"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_CMD="$ROOT_DIR/commands/signum.md"
+OVERLAY_CMD="$ROOT_DIR/platforms/claude-code/commands/signum.md"
 
 extract_receipt_chain_section() {
   local file="$1"

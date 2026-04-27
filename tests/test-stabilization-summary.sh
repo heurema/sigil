@@ -166,6 +166,22 @@ for rel, text in (
     overclaim = re.search(r"\b(Signum\s+)?is\s+fully\s+production[- ]certified\b|\b(Signum\s+)?is\s+fully\s+production[- ]ready\b", text, re.IGNORECASE)
     check(f"{rel} has no production certification overclaim", overclaim is None, "overclaims production certification")
 
+forbidden_repo_path = "/" + "/".join(["Users", "vi", "personal", "heurema", "signum"])
+tests_dir = repo_root / "tests"
+offenders = []
+for test_path in sorted(tests_dir.glob("test-*.sh")):
+    try:
+        body = test_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        continue
+    if forbidden_repo_path in body:
+        offenders.append(test_path.relative_to(repo_root).as_posix())
+check(
+    "executable shell tests have no hardcoded local repo path",
+    not offenders,
+    "tests still contain hardcoded local repo path: " + ", ".join(offenders),
+)
+
 if errors:
     print(f"Failed: {len(errors)}")
     sys.exit(1)
