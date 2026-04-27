@@ -133,7 +133,7 @@
       "summary": "Large init harness markdown heredocs are extracted into checked-in templates with golden scaffold coverage.",
       "evidence": [
         "lib/init-harness-scaffold.sh",
-        "lib/templates/init-harness/AGENTS.md.tmpl",
+        "lib/templates/init-harness/agents.md.tmpl",
         "tests/test-init-harness-scaffold.sh"
       ],
       "remainingRisk": "Template edits must update golden fixtures intentionally."

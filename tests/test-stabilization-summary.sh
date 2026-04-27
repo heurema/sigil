@@ -123,7 +123,31 @@ if isinstance(findings, list):
                 if not isinstance(rel, str) or not rel:
                     continue
                 check(item_name + " is relative", not Path(rel).is_absolute(), f"absolute path not allowed: {rel}")
-                check(item_name + " exists", (repo_root / rel).exists(), f"missing evidence file: {rel}")
+                parts = rel.split("/")
+                no_traversal = all(p not in ("", ".", "..") for p in parts)
+                check(item_name + " has no path traversal", no_traversal, f"path traversal or empty component not allowed: {rel}")
+                if not no_traversal:
+                    continue
+                cur = repo_root
+                case_exact = True
+                case_detail = ""
+                for part in parts:
+                    try:
+                        listing = os.listdir(cur)
+                    except (FileNotFoundError, NotADirectoryError):
+                        case_exact = False
+                        case_detail = f"parent missing or not a directory: {cur.relative_to(repo_root)}"
+                        break
+                    if part not in listing:
+                        case_exact = False
+                        actual = next((x for x in listing if x.lower() == part.lower()), None)
+                        if actual is not None:
+                            case_detail = f"case mismatch at component {part!r} (actual: {actual!r})"
+                        else:
+                            case_detail = f"missing component {part!r} under {cur.relative_to(repo_root) if cur != repo_root else '.'}"
+                        break
+                    cur = cur / part
+                check(item_name + " exists case-exact", case_exact, f"missing or wrong-case evidence file: {rel} ({case_detail})")
 
 missing_required = sorted(required_ids - seen_ids)
 check("all required finding IDs are present", not missing_required, "missing: " + ", ".join(missing_required))
