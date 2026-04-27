@@ -18,12 +18,13 @@ permissions:
 jobs:
   pr-intake-gate:
     name: pr-intake-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
       - name: Checkout trusted base code
-        uses: actions/checkout@v4
+        # pinned from actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false

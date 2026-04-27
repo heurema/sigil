@@ -46,7 +46,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.20.1",
+  "version": "4.20.2",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -213,56 +213,63 @@ Do not proceed to Setup or any phase.
 
 ## Project Resolution
 
-Before setup, determine the correct project directory. The pipeline MUST run in the target project's root, not the session's CWD.
+Before setup, determine the correct project directory. The pipeline MUST run in the target project's root, not an unrelated session CWD.
 
 **Resolution order:**
 
-1. If the `project` argument is provided, use it as the project path
-2. Otherwise, analyze the task description for project/plugin name references and auto-resolve:
+1. If `SIGNUM_PROJECT_ROOT` is set, validate and use it.
+2. If the explicit `project` argument is provided, validate and use it.
+3. Otherwise, infer the current git repository root with `git rev-parse --show-toplevel`.
+4. If no git root exists, use the current directory only. Do not search arbitrary home or sibling directories.
 
 Use the Bash tool to detect and switch to the target project:
 
 ```bash
-CURRENT_DIR=$(pwd)
+CURRENT_DIR=$(pwd -P)
 TARGET_DIR=""
 
-# 1. Explicit project argument (if provided)
-# TARGET_DIR="<value of project argument>"
-
-# 2. Auto-detect: look for project/plugin names mentioned in the task
-# Search common plugin/project locations for matches
-TASK_LOWER=$(echo "$ARGUMENTS" | tr '[:upper:]' '[:lower:]')
-for SEARCH_DIR in "$HOME/personal/skill7" "$HOME/works" "$HOME/projects" "$CURRENT_DIR/.."; do
-  if [ -d "$SEARCH_DIR" ]; then
-    for CANDIDATE in $(find "$SEARCH_DIR" -maxdepth 3 -name "plugin.json" -path "*/.claude-plugin/*" 2>/dev/null); do
-      PLUGIN_DIR=$(dirname "$(dirname "$CANDIDATE")")
-      PLUGIN_NAME=$(basename "$PLUGIN_DIR")
-      if echo "$TASK_LOWER" | grep -qw "$PLUGIN_NAME"; then
-        TARGET_DIR="$PLUGIN_DIR"
-        echo "Auto-detected project: $PLUGIN_NAME → $TARGET_DIR"
-        break 2
-      fi
-    done
+canonicalize_project_root() {
+  local dir="$1"
+  if [ ! -d "$dir" ]; then
+    echo "ERROR: project root is not a directory: $dir" >&2
+    exit 1
   fi
-done
+  (cd "$dir" && pwd -P)
+}
 
-# 3. Fallback: check if CWD is a git repo with plugin.json
+# 1. Explicit environment override
+if [ -n "${SIGNUM_PROJECT_ROOT:-}" ]; then
+  TARGET_DIR=$(canonicalize_project_root "$SIGNUM_PROJECT_ROOT")
+  echo "Using SIGNUM_PROJECT_ROOT: $TARGET_DIR"
+fi
+
+# 2. Explicit slash-command project argument, if provided
 if [ -z "$TARGET_DIR" ]; then
-  if [ -f ".claude-plugin/plugin.json" ] || [ -d ".git" ]; then
-    TARGET_DIR="$CURRENT_DIR"
-    echo "Using current directory: $TARGET_DIR"
+  # TARGET_DIR=$(canonicalize_project_root "<value of project argument>")
+  :
+fi
+
+# 3. Deterministic git-root fallback from the current directory
+if [ -z "$TARGET_DIR" ]; then
+  GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -n "$GIT_ROOT" ]; then
+    TARGET_DIR=$(canonicalize_project_root "$GIT_ROOT")
+    echo "Using git repository root: $TARGET_DIR"
   fi
 fi
 
+# 4. Safe non-git fallback: current directory only
 if [ -z "$TARGET_DIR" ]; then
-  echo "WARNING: Could not detect target project. Using CWD: $CURRENT_DIR"
   TARGET_DIR="$CURRENT_DIR"
+  echo "WARNING: No git repository root detected. Using current directory only: $TARGET_DIR" >&2
 fi
 
-echo "PROJECT_DIR=$TARGET_DIR"
+PROJECT_ROOT="$TARGET_DIR"
+export PROJECT_ROOT
+echo "PROJECT_DIR=$PROJECT_ROOT"
 ```
 
-If `TARGET_DIR` differs from `CURRENT_DIR`, use `cd "$TARGET_DIR"` in ALL subsequent Bash tool calls, or prefix commands with `cd "$TARGET_DIR" &&`. Save `TARGET_DIR` as `PROJECT_ROOT`.
+If `PROJECT_ROOT` differs from `CURRENT_DIR`, use `cd "$PROJECT_ROOT"` in ALL subsequent Bash tool calls, or prefix commands with `cd "$PROJECT_ROOT" &&`.
 
 ## Setup
 
@@ -2646,7 +2653,7 @@ if [ "$ITERATION_SCORE" -lt "$BEST_SCORE" ] && [ "$CURRENT_ITERATION" -gt 1 ]; t
     # Sync canonical working copies from best iteration
     BEST_DIR="${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)"
     cp "${BEST_DIR}/combined.patch" "$COMBINED_PATCH_PATH" 2>/dev/null || true
-    cp "${BEST_DIR}/iteration_delta.patch" "$ITERATION_DELTA_PATH" 2>/dev/null || reset_active_artifact "iteration_delta.patch"
+    cp "${BEST_DIR}/iteration_delta.patch" "$ITERATION_DELTA_PATH" 2>/dev/null || reset_canonical_active_artifact "iteration_delta.patch"
     cp "${BEST_DIR}/mechanic_report.json" "$MECHANIC_REPORT_PATH" 2>/dev/null || true
     cp "${BEST_DIR}/holdout_report.json" "$HOLDOUT_REPORT_PATH" 2>/dev/null || true
     cp "${BEST_DIR}/execute_log.json" "$EXECUTE_LOG_PATH" 2>/dev/null || true
@@ -2793,11 +2800,11 @@ if [ -f "$COMBINED_PATCH_PATH" ]; then
   cp "$COMBINED_PATCH_PATH" "$_SEED_PATCH"
 fi
 
-# Remove stale artifacts from any root compatibility view and from the canonical active root.
+# Remove stale artifacts from the canonical active root only.
 source lib/contract-dir.sh
-reset_active_artifact "combined.patch"
-reset_active_artifact "execute_log.json"
-reset_active_artifact "iteration_delta.patch"
+reset_canonical_active_artifact "combined.patch"
+reset_canonical_active_artifact "execute_log.json"
+reset_canonical_active_artifact "iteration_delta.patch"
 ```
 
 **Launch repair engineer (parallel lanes):**
@@ -3071,7 +3078,7 @@ fi
 
 if [ "$FULL_SIZE" -gt 0 ] && [ $((DELTA_SIZE * 100 / FULL_SIZE)) -gt 80 ]; then
   echo "Delta >80% of full patch - full-diff-only review for this iteration"
-  reset_active_artifact "iteration_delta.patch"
+  reset_canonical_active_artifact "iteration_delta.patch"
 fi
 ```
 
@@ -3184,7 +3191,7 @@ done
 # Always sync audit artifacts from best iteration so PACK reads consistent data
 BEST_DIR="${ARTIFACT_ROOT}iterations/$(printf '%02d' $BEST_ITERATION)"
 cp "${BEST_DIR}/combined.patch" "$COMBINED_PATCH_PATH"
-cp "${BEST_DIR}/iteration_delta.patch" "$ITERATION_DELTA_PATH" 2>/dev/null || reset_active_artifact "iteration_delta.patch"
+cp "${BEST_DIR}/iteration_delta.patch" "$ITERATION_DELTA_PATH" 2>/dev/null || reset_canonical_active_artifact "iteration_delta.patch"
 cp "${BEST_DIR}/mechanic_report.json" "$MECHANIC_REPORT_PATH"
 cp "${BEST_DIR}/holdout_report.json" "$HOLDOUT_REPORT_PATH" 2>/dev/null || true
 cp "${BEST_DIR}/execute_log.json" "$EXECUTE_LOG_PATH" 2>/dev/null || true
@@ -3272,7 +3279,7 @@ Proceed to Phase 4: PACK.
 
 ## Phase 4: PACK
 
-**Goal:** Bundle all artifacts into a self-contained, verifiable proof package (schema v4.6) with embedded artifact contents.
+**Goal:** Bundle all artifacts into a self-contained, verifiable proof package (schema v4.8) with embedded artifact contents.
 
 ### Step 4.0: Transition contract status to completed
 
@@ -3540,7 +3547,7 @@ PACK_AVAILABLE_REVIEWS=$(jq -r '.availableReviews // 0' "$AUDIT_SUMMARY_PATH" 2>
 # Final assembly
 jq -n \
   --arg schemaVersion "4.8" \
-  --arg signumVersion "4.20.1" \
+  --arg signumVersion "4.20.2" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \
@@ -3676,8 +3683,8 @@ if [ -f lib/contract-dir.sh ]; then
     if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
       RUN_ID=$(jq -r '.run_id // empty' "$RECEIPTS_EXEC_PATH" 2>/dev/null || true)
     fi
-    # Sync durable artifacts for this completed contract.
-    sync_contract_artifacts "$CONTRACT_ID" \
+    # Verify durable canonical artifacts for this completed contract.
+    verify_canonical_contract_artifacts "$CONTRACT_ID" \
       "contract.json" \
       "proofpack.json" \
       "anti_entropy_report.json" \
@@ -3687,7 +3694,7 @@ if [ -f lib/contract-dir.sh ]; then
       "receipts" \
       "snapshots"
     if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
-      sync_contract_artifacts "$CONTRACT_ID" "runs/${RUN_ID}"
+      verify_canonical_contract_artifacts "$CONTRACT_ID" "runs/${RUN_ID}"
     fi
     echo "Contract $CONTRACT_ID → completed"
   fi

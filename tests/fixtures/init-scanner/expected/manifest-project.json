@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "scanTarget": "<PROJECT_ROOT>",
+  "signals": {
+    "authoritative_docs": "",
+    "docs_deep": "",
+    "claude_md": "",
+    "agents_md": "",
+    "readme": "",
+    "package_json": "{\n  \"name\": \"manifest-project\",\n  \"version\": \"1.0.0\",\n  \"bin\": {\n    \"manifest-cli\": \"bin/manifest.js\"\n  },\n  \"scripts\": {\n    \"test\": \"node test.js\"\n  }\n}",
+    "pyproject_toml": "[project]\nname = \"manifest_project\"\nversion = \"1.0.0\"\n\n[project.scripts]\nmanifest-py = \"manifest_project.cli:main\"",
+    "cargo_toml": "[package]\nname = \"manifest-project\"\nversion = \"0.1.0\"",
+    "go_mod": "module example.com/manifest-project\n\ngo 1.22",
+    "ci_signals": "",
+    "entrypoints": "\n=== bin/ ===\nbin/manifest.js\n\n=== commands/ ===\ncommands/run.md\n\n=== skills/ ===\nskills/main.md\n",
+    "console_scripts": "[project.scripts]\nmanifest-py = \"manifest_project.cli:main\"",
+    "pkg_bin": "manifest-cli: bin/manifest.js",
+    "git_dirstat": "",
+    "git_recent": "",
+    "adr_signals": "",
+    "readme_negative": "",
+    "claude_negative": "",
+    "module_dirs": " bin commands skills"
+  },
+  "existingFiles": {
+    "glossary": {
+      "path": "",
+      "content": ""
+    },
+    "intent": {
+      "path": "",
+      "content": ""
+    }
+  },
+  "glossarySchema": {
+    "canonicalTerms": [],
+    "aliases": {}
+  }
+}

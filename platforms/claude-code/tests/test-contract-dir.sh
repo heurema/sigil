@@ -145,6 +145,14 @@ assert_fail "sync fails without id" "contractId required" \
   sync_contract_artifacts ""
 assert_fail "sync fails without paths" "artifact path required" \
   sync_contract_artifacts "sig-test-001"
+printf '{"canonical":"only"}\n' > ".signum/contracts/sig-test-001/canonical_only.json"
+rm -f ".signum/canonical_only.json"
+assert_ok "sync skips missing root source without touching canonical" \
+  sync_contract_artifacts "sig-test-001" "canonical_only.json"
+assert_eq "sync does not materialize root from canonical" "false" \
+  "$([ -e .signum/canonical_only.json ] && echo true || echo false)"
+assert_eq "sync leaves canonical-only artifact untouched" '{"canonical":"only"}' \
+  "$(cat ".signum/contracts/sig-test-001/canonical_only.json")"
 
 echo ""
 echo "=== register_contract ==="
@@ -352,6 +360,75 @@ assert_fail "reset_active_artifact rejects invalid kind" "kind must be file or d
   reset_active_artifact "proofpack.json" "weird"
 
 echo ""
+echo "=== reset_canonical_active_artifact ==="
+
+printf 'root-delta\n' > .signum/iteration_delta.patch
+printf 'canonical-delta\n' > ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch"
+assert_ok "canonical reset clears only active file artifact" reset_canonical_active_artifact "iteration_delta.patch"
+assert_eq "canonical reset leaves root file view untouched" 'root-delta' \
+  "$(cat .signum/iteration_delta.patch)"
+assert_eq "canonical reset removes active file artifact" "false" \
+  "$([ -e ".signum/contracts/${ACTIVE_ID}/iteration_delta.patch" ] && echo true || echo false)"
+
+mkdir -p .signum/reviews ".signum/contracts/${ACTIVE_ID}/reviews"
+printf '{"legacy":"root"}\n' > .signum/reviews/claude.json
+printf '{"canonical":"active"}\n' > ".signum/contracts/${ACTIVE_ID}/reviews/claude.json"
+assert_ok "canonical reset handles nested file artifact" reset_canonical_active_artifact "reviews/claude.json"
+assert_eq "canonical reset leaves nested root artifact untouched" '{"legacy":"root"}' \
+  "$(cat .signum/reviews/claude.json)"
+assert_eq "canonical reset removes nested active file artifact" "false" \
+  "$([ -e ".signum/contracts/${ACTIVE_ID}/reviews/claude.json" ] && echo true || echo false)"
+
+printf '{"canonical":"active-dir"}\n' > ".signum/contracts/${ACTIVE_ID}/reviews/codex.json"
+assert_ok "canonical reset recreates active directory artifact" reset_canonical_active_artifact "reviews" "dir"
+assert_eq "canonical reset leaves root directory artifact untouched" '{"legacy":"root"}' \
+  "$(cat .signum/reviews/claude.json)"
+assert_eq "canonical reset clears active directory contents" "false" \
+  "$([ -e ".signum/contracts/${ACTIVE_ID}/reviews/codex.json" ] && echo true || echo false)"
+assert_eq "canonical reset keeps active directory available" "true" \
+  "$([ -d ".signum/contracts/${ACTIVE_ID}/reviews" ] && echo true || echo false)"
+
+assert_fail "canonical reset rejects unsafe relative path" "invalid relative path" \
+  reset_canonical_active_artifact "../escape.patch"
+assert_fail "canonical reset rejects invalid kind" "kind must be file or dir" \
+  reset_canonical_active_artifact "proofpack.json" "weird"
+
+echo ""
+echo "=== verify_canonical_contract_artifacts ==="
+
+printf 'root-verify\n' > .signum/verify_only.json
+printf 'canonical-verify\n' > ".signum/contracts/${ACTIVE_ID}/verify_only.json"
+assert_ok "canonical verification leaves root and canonical files untouched" \
+  verify_canonical_contract_artifacts "$ACTIVE_ID" "verify_only.json"
+assert_eq "canonical verification preserves root file" 'root-verify' \
+  "$(cat .signum/verify_only.json)"
+assert_eq "canonical verification preserves canonical file" 'canonical-verify' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/verify_only.json")"
+
+printf 'root-only-verify\n' > .signum/root_only_verify.json
+rm -f ".signum/contracts/${ACTIVE_ID}/root_only_verify.json"
+assert_ok "canonical verification does not import root-only artifact" \
+  verify_canonical_contract_artifacts "$ACTIVE_ID" "root_only_verify.json"
+assert_eq "canonical verification preserves root-only artifact" 'root-only-verify' \
+  "$(cat .signum/root_only_verify.json)"
+assert_eq "canonical verification leaves missing canonical artifact missing" "false" \
+  "$([ -e ".signum/contracts/${ACTIVE_ID}/root_only_verify.json" ] && echo true || echo false)"
+
+mkdir -p ".signum/contracts/${ACTIVE_ID}/runs/run-verify"
+printf '{"run":"verify"}\n' > ".signum/contracts/${ACTIVE_ID}/runs/run-verify/execute.json"
+assert_ok "canonical verification handles nested directory artifact" \
+  verify_canonical_contract_artifacts "$ACTIVE_ID" "runs/run-verify"
+assert_eq "canonical verification preserves nested directory artifact" '{"run":"verify"}' \
+  "$(cat ".signum/contracts/${ACTIVE_ID}/runs/run-verify/execute.json")"
+
+assert_fail "canonical verification rejects missing contract id" "contractId required" \
+  verify_canonical_contract_artifacts ""
+assert_fail "canonical verification rejects missing paths" "artifact path required" \
+  verify_canonical_contract_artifacts "$ACTIVE_ID"
+assert_fail "canonical verification rejects unsafe relative path" "invalid relative path" \
+  verify_canonical_contract_artifacts "$ACTIVE_ID" "../escape.json"
+
+echo ""
 echo "=== archive_contract_artifacts / purge_root_working_set_views ==="
 
 assert_ok "re-links proofpack before archive helper" link_active_artifact "proofpack.json"
@@ -377,6 +454,9 @@ assert_fail "archive helper rejects missing contract id" "contractId and archive
 
 printf '{"baseline":true}\n' > .signum/repo_contract_baseline.json
 printf 'prompt\n' > .signum/review_prompt_codex.txt
+mkdir -p ".signum/contracts/${ACTIVE_ID}/reviews"
+printf '{"decision":"PRESERVE"}\n' > ".signum/contracts/${ACTIVE_ID}/reviews/claude.json"
+printf '{"decision":"PRESERVE"}\n' > ".signum/contracts/${ACTIVE_ID}/reviews/codex.json"
 assert_ok "re-links review context before purge" link_active_artifact "review_context.json"
 printf '{"issue_refs":[]}\n' > .signum/review_context.json
 assert_ok "purges root working set compatibility surface" purge_root_working_set_views

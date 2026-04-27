@@ -1,0 +1,6 @@
+{
+  "canonicalTerms": [
+    {"term": "Artifact", "definition": "Evidence file produced by Signum."}
+  ],
+  "aliases": {"proof": "Artifact"}
+}

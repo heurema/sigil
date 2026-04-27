@@ -55,13 +55,16 @@ CONTRACT_HITS="$(
   rg -l '\.signum/contract\.json' \
     --glob '!**/tests/**' \
     --glob '!commands/signum.md' \
+    --glob '!commands/signum.fragments/**' \
     --glob '!platforms/claude-code/commands/signum.md' \
+    --glob '!platforms/claude-code/commands/signum.fragments/**' \
+    --glob '!docs/artifact-path-inventory.md' \
     --glob '!lib/contract-injection-scan.sh' \
     --glob '!platforms/claude-code/lib/signum-ci.sh' \
     --glob '!lib/signum-ci.sh' \
     --glob '!lib/snapshot-tree.sh' \
     --glob '!lib/proofpack-index.sh' \
-    . | sort
+    . | LC_ALL=C sort
 )"
 
 EXPECTED_CONTRACT_HITS=$'./README.md\n./agents/contractor.md\n./docs/reference.md\n./platforms/claude-code/agents/contractor.md\n./platforms/claude-code/docs/reference.md'
@@ -92,7 +95,10 @@ assert_no_matches \
   bash -lc "cd '$ROOT_DIR' && ! rg -n '\\.signum/proofpack\\.json' \
     --glob '!**/tests/**' \
     --glob '!commands/signum.md' \
+    --glob '!commands/signum.fragments/**' \
     --glob '!platforms/claude-code/commands/signum.md' \
+    --glob '!platforms/claude-code/commands/signum.fragments/**' \
+    --glob '!docs/artifact-path-inventory.md' \
     --glob '!lib/signum-ci.sh' \
     --glob '!platforms/claude-code/lib/signum-ci.sh' \
     --glob '!lib/proofpack-index.sh' \
@@ -103,7 +109,9 @@ assert_no_matches \
   bash -lc "cd '$ROOT_DIR' && ! rg -n '\\.signum/audit_summary\\.json' \
     --glob '!**/tests/**' \
     --glob '!commands/signum.md' \
+    --glob '!commands/signum.fragments/**' \
     --glob '!platforms/claude-code/commands/signum.md' \
+    --glob '!platforms/claude-code/commands/signum.fragments/**' \
     ."
 
 assert_no_matches \
@@ -111,7 +119,9 @@ assert_no_matches \
   bash -lc "cd '$ROOT_DIR' && ! rg -n '\\.signum/baseline\\.json' \
     --glob '!**/tests/**' \
     --glob '!commands/signum.md' \
+    --glob '!commands/signum.fragments/**' \
     --glob '!platforms/claude-code/commands/signum.md' \
+    --glob '!platforms/claude-code/commands/signum.fragments/**' \
     ."
 
 echo ""

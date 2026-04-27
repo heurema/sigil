@@ -69,7 +69,7 @@ tmp=$(mktemp)
 steps=""
 for i in $(seq 1 21); do
   [[ -n "$steps" ]] && steps="$steps,"
-  steps="$steps{\"exec\":{\"argv\":[\"test\",\"-f\",\"README.md\"]}}"
+  steps="$steps{\"exec\":{\"argv\":[\"test\",\"-f\",\"QUICKSTART.md\"]}}"
 done
 printf '{"steps":[%s],"timeout_ms":5000}' "$steps" > "$tmp"
 assert_fail "too many steps (21)" "$tmp" "too many steps"
@@ -77,7 +77,7 @@ rm -f "$tmp"
 
 # Inline: timeout too large
 tmp=$(mktemp)
-printf '{"steps":[{"exec":{"argv":["test","-f","README.md"]}}],"timeout_ms":999999}' > "$tmp"
+printf '{"steps":[{"exec":{"argv":["test","-f","QUICKSTART.md"]}}],"timeout_ms":999999}' > "$tmp"
 assert_fail "timeout too large" "$tmp" "too large"
 rm -f "$tmp"
 
@@ -87,10 +87,10 @@ printf '{"steps":[{"expect":{"stdout_contains":"x","source":"ghost"}}],"timeout_
 assert_fail "unknown capture reference" "$tmp" "unknown capture"
 rm -f "$tmp"
 
-# Inline: exec with grep (not whitelisted)
+# Inline: exec with python3 (not whitelisted)
 tmp=$(mktemp)
-printf '{"steps":[{"exec":{"argv":["grep","pattern","file"]}}],"timeout_ms":5000}' > "$tmp"
-assert_fail "grep not whitelisted" "$tmp" "not in whitelist"
+printf '{"steps":[{"exec":{"argv":["python3","-c","print(1)"]}}],"timeout_ms":5000}' > "$tmp"
+assert_fail "python3 not whitelisted" "$tmp" "not in whitelist"
 rm -f "$tmp"
 
 # Inline: exec with curl (not whitelisted)

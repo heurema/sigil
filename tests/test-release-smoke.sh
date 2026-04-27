@@ -56,7 +56,10 @@ assert_contains "workflow pushes updated Emporium ref" "$WORKFLOW_FILE" 'git -C 
 assert_contains "workflow checks out Emporium with ssh key" "$WORKFLOW_FILE" 'ssh-key: ${{ secrets.EMPORIUM_SSH_KEY }}'
 assert_contains "workflow runs release smoke path" "$WORKFLOW_FILE" 'run: bash lib/release-smoke.sh'
 assert_contains "workflow injects Emporium marketplace path" "$WORKFLOW_FILE" 'EMPORIUM_MARKETPLACE_PATH:'
-assert_contains "workflow checks out Emporium" "$WORKFLOW_FILE" "repository: \${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}"
+assert_contains "workflow sets default Emporium repo" "$WORKFLOW_FILE" "EMPORIUM_REPO: \${{ github.event.inputs.emporium_repo || 'heurema/emporium' }}"
+assert_contains "workflow checks out Emporium from env" "$WORKFLOW_FILE" "repository: \${{ env.EMPORIUM_REPO }}"
+assert_contains "workflow supports dry-run mode" "$WORKFLOW_FILE" 'SIGNUM_RELEASE_DRY_RUN'
+assert_contains "workflow skips push in dry-run mode" "$WORKFLOW_FILE" 'SIGNUM_RELEASE_DRY_RUN=1; skipping Emporium commit and git push.'
 assert_contains "workflow supports manual dispatch" "$WORKFLOW_FILE" 'workflow_dispatch:'
 assert_contains "workflow runs on release publish" "$WORKFLOW_FILE" 'published'
 assert_contains "workflow limits push scope" "$WORKFLOW_FILE" 'paths:'

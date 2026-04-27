@@ -1,0 +1,10 @@
+{
+  "name": "manifest-project",
+  "version": "1.0.0",
+  "bin": {
+    "manifest-cli": "bin/manifest.js"
+  },
+  "scripts": {
+    "test": "node test.js"
+  }
+}

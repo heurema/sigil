@@ -1,0 +1,1 @@
+This directory should appear as a module dir.

@@ -1,6 +1,8 @@
 .DS_Store
 .dev/
 .signum/
+!tests/fixtures/**/.signum/
+!tests/fixtures/**/.signum/**
 __pycache__/
 *.pyc
 node_modules/

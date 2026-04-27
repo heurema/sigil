@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "description": "Static inventory for GitHub Actions runs-on labels in workflow/template YAML files. No timestamps by design.",
+  "scanRoots": [
+    ".github/workflows",
+    "lib/templates",
+    "platforms/claude-code/lib/templates"
+  ],
+  "mutableLatestAllowlist": [],
+  "runners": [
+    {
+      "file": ".github/workflows/ci.yml",
+      "occurrence": 1,
+      "context": "jobs.deterministic-tests",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Existing ubuntu-latest job uses standard Ubuntu tooling only; pinned to fixed GitHub-hosted Ubuntu 24.04 image for reproducible CI."
+    },
+    {
+      "file": ".github/workflows/doc-parity.yml",
+      "occurrence": 1,
+      "context": "jobs.doc-parity",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Existing ubuntu-latest job uses standard Ubuntu tooling only; pinned to fixed GitHub-hosted Ubuntu 24.04 image for reproducible CI."
+    },
+    {
+      "file": ".github/workflows/pr-intake-gate.yml",
+      "occurrence": 1,
+      "context": "jobs.pr-intake-gate",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Existing ubuntu-latest job uses Python standard library and checkout only; pinned to fixed GitHub-hosted Ubuntu 24.04 image for reproducible CI."
+    },
+    {
+      "file": ".github/workflows/release-guardrails.yml",
+      "occurrence": 1,
+      "context": "jobs.release-guardrails",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Existing ubuntu-latest job uses standard Ubuntu tooling only; pinned to fixed GitHub-hosted Ubuntu 24.04 image for reproducible release guardrails."
+    },
+    {
+      "file": "lib/templates/signum-gate.yml",
+      "occurrence": 1,
+      "context": "jobs.signum-gate",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Existing ubuntu-latest template uses standard Ubuntu tooling plus pinned Claude Code CLI install; pinned to fixed GitHub-hosted Ubuntu 24.04 image without changing workflow logic."
+    },
+    {
+      "file": "platforms/claude-code/lib/templates/signum-gate.yml",
+      "occurrence": 1,
+      "context": "jobs.signum-gate",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Mirrors lib/templates/signum-gate.yml; pinned to fixed GitHub-hosted Ubuntu 24.04 image to preserve root/platform template parity."
+    }
+  ],
+  "skipped": []
+}

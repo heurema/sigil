@@ -1,0 +1,4 @@
+diff --git a/src/unknown.js b/src/unknown.js
+@@ -0,0 +1,2 @@
++// SIGNUM_POLICY_ALLOW:POLICY_UNKNOWN_RULE:temporary unknown rule fixture
++console.log("debug fixture");

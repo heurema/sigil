@@ -1,0 +1,3 @@
+diff --git a/docs/dependencies.md b/docs/dependencies.md
+@@ -0,0 +1,1 @@
++    "left-pad": "^1.3.0"

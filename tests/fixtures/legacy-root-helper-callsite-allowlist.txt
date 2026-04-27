@@ -1,0 +1,42 @@
+# legacy-root-helper-callsite-allowlist.txt -- classified LEGACY_ROOT_COMPAT helper call sites
+# Format: category|helper|file|expected_count|short_context
+# Counts are static executable call/definition occurrences after comments and quoted strings are ignored.
+definition|sync_contract_artifacts|lib/contract-dir.sh|1|helper-definition
+definition|remove_root_artifact_view|lib/contract-dir.sh|1|helper-definition
+definition|purge_root_working_set_views|lib/contract-dir.sh|1|helper-definition
+definition|link_active_artifact|lib/contract-dir.sh|1|helper-definition
+definition|ensure_active_artifact_dir|lib/contract-dir.sh|1|helper-definition
+definition|reset_active_artifact|lib/contract-dir.sh|1|helper-definition
+definition|promote_root_artifact_to_active|lib/contract-dir.sh|1|helper-definition
+legacy-resume-import-restart|remove_root_artifact_view|lib/contract-dir.sh|4|helper-internal-root-view-cleanup
+legacy-resume-import-restart|link_active_artifact|lib/contract-dir.sh|1|helper-internal-dir-view-link
+definition|sync_contract_artifacts|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+definition|remove_root_artifact_view|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+definition|purge_root_working_set_views|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+definition|link_active_artifact|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+definition|ensure_active_artifact_dir|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+definition|reset_active_artifact|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+definition|promote_root_artifact_to_active|platforms/claude-code/lib/contract-dir.sh|1|helper-definition
+legacy-resume-import-restart|remove_root_artifact_view|platforms/claude-code/lib/contract-dir.sh|4|helper-internal-root-view-cleanup
+legacy-resume-import-restart|link_active_artifact|platforms/claude-code/lib/contract-dir.sh|1|helper-internal-dir-view-link
+legacy-archive-close-cleanup|purge_root_working_set_views|commands/signum.md|2|archive-close-active-root-compat-cleanup
+legacy-final-output-cleanup|purge_root_working_set_views|commands/signum.md|3|final-output-archive-delete-finalize-cleanup
+legacy-resume-import-restart|promote_root_artifact_to_active|commands/signum.md|2|legacy-root-import
+legacy-resume-import-restart|remove_root_artifact_view|commands/signum.md|1|restart-cleanup-root-dir-views
+legacy-archive-close-cleanup|purge_root_working_set_views|platforms/claude-code/commands/signum.md|2|archive-close-active-root-compat-cleanup
+legacy-resume-import-restart|promote_root_artifact_to_active|platforms/claude-code/commands/signum.md|2|legacy-root-import
+legacy-resume-import-restart|remove_root_artifact_view|platforms/claude-code/commands/signum.md|1|restart-cleanup-root-dir-views
+test|sync_contract_artifacts|tests/test-contract-dir.sh|7|contract-dir-behavior-tests
+test|promote_root_artifact_to_active|tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|link_active_artifact|tests/test-contract-dir.sh|8|contract-dir-behavior-tests
+test|ensure_active_artifact_dir|tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|remove_root_artifact_view|tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|reset_active_artifact|tests/test-contract-dir.sh|3|contract-dir-behavior-tests
+test|purge_root_working_set_views|tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|sync_contract_artifacts|platforms/claude-code/tests/test-contract-dir.sh|7|contract-dir-behavior-tests
+test|promote_root_artifact_to_active|platforms/claude-code/tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|link_active_artifact|platforms/claude-code/tests/test-contract-dir.sh|8|contract-dir-behavior-tests
+test|ensure_active_artifact_dir|platforms/claude-code/tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|remove_root_artifact_view|platforms/claude-code/tests/test-contract-dir.sh|1|contract-dir-behavior-tests
+test|reset_active_artifact|platforms/claude-code/tests/test-contract-dir.sh|3|contract-dir-behavior-tests
+test|purge_root_working_set_views|platforms/claude-code/tests/test-contract-dir.sh|1|contract-dir-behavior-tests

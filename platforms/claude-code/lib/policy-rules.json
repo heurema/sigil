@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "1.0",
+  "rules": [
+    {
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "type": "security",
+      "severity": "CRITICAL",
+      "pattern": "dynamic_code_execution",
+      "autoBlock": true,
+      "description": "Added line uses dynamic code execution sinks such as eval, Function, or Python __import__.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_XSS_SINK",
+      "type": "security",
+      "severity": "CRITICAL",
+      "pattern": "xss_sink",
+      "autoBlock": true,
+      "description": "Added line writes HTML through browser XSS sinks such as innerHTML or document.write.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_SQL_INJECTION",
+      "type": "security",
+      "severity": "CRITICAL",
+      "pattern": "sql_injection",
+      "autoBlock": true,
+      "description": "Added line builds SQL with string concatenation or formatting around SQL keywords.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
+      "type": "security",
+      "severity": "CRITICAL",
+      "pattern": "subprocess_shell_injection",
+      "autoBlock": true,
+      "description": "Added line invokes subprocess, shell, or child process APIs matched by the current scanner regex.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "type": "security",
+      "severity": "MAJOR",
+      "pattern": "weak_crypto",
+      "autoBlock": false,
+      "description": "Added line uses weak crypto primitives such as md5, sha1, DES, or RC4.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_UNCHECKED_ANY",
+      "type": "unsafe",
+      "severity": "MINOR",
+      "pattern": "unchecked_any",
+      "autoBlock": false,
+      "description": "Added TypeScript line uses unchecked any typing.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_INCOMPLETE_MARKER",
+      "type": "unsafe",
+      "severity": "CRITICAL",
+      "pattern": "incomplete_implementation",
+      "autoBlock": true,
+      "description": "Added code line contains TODO, FIXME, HACK, or XXX marker outside ignored docs/tests/config paths.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_INCOMPLETE_STUB",
+      "type": "unsafe",
+      "severity": "CRITICAL",
+      "pattern": "incomplete_implementation",
+      "autoBlock": true,
+      "description": "Added code line contains a not-implemented/todo stub pattern outside ignored docs/tests/config paths.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_SUSPICIOUS_RETURN",
+      "type": "unsafe",
+      "severity": "MINOR",
+      "pattern": "suspicious_return",
+      "autoBlock": false,
+      "description": "Added line returns nil/null in patterns currently treated as suspicious.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "type": "unsafe",
+      "severity": "MINOR",
+      "pattern": "debug_print",
+      "autoBlock": false,
+      "description": "Added line contains debug output or debugger statements matched by the scanner.",
+      "fixture": "all-rules.patch"
+    },
+    {
+      "ruleId": "POLICY_NEW_NPM_DEPENDENCY",
+      "type": "dependency",
+      "severity": "MAJOR",
+      "pattern": "new_npm_dependency",
+      "autoBlock": false,
+      "description": "Added manifest line in package.json looks like a new npm dependency version entry.",
+      "fixture": "all-rules.patch",
+      "fileScope": [
+        "package.json",
+        "package-lock.json",
+        "npm-shrinkwrap.json",
+        "pnpm-lock.yaml",
+        "yarn.lock"
+      ],
+      "excludedPathPrefixes": [
+        "docs/",
+        "examples/",
+        "fixtures/",
+        "tests/",
+        "test/"
+      ]
+    },
+    {
+      "ruleId": "POLICY_NEW_CARGO_DEPENDENCY",
+      "type": "dependency",
+      "severity": "MAJOR",
+      "pattern": "new_cargo_dependency",
+      "autoBlock": false,
+      "description": "Added manifest line in Cargo.toml looks like a new crate dependency entry.",
+      "fixture": "all-rules.patch",
+      "fileScope": [
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "excludedPathPrefixes": [
+        "docs/",
+        "examples/",
+        "fixtures/",
+        "tests/",
+        "test/"
+      ]
+    },
+    {
+      "ruleId": "POLICY_NEW_PYTHON_DEPENDENCY",
+      "type": "dependency",
+      "severity": "MAJOR",
+      "pattern": "new_python_dependency",
+      "autoBlock": false,
+      "description": "Added manifest line in pyproject.toml looks like a new Python dependency entry.",
+      "fixture": "all-rules.patch",
+      "fileScope": [
+        "requirements*.txt",
+        "pyproject.toml",
+        "poetry.lock",
+        "Pipfile",
+        "Pipfile.lock",
+        "setup.py",
+        "setup.cfg"
+      ],
+      "excludedPathPrefixes": [
+        "docs/",
+        "examples/",
+        "fixtures/",
+        "tests/",
+        "test/"
+      ]
+    },
+    {
+      "ruleId": "POLICY_NEW_GO_DEPENDENCY",
+      "type": "dependency",
+      "severity": "MAJOR",
+      "pattern": "new_go_dependency",
+      "autoBlock": false,
+      "description": "Added manifest line in go.mod or go.sum looks like a new Go module dependency entry.",
+      "fixture": "all-rules.patch",
+      "fileScope": [
+        "go.mod",
+        "go.sum"
+      ],
+      "excludedPathPrefixes": [
+        "docs/",
+        "examples/",
+        "fixtures/",
+        "tests/",
+        "test/"
+      ]
+    }
+  ]
+}

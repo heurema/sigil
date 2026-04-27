@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "findings": [
+    {
+      "id": "version-schema-drift",
+      "status": "fixed",
+      "summary": "Runtime proofpack schema/signum metadata is checked against the plugin/schema sources and docs examples.",
+      "evidence": [
+        "tests/test-metadata-consistency.sh",
+        "lib/schemas/proofpack.schema.json",
+        ".claude-plugin/plugin.json"
+      ],
+      "remainingRisk": "Future metadata edits must keep the static guard passing."
+    },
+    {
+      "id": "dsl-exec-timeout",
+      "status": "fixed",
+      "summary": "DSL exec steps validate argv and run with bounded timeout handling.",
+      "evidence": [
+        "lib/dsl-runner.sh",
+        "tests/test-dsl-runner.sh",
+        "tests/dsl-runner/fixtures/valid-exec.json"
+      ],
+      "remainingRisk": "Timeout behavior is only as deterministic as the local process and OS scheduler."
+    },
+    {
+      "id": "deterministic-pr-ci",
+      "status": "fixed",
+      "summary": "PR CI runs the deterministic shell test suite, including clean-room smoke via tests/test-cleanroom-smoke.sh, without secrets, AI CLIs, or writable contents permission.",
+      "evidence": [
+        ".github/workflows/ci.yml",
+        "scripts/run-deterministic-tests.sh",
+        "tests/test-ci-workflow.sh",
+        "tests/test-cleanroom-smoke.sh",
+        "scripts/run-cleanroom-smoke.sh"
+      ],
+      "remainingRisk": "CI host image contents remain external to the repository."
+    },
+    {
+      "id": "unsafe-home-project-scan",
+      "status": "fixed",
+      "summary": "Project root resolution no longer relies on unsafe home-directory scans and is statically guarded.",
+      "evidence": [
+        "commands/signum.md",
+        "platforms/claude-code/commands/signum.md",
+        "tests/test-project-root-resolution.sh"
+      ],
+      "remainingRisk": "Users can still pass an explicit project root that points to the wrong project."
+    },
+    {
+      "id": "claude-cli-floating-install",
+      "status": "fixed",
+      "summary": "Generated Signum gate workflows install Claude Code CLI from a pinned version file instead of a floating package spec.",
+      "evidence": [
+        "lib/tool-versions.env",
+        "lib/templates/signum-gate.yml",
+        "tests/test-toolchain-pinning.sh"
+      ],
+      "remainingRisk": "npm package resolution and transitive runtime contents are not fully vendored."
+    },
+    {
+      "id": "release-cross-repo-push",
+      "status": "bounded",
+      "summary": "The release workflow still pushes to Emporium on the write path, but preflight checks, dry-run mode, repository guard, secret gating, and clean-room local smoke bound the risk.",
+      "evidence": [
+        ".github/workflows/release-guardrails.yml",
+        "lib/release-smoke.sh",
+        "tests/test-release-workflow-hardening.sh",
+        "scripts/run-cleanroom-smoke.sh",
+        "tests/test-cleanroom-smoke.sh"
+      ],
+      "remainingRisk": "A successful non-dry-run release can still mutate a separate repository."
+    },
+    {
+      "id": "root-artifact-legacy-drift",
+      "status": "fixed",
+      "summary": "Root .signum artifact usage is inventoried and normal runtime artifacts are documented as canonical under .signum/contracts/<contractId>/.",
+      "evidence": [
+        "docs/artifact-path-inventory.md",
+        "tests/fixtures/artifact-path-allowlist.txt",
+        "tests/test-artifact-path-inventory.sh"
+      ],
+      "remainingRisk": "Explicit legacy import/cleanup compatibility remains until a future removal decision."
+    },
+    {
+      "id": "normal-runtime-legacy-helper-calls",
+      "status": "fixed",
+      "summary": "Normal-runtime legacy helper call sites were migrated to canonical-only helpers and remaining legacy calls are allowlisted by category.",
+      "evidence": [
+        "docs/legacy-root-helper-callsite-inventory.md",
+        "tests/fixtures/legacy-root-helper-callsite-allowlist.txt",
+        "tests/test-legacy-root-helper-callsites.sh"
+      ],
+      "remainingRisk": "Legacy resume/import/archive/close compatibility paths still exist by design."
+    },
+    {
+      "id": "proofpack-validation-gap",
+      "status": "fixed",
+      "summary": "Proofpack validation checks required fields, metadata drift, envelopes, artifact refs, and optional removalEvidence shape.",
+      "evidence": [
+        "scripts/validate_proofpack.py",
+        "tests/fixtures/proofpack/valid-minimal.json",
+        "tests/test-proofpack-validation.sh"
+      ],
+      "remainingRisk": "The validator is focused code, not a general JSON Schema engine."
+    },
+    {
+      "id": "policy-scanner-unstable-rules",
+      "status": "fixed",
+      "summary": "Policy rules have stable ruleId values, a catalog contract, fixture references, and mirrored root/platform coverage.",
+      "evidence": [
+        "lib/policy-rules.json",
+        "platforms/claude-code/lib/policy-rules.json",
+        "tests/test-policy-scanner.sh"
+      ],
+      "remainingRisk": "New rules must be added through the catalog and fixture contract."
+    },
+    {
+      "id": "policy-scanner-false-positives",
+      "status": "bounded",
+      "summary": "RuleId suppressions and dependency file-scope reduce known false positives while preserving regex scanner behavior.",
+      "evidence": [
+        "lib/policy-scanner.sh",
+        "lib/policy-rules.json",
+        "tests/fixtures/policy-scanner/dependency-npm-docs-no-trigger.patch",
+        "tests/test-policy-scanner.sh"
+      ],
+      "remainingRisk": "Regex matching can still miss or over-match language semantics."
+    },
+    {
+      "id": "init-harness-heredocs",
+      "status": "fixed",
+      "summary": "Large init harness markdown heredocs are extracted into checked-in templates with golden scaffold coverage.",
+      "evidence": [
+        "lib/init-harness-scaffold.sh",
+        "lib/templates/init-harness/AGENTS.md.tmpl",
+        "tests/test-init-harness-scaffold.sh"
+      ],
+      "remainingRisk": "Template edits must update golden fixtures intentionally."
+    },
+    {
+      "id": "init-scanner-shell-heavy",
+      "status": "fixed",
+      "summary": "The scanner implementation is Python stdlib with a thin shell compatibility wrapper and golden behavior fixtures.",
+      "evidence": [
+        "scripts/init_scanner.py",
+        "lib/init-scanner.sh",
+        "docs/init-scanner-behavior.md",
+        "tests/test-init-scanner.sh"
+      ],
+      "remainingRisk": "The scanner remains heuristic and emits large text signals."
+    },
+    {
+      "id": "signum-command-monolith",
+      "status": "bounded",
+      "summary": "The command is still large, but command structure, renderer output, and fragment parity are now guarded before deeper decomposition.",
+      "evidence": [
+        "docs/signum-command-structure.md",
+        "scripts/render_signum_command.py",
+        "tests/test-signum-command-renderer.sh",
+        "tests/test-signum-fragment-parity.sh"
+      ],
+      "remainingRisk": "Full semantic refactor is not done."
+    },
+    {
+      "id": "platform-overlay-drift",
+      "status": "bounded",
+      "summary": "Root/Claude overlay differences are documented as bounded deviations, including overlay-only RECONCILE.",
+      "evidence": [
+        "docs/overlay-deviations.json",
+        "docs/signum-fragment-parity.md",
+        "tests/fixtures/signum-fragment-parity.json",
+        "tests/test-signum-fragment-parity.sh"
+      ],
+      "remainingRisk": "New overlay differences must be classified instead of silently drifting."
+    },
+    {
+      "id": "github-actions-mutable-refs",
+      "status": "fixed",
+      "summary": "External GitHub Actions uses refs are pinned to full commit SHAs and recorded in a static inventory.",
+      "evidence": [
+        "tests/fixtures/github-action-pins.json",
+        "tests/test-github-action-pinning.sh",
+        ".github/workflows/ci.yml"
+      ],
+      "remainingRisk": "Action source repositories and GitHub execution infrastructure remain external."
+    },
+    {
+      "id": "github-runner-latest-labels",
+      "status": "fixed",
+      "summary": "Scanned GitHub-hosted runner labels use fixed ubuntu-24.04 labels instead of ubuntu-latest.",
+      "evidence": [
+        "tests/fixtures/github-runner-labels.json",
+        "tests/test-github-runner-pinning.sh",
+        ".github/workflows/ci.yml"
+      ],
+      "remainingRisk": "Fixed labels do not freeze image patch contents."
+    },
+    {
+      "id": "optional-removal-evidence",
+      "status": "bounded",
+      "summary": "removalEvidence remains optional and root-only; absence is valid and presence is shape-validated.",
+      "evidence": [
+        "docs/signum-command-structure.md",
+        "tests/fixtures/proofpack/valid-with-removal-evidence.json",
+        "tests/test-proofpack-validation.sh"
+      ],
+      "remainingRisk": "Overlay cleanup obligations are represented later through RECONCILE rather than root-style removalEvidence."
+    },
+    {
+      "id": "final-output-root-cleanup",
+      "status": "bounded",
+      "summary": "Root Final Output keeps exactly three cleanup-only purge_root_working_set_views calls; overlay has no matching Step 4.5 flow.",
+      "evidence": [
+        "docs/legacy-root-helper-callsite-inventory.md",
+        "tests/fixtures/signum-command-structure.json",
+        "tests/test-signum-command-structure.sh"
+      ],
+      "remainingRisk": "The root-only Final Output flow remains a documented compatibility exception."
+    },
+    {
+      "id": "full-runner-immutability",
+      "status": "deferred",
+      "summary": "The repository does not fully freeze runner images, OS package contents, or all toolchain transitive inputs.",
+      "evidence": [
+        "tests/fixtures/github-runner-labels.json",
+        "tests/test-github-runner-pinning.sh",
+        "docs/stabilization-summary.md"
+      ],
+      "remainingRisk": "GitHub-hosted ubuntu-24.04 images can still receive patch updates."
+    },
+    {
+      "id": "init-scanner-go-sum",
+      "status": "deferred",
+      "summary": "go.sum is still not captured as an init scanner manifest signal.",
+      "evidence": [
+        "docs/init-scanner-behavior.md",
+        "scripts/init_scanner.py",
+        "tests/test-init-scanner.sh"
+      ],
+      "remainingRisk": "Go dependency lockfile signal can be absent from init context."
+    },
+    {
+      "id": "provider-availability-external",
+      "status": "deferred",
+      "summary": "Optional reviewer/provider availability remains dependent on external CLI auth, version compatibility, and network state.",
+      "evidence": [
+        "docs/how-it-works.md",
+        "README.md"
+      ],
+      "remainingRisk": "External reviewers can be unavailable even when local deterministic guards pass."
+    },
+    {
+      "id": "command-semantic-refactor",
+      "status": "future",
+      "summary": "Further semantic command decomposition or parameterized fragments can be considered after the current renderer/parity baseline remains stable.",
+      "evidence": [
+        "docs/signum-fragment-parity.md",
+        "tests/test-signum-command-renderer.sh",
+        "docs/stabilization-summary.md"
+      ],
+      "remainingRisk": "Large command fragments still require careful review."
+    },
+    {
+      "id": "policy-scanner-parser",
+      "status": "future",
+      "summary": "Parser-aware policy scanning could reduce regex false positives and false negatives for high-value languages.",
+      "evidence": [
+        "lib/policy-scanner.sh",
+        "docs/stabilization-summary.md"
+      ],
+      "remainingRisk": "Any parser work must preserve current ruleId and suppression contracts."
+    },
+    {
+      "id": "release-clean-ci-dry-run",
+      "status": "future",
+      "summary": "A clean CI release/package dry-run can further validate the hardened release path before publishing.",
+      "evidence": [
+        ".github/workflows/release-guardrails.yml",
+        "docs/stabilization-summary.md"
+      ],
+      "remainingRisk": "Local/static tests do not prove full release environment behavior."
+    },
+    {
+      "id": "enterprise-data-egress-policy",
+      "status": "future",
+      "summary": "An explicit enterprise data-egress policy could define when optional external reviewers are allowed or disabled.",
+      "evidence": [
+        "README.md",
+        "docs/stabilization-summary.md"
+      ],
+      "remainingRisk": "Current documentation describes local artifacts and optional providers but does not define a full enterprise policy."
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# Plans
+
+- Stabilize scanner behavior.

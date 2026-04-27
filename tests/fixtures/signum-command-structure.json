@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "commands": {
+    "root": "commands/signum.md",
+    "claude_overlay": "platforms/claude-code/commands/signum.md"
+  },
+  "expectedPhases": {
+    "root": [
+      "## Phase 1: CONTRACT",
+      "## Phase 2: EXECUTE",
+      "## Phase 3: AUDIT",
+      "## Phase 4: PACK"
+    ],
+    "claude_overlay": [
+      "## Phase 1: CONTRACT",
+      "## Phase 2: EXECUTE",
+      "## Phase 3: AUDIT",
+      "## Phase 4: PACK",
+      "## Phase 5: RECONCILE"
+    ]
+  },
+  "requiredInBoth": {
+    "prePipelineSections": [
+      "## Init Command Redirect",
+      "## Explain Mode",
+      "## Archive Mode",
+      "## Close Mode",
+      "## Project Resolution",
+      "## Setup"
+    ],
+    "finalSections": [
+      "## Final Output",
+      "## Error Handling"
+    ],
+    "projectRootResolution": [
+      "SIGNUM_PROJECT_ROOT",
+      "# TARGET_DIR=$(canonicalize_project_root \"<value of project argument>\")",
+      "git rev-parse --show-toplevel",
+      "TARGET_DIR=\"$CURRENT_DIR\"",
+      "Using current directory only"
+    ],
+    "canonicalArtifacts": [
+      ".signum/contracts",
+      "active_artifact_root",
+      "ARTIFACT_ROOT"
+    ],
+    "proofpackAssembly": [
+      "### Step 4.1: Collect metadata and build proofpack",
+      "# Final assembly",
+      "--arg schemaVersion",
+      "--arg signumVersion",
+      "--arg contractId",
+      "--arg decision",
+      "schemaVersion: $schemaVersion",
+      "signumVersion: $signumVersion",
+      "contractId:",
+      "decision: $decision",
+      "checks: {",
+      "mechanic: $mechanicEnv",
+      "holdout: $holdoutEnv",
+      "policy_scan: $policyScanEnv[0]",
+      "reviews: $reviewsEnv",
+      "auditSummary: $auditEnv"
+    ],
+    "canonicalLegacyReplacements": [
+      "reset_canonical_active_artifact",
+      "verify_canonical_contract_artifacts"
+    ],
+    "proofpackReceiptFields": [
+      "# Receipt metadata (specpunk receipt v1 compatible fields)",
+      "--arg startedAt",
+      "--argjson durationMs",
+      "--arg riskLevel",
+      "--arg releaseVerdict",
+      "--argjson availableReviews",
+      "releaseVerdict: $releaseVerdict",
+      "riskLevel: $riskLevel",
+      "timing: { startedAt:",
+      "reviewCoverage: { availableReviews:"
+    ]
+  },
+  "requiredRootOnly": {
+    "finalOutputCleanup": [
+      "### Step 4.5: Finalize run (artifact cleanup)",
+      "legacy-final-output-cleanup"
+    ],
+    "proofpackOptionalRemovalEvidence": [
+      "# Removal evidence (v4.7)",
+      "removalEvidence: $re"
+    ]
+  },
+  "requiredOverlayOnly": {
+    "reconcile": [
+      "## Phase 5: RECONCILE",
+      "### Step 5.1: Check obligations",
+      "### Step 5.4: Write retrospective",
+      "docs/overlay-deviations.json"
+    ]
+  },
+  "forbiddenInBoth": {
+    "oldProjectRootScan": [
+      "personal/skill7",
+      "$HOME/works",
+      "$HOME/projects",
+      "find \"$HOME\"",
+      "TASK_LOWER",
+      "PLUGIN_NAME",
+      "Auto-detected project"
+    ],
+    "normalRuntimeLegacyHelpers": [
+      "reset_active_artifact",
+      "sync_contract_artifacts"
+    ]
+  },
+  "expectedCounts": {
+    "finalOutputPurgeRootWorkingSetViews": {
+      "commands/signum.md": 3,
+      "platforms/claude-code/commands/signum.md": 0
+    }
+  },
+  "documentation": {
+    "path": "docs/signum-command-structure.md",
+    "requiredMarkers": [
+      "Phase 1: CONTRACT",
+      "Phase 2: EXECUTE",
+      "Phase 3: AUDIT",
+      "Phase 4: PACK",
+      "Phase 5: RECONCILE",
+      "legacy-final-output-cleanup",
+      "releaseVerdict",
+      "timing",
+      "reviewCoverage",
+      "removalEvidence",
+      "tests/fixtures/signum-command-structure.json"
+    ]
+  }
+}

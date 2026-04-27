@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "scanTarget": "<PROJECT_ROOT>",
+  "signals": {
+    "authoritative_docs": "\n=== docs/how-it-works.md ===\n# How It Works\n\nSCAN -> SYNTHESIZE -> PRESENT.\n\n=== ARCHITECTURE.md ===\n# Docs Rich Architecture\n\nThe system has scanner, synthesizer, and verifier components.\n",
+    "docs_deep": "\n=== docs/PLANS.md ===\n# Plans\n\n- Stabilize scanner behavior.\n\n=== docs/QUALITY_SCORE.md ===\n# Quality Score\n\nMinimum bar: deterministic tests.\n\n=== docs/RELIABILITY.md ===\n# Reliability\n\nSmoke test the main CLI before release.\n\n=== docs/SECURITY.md ===\n# Security\n\nReview auth changes before merge.\n\n=== docs/adr/001-rejected.md ===\n# ADR 001: SOAP API\n\nStatus: Rejected\n\n## Context\nSOAP was requested for legacy clients.\n\n## Decision\nRejected in favor of JSON.\n",
+    "claude_md": "# Docs Rich Project Guidance\n\n## Build\nUse `make test`.\n\n## Non-goals\n- Never write generated assets by hand.",
+    "agents_md": "# Agent Map\n\nRead ARCHITECTURE.md before changing runtime code.",
+    "readme": "# Docs Rich Project\n\nA fixture for init scanner docs coverage.\n\n## Limitations\n- Does not support legacy SOAP mode.",
+    "package_json": "",
+    "pyproject_toml": "",
+    "cargo_toml": "",
+    "go_mod": "",
+    "ci_signals": "",
+    "entrypoints": "",
+    "console_scripts": "",
+    "pkg_bin": "",
+    "git_dirstat": "",
+    "git_recent": "",
+    "adr_signals": "\nREJECTED ADR:  ADR 001: SOAP API (docs/adr/001-rejected.md)\nStatus: Rejected\n## Context\n## Decision\n",
+    "readme_negative": "## Limitations\n- Does not support legacy SOAP mode.",
+    "claude_negative": "## Non-goals\n- Never write generated assets by hand.",
+    "module_dirs": " docs"
+  },
+  "existingFiles": {
+    "glossary": {
+      "path": "",
+      "content": ""
+    },
+    "intent": {
+      "path": "",
+      "content": ""
+    }
+  },
+  "glossarySchema": {
+    "canonicalTerms": [],
+    "aliases": {}
+  }
+}
