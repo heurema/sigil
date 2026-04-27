@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [4.21.0] - 2026-04-27
+
+### Added
+- Deterministic PR CI and local clean-room smoke coverage: `scripts/run-deterministic-tests.sh`, `scripts/run-cleanroom-smoke.sh`, and `.github/workflows/ci.yml` keep release-relevant tests reproducible without network or external CLIs.
+- Renderer/fragment parity, proofpack validation, policy scanner, init scanner, and stabilization inventory guards (`tests/test-signum-command-renderer.sh`, `tests/test-signum-fragment-parity.sh`, `tests/test-proofpack-validation.sh`, `tests/test-policy-scanner.sh`, `tests/test-init-scanner.sh`, `tests/test-stabilization-summary.sh`, etc.) prevent silent regressions in the imported stabilization surface.
+- `lib/templates/init-harness/*.tmpl` extracts the previously inline init-harness markdown heredocs into checked-in templates with golden scaffold coverage.
+
+### Changed
+- `commands/signum.md` and the Claude overlay are now rendered from `commands/signum.fragments/manifest.json` plus shared fragments. Output is byte-for-byte identical to the previous monolithic command file; fragment parity is enforced by `tests/test-signum-fragment-parity.sh`.
+- `_candidate_roots` in `scripts/validate_proofpack.py` (and the overlay copy) now resolves Signum-owned metadata from the Signum install location before `--repo-root`, so a scanned project that ships its own `.claude-plugin/plugin.json` no longer hijacks the source-of-truth check.
+- `compute_entrypoints` in `scripts/init_scanner.py` (and the overlay copy) now keeps entrypoint files one level below `bin/commands/skills`, restoring the historical `find ... -maxdepth 2` semantics so files like `commands/foo/run.md` are no longer dropped from `signals.entrypoints`.
+
+### Fixed
+- `tests/fixtures/stabilization-findings.json` evidence path for the init-harness template no longer drifts on case-sensitive filesystems (Linux CI), matching the actual lowercase template filename.
+- `tests/test-stabilization-summary.sh` now validates evidence paths case-exact via `os.listdir`, so macOS does not hide path-casing mistakes.
+- `tests/test-intentional-root-compatibility-mentions.sh` no longer depends on `ripgrep` and uses a Python stdlib search helper instead, keeping deterministic CI free of apt-installed tools.
+- Canonical-path shell tests (`tests/test-contract-bootstrap-canonical-paths.sh` and eight peers) now derive their root via `$SCRIPT_DIR/..` instead of hardcoded local `/Users/...` paths, and a static guard prevents the regression.
+
 ## [4.20.2] - 2026-04-24
 
 ### Fixed
