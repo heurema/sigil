@@ -182,6 +182,16 @@ check(
     "tests still contain hardcoded local repo path: " + ", ".join(offenders),
 )
 
+intentional_root_test = repo_root / "tests" / "test-intentional-root-compatibility-mentions.sh"
+if intentional_root_test.is_file():
+    body = intentional_root_test.read_text(encoding="utf-8")
+    rg_invocation = re.compile(r"(?<![\w-])" + "rg" + r"(?:\s|$)", re.MULTILINE)
+    check(
+        "intentional root compatibility test has no ripgrep dependency",
+        rg_invocation.search(body) is None,
+        "test invokes 'rg' which is not guaranteed on minimal CI runners",
+    )
+
 if errors:
     print(f"Failed: {len(errors)}")
     sys.exit(1)
