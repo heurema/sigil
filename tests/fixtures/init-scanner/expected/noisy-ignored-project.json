@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "scanTarget": "<PROJECT_ROOT>",
+  "signals": {
+    "authoritative_docs": "",
+    "docs_deep": "",
+    "claude_md": "",
+    "agents_md": "",
+    "readme": "# Noisy Ignored Project\n\nVisible README content.",
+    "package_json": "",
+    "pyproject_toml": "",
+    "cargo_toml": "",
+    "go_mod": "",
+    "ci_signals": "",
+    "entrypoints": "",
+    "console_scripts": "",
+    "pkg_bin": "",
+    "git_dirstat": "",
+    "git_recent": "",
+    "adr_signals": "",
+    "readme_negative": "",
+    "claude_negative": "",
+    "module_dirs": " src"
+  },
+  "existingFiles": {
+    "glossary": {
+      "path": "",
+      "content": ""
+    },
+    "intent": {
+      "path": "",
+      "content": ""
+    }
+  },
+  "glossarySchema": {
+    "canonicalTerms": [],
+    "aliases": {}
+  }
+}

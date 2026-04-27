@@ -3,7 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SCAFFOLD="$SCRIPT_DIR/../lib/init-harness-scaffold.sh"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCAFFOLD="$REPO_ROOT/lib/init-harness-scaffold.sh"
+OVERLAY_SCAFFOLD="$REPO_ROOT/platforms/claude-code/lib/init-harness-scaffold.sh"
+TEMPLATE_DIR="$REPO_ROOT/lib/templates/init-harness"
+OVERLAY_TEMPLATE_DIR="$REPO_ROOT/platforms/claude-code/lib/templates/init-harness"
+FIXTURES="$REPO_ROOT/tests/fixtures/init-harness-scaffold"
 
 passed=0
 failed=0
@@ -58,9 +63,56 @@ assert_json_field() {
   fi
 }
 
+assert_file() {
+  local name="$1" path="$2"
+  if [ -f "$path" ]; then
+    printf '  PASS: %s\n' "$name"
+    passed=$((passed + 1))
+  else
+    printf '  FAIL: %s — missing file %s\n' "$name" "$path"
+    failed=$((failed + 1))
+  fi
+}
+
+assert_same_file() {
+  local name="$1" left="$2" right="$3"
+  if cmp -s "$left" "$right"; then
+    printf '  PASS: %s\n' "$name"
+    passed=$((passed + 1))
+  else
+    printf '  FAIL: %s — files differ: %s %s\n' "$name" "$left" "$right"
+    failed=$((failed + 1))
+  fi
+}
+
 echo "=== Scaffold existence ==="
 assert_pass "scaffold file exists" test -f "$SCAFFOLD"
+assert_pass "overlay scaffold file exists" test -f "$OVERLAY_SCAFFOLD"
 assert_pass "scaffold is executable after chmod" chmod +x "$SCAFFOLD"
+assert_same_file "overlay scaffold mirrors root" "$SCAFFOLD" "$OVERLAY_SCAFFOLD"
+
+echo ""
+echo "=== Template wiring ==="
+for template in \
+  agents.md.tmpl \
+  architecture.md.tmpl \
+  plans.md.tmpl \
+  reliability.md.tmpl \
+  security.md.tmpl \
+  quality-score.md.tmpl; do
+  assert_file "template exists: $template" "$TEMPLATE_DIR/$template"
+  assert_same_file "overlay template mirrors root: $template" "$TEMPLATE_DIR/$template" "$OVERLAY_TEMPLATE_DIR/$template"
+done
+
+if grep -qE 'read -r -d .*[A-Z_]+_CONTENT.*<<EOF' "$SCAFFOLD" \
+  || grep -q '## Agent Entry Points' "$SCAFFOLD" \
+  || grep -q '## Quality Dimensions' "$SCAFFOLD"; then
+  printf '  FAIL: scaffold shell keeps large markdown heredocs\n'
+  failed=$((failed + 1))
+else
+  printf '  PASS: scaffold shell no longer embeds large markdown heredocs\n'
+  passed=$((passed + 1))
+fi
 
 PROJECT="$WORK/project"
 mkdir -p "$PROJECT"
@@ -105,18 +157,67 @@ QUALITY_CONTENT=$(echo "$OUTPUT" | jq -r '.files[] | select(.path=="docs/QUALITY
 assert_contains "QUALITY_SCORE content has quality dimensions table" "$QUALITY_CONTENT" "## Quality Dimensions"
 
 echo ""
+echo "=== Golden content ==="
+while IFS= read -r expected_file; do
+  rel="${expected_file#$FIXTURES/}"
+  actual_file="$WORK/generated/$rel"
+  mkdir -p "$(dirname "$actual_file")"
+  echo "$OUTPUT" | jq -rj --arg path "$rel" '.files[] | select(.path==$path) | .content' > "$actual_file"
+  assert_same_file "generated content matches fixture: $rel" "$actual_file" "$expected_file"
+done < <(find "$FIXTURES" -type f | sort)
+
+OUTPUT_REPEAT=$("$SCAFFOLD" --project-root "$PROJECT" --as-of 2026-04-10 2>/dev/null)
+if diff -u <(printf '%s\n' "$OUTPUT") <(printf '%s\n' "$OUTPUT_REPEAT") >/dev/null; then
+  printf '  PASS: repeated scaffold output is stable without writes\n'
+  passed=$((passed + 1))
+else
+  printf '  FAIL: repeated scaffold output changed without writes\n'
+  failed=$((failed + 1))
+fi
+
+PROJECT_WITH_AMPERSAND="$WORK/project&team"
+mkdir -p "$PROJECT_WITH_AMPERSAND"
+OUTPUT_SPECIAL=$("$SCAFFOLD" --project-root "$PROJECT_WITH_AMPERSAND" --as-of 2026-04-10 2>/dev/null)
+SPECIAL_ARCH_TITLE=$(echo "$OUTPUT_SPECIAL" | jq -r '.files[] | select(.path=="ARCHITECTURE.md") | .content' | grep '^# ')
+assert_equals "template substitution preserves ampersand in project name" "$SPECIAL_ARCH_TITLE" "# project&team — Architecture"
+
+echo ""
 echo "=== Existing file detection ==="
 mkdir -p "$PROJECT/docs"
 printf '# Existing\n' > "$PROJECT/AGENTS.md"
 printf '# Existing\n' > "$PROJECT/docs/SECURITY.md"
+printf '# Target\n' > "$PROJECT/ARCHITECTURE.target.md"
+ln -s "ARCHITECTURE.target.md" "$PROJECT/ARCHITECTURE.md"
 
 OUTPUT_WITH_EXISTING=$("$SCAFFOLD" --project-root "$PROJECT" --as-of 2026-04-10 2>/dev/null)
 assert_equals "AGENTS exists detected" \
   "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.files[] | select(.path=="AGENTS.md") | .exists')" "true"
+assert_equals "ARCHITECTURE symlink exists detected" \
+  "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.files[] | select(.path=="ARCHITECTURE.md") | .exists')" "true"
 assert_equals "SECURITY exists detected" \
   "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.files[] | select(.path=="docs/SECURITY.md") | .exists')" "true"
-assert_equals "missingCount updates when files exist" "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.missingCount')" "4"
-assert_equals "existingCount updates when files exist" "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.existingCount')" "2"
+assert_equals "missingCount updates when files exist" "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.missingCount')" "3"
+assert_equals "existingCount updates when files exist" "$(echo "$OUTPUT_WITH_EXISTING" | jq -r '.existingCount')" "3"
+
+echo ""
+echo "=== Missing template failure ==="
+MISSING_CASE="$WORK/missing-template-case"
+mkdir -p "$MISSING_CASE/lib/templates/init-harness" "$MISSING_CASE/project"
+cp "$SCAFFOLD" "$MISSING_CASE/lib/init-harness-scaffold.sh"
+cp "$TEMPLATE_DIR"/*.md.tmpl "$MISSING_CASE/lib/templates/init-harness/"
+rm "$MISSING_CASE/lib/templates/init-harness/security.md.tmpl"
+if output=$(bash "$MISSING_CASE/lib/init-harness-scaffold.sh" --project-root "$MISSING_CASE/project" --as-of 2026-04-10 2>&1); then
+  printf '  FAIL: missing template causes failure — command succeeded unexpectedly\n'
+  failed=$((failed + 1))
+else
+  if printf '%s\n' "$output" | grep -q 'init harness template not found'; then
+    printf '  PASS: missing template causes clear failure\n'
+    passed=$((passed + 1))
+  else
+    printf '  FAIL: missing template failure message is unclear — %s\n' "$output"
+    failed=$((failed + 1))
+  fi
+fi
 
 echo ""
 echo "=== Results ==="

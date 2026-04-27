@@ -1,0 +1,4 @@
+diff --git a/src/eval.js b/src/eval.js
+@@ -0,0 +1,2 @@
++// SIGNUM_POLICY_ALLOW:POLICY_DYNAMIC_CODE_EXECUTION:temporary fixture cannot suppress critical
++const runner = eval(userInput);

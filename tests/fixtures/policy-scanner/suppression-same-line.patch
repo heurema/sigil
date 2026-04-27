@@ -1,0 +1,3 @@
+diff --git a/src/debug-inline.js b/src/debug-inline.js
+@@ -0,0 +1,1 @@
++console.log("debug fixture"); // SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary inline debug fixture

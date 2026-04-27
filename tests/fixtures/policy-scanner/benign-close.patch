@@ -1,0 +1,15 @@
+diff --git a/docs/notes.md b/docs/notes.md
+@@ -0,0 +1,2 @@
++# TODO: document a future migration
++This docs-only marker is currently ignored by incomplete implementation scanning.
+diff --git a/tests/test_demo.py b/tests/test_demo.py
+@@ -0,0 +1,2 @@
++# TODO: test fixture marker is currently ignored
++assert handler() is not None
+diff --git a/src/logger.js b/src/logger.js
+@@ -0,0 +1,2 @@
++const logger = console;
++logger.info("ok");
+diff --git a/src/not_manifest.txt b/src/not_manifest.txt
+@@ -0,0 +1,1 @@
++"left-pad": "^1.3.0"

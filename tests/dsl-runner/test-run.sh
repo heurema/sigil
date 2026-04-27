@@ -53,10 +53,32 @@ assert_fail() {
 printf 'dsl-runner run tests\n'
 printf '====================\n'
 
-# exec file exists (README.md exists in project root)
+# exec file exists (QUICKSTART.md exists in project root)
 assert_pass "exec file exists" "$FIXTURES/exec-file-exists.json"
 
-# exec with capture + expect (cat README.md contains "Signum")
+# Inline: allowed exec completes before timeout
+tmp=$(mktemp)
+printf '{"steps":[{"exec":{"argv":["test","-f","QUICKSTART.md"]},"expect":{"exit_code":0}}],"timeout_ms":500}' > "$tmp"
+assert_pass "exec completes before timeout" "$tmp"
+rm -f "$tmp"
+
+# Inline: allowed exec times out with deterministic code 124
+timeout_dir=$(mktemp -d)
+timeout_fifo="$timeout_dir/hang.fifo"
+mkfifo "$timeout_fifo"
+tmp=$(mktemp)
+jq -n --arg fifo "$timeout_fifo" '{steps:[{exec:{argv:["cat", $fifo]}, expect:{exit_code:124}}], timeout_ms:500}' > "$tmp"
+assert_pass "exec timeout returns 124" "$tmp"
+rm -f "$tmp"
+rm -rf "$timeout_dir"
+
+# Inline: forbidden exec is blocked before execution
+tmp=$(mktemp)
+printf '{"steps":[{"exec":{"argv":["sh","-c","echo should-not-run"]}}],"timeout_ms":5000}' > "$tmp"
+assert_fail "exec forbidden command remains blocked" "$tmp" "not in whitelist"
+rm -f "$tmp"
+
+# exec with capture + expect (cat QUICKSTART.md contains "Signum")
 assert_pass "exec with capture + expect" "$FIXTURES/exec-with-expect.json"
 
 # exec fail (nonexistent file)
@@ -90,13 +112,13 @@ assert_pass "exec jq + json_path expect" "$FIXTURES/exec-jq-jsonpath.json"
 
 # Inline: stdout_matches (regex)
 tmp=$(mktemp)
-printf '{"steps":[{"exec":{"argv":["cat","README.md"]},"capture":"out"},{"expect":{"stdout_matches":"^# Signum","source":"out"}}],"timeout_ms":5000}' > "$tmp"
+printf '{"steps":[{"exec":{"argv":["cat","QUICKSTART.md"]},"capture":"out"},{"expect":{"stdout_matches":"verified code change","source":"out"}}],"timeout_ms":5000}' > "$tmp"
 assert_pass "stdout_matches regex" "$tmp"
 rm -f "$tmp"
 
 # Inline: file_exists assertion
 tmp=$(mktemp)
-printf '{"steps":[{"expect":{"file_exists":"README.md"}}],"timeout_ms":5000}' > "$tmp"
+printf '{"steps":[{"expect":{"file_exists":"QUICKSTART.md"}}],"timeout_ms":5000}' > "$tmp"
 assert_pass "file_exists assertion" "$tmp"
 rm -f "$tmp"
 

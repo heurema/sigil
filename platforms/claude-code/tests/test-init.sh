@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCANNER="$SCRIPT_DIR/../lib/init-scanner.sh"
+SCANNER_IMPL="$SCRIPT_DIR/../scripts/init_scanner.py"
 
 passed=0
 failed=0
@@ -185,6 +186,7 @@ setup_project "$PROJECT"
 # ---------------------------------------------------------------------------
 echo "=== Scanner existence ==="
 assert_pass "scanner file exists" test -f "$SCANNER"
+assert_pass "scanner implementation exists" test -f "$SCANNER_IMPL"
 assert_pass "scanner is executable after chmod" chmod +x "$SCANNER"
 
 # ---------------------------------------------------------------------------
@@ -244,23 +246,23 @@ echo "=== Ignore set (AC2) ==="
 assert_not_contains "node_modules excluded from readme" "$README_SIG" "should not be scanned"
 
 # Verify node_modules is in the ignore list in the scanner script
-assert_pass "node_modules in scanner ignore list" grep -q "node_modules" "$SCANNER"
-assert_pass ".git in scanner ignore list" grep -q '".git"' "$SCANNER"
-assert_pass ".signum in scanner ignore list" grep -q '".signum"' "$SCANNER"
-assert_pass "dist in scanner ignore list" grep -q '"dist"' "$SCANNER"
-assert_pass "build in scanner ignore list" grep -q '"build"' "$SCANNER"
-assert_pass ".venv in scanner ignore list" grep -q '".venv"' "$SCANNER"
-assert_pass "__pycache__ in scanner ignore list" grep -q '"__pycache__"' "$SCANNER"
-assert_pass "coverage in scanner ignore list" grep -q '"coverage"' "$SCANNER"
-assert_pass "tests/fixtures in scanner ignore list" grep -q '"tests/fixtures"' "$SCANNER"
+assert_pass "node_modules in scanner ignore list" grep -q "node_modules" "$SCANNER_IMPL"
+assert_pass ".git in scanner ignore list" grep -q '".git"' "$SCANNER_IMPL"
+assert_pass ".signum in scanner ignore list" grep -q '".signum"' "$SCANNER_IMPL"
+assert_pass "dist in scanner ignore list" grep -q '"dist"' "$SCANNER_IMPL"
+assert_pass "build in scanner ignore list" grep -q '"build"' "$SCANNER_IMPL"
+assert_pass ".venv in scanner ignore list" grep -q '".venv"' "$SCANNER_IMPL"
+assert_pass "__pycache__ in scanner ignore list" grep -q '"__pycache__"' "$SCANNER_IMPL"
+assert_pass "coverage in scanner ignore list" grep -q '"coverage"' "$SCANNER_IMPL"
+assert_pass "tests/fixtures in scanner ignore list" grep -q '"tests/fixtures"' "$SCANNER_IMPL"
 
 # ---------------------------------------------------------------------------
 # Test: git log uses 6-month horizon (AC11)
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== Git log horizon (AC11) ==="
-assert_pass "6 months in scanner" grep -q "6 months" "$SCANNER"
-assert_pass "dirstat in scanner" grep -q "dirstat" "$SCANNER"
+assert_pass "6 months in scanner" grep -q "6 months" "$SCANNER_IMPL"
+assert_pass "dirstat in scanner" grep -q "dirstat" "$SCANNER_IMPL"
 
 # ---------------------------------------------------------------------------
 # Test: glossary schema includes canonicalTerms and aliases (AC6)
@@ -270,7 +272,7 @@ echo "=== Glossary schema (AC6) ==="
 SCHEMA=$(echo "$SCAN_OUTPUT" | jq -r '.glossarySchema | keys | sort | join(",")')
 assert_contains "canonicalTerms in schema" "$SCHEMA" "canonicalTerms"
 assert_contains "aliases in schema" "$SCHEMA" "aliases"
-assert_pass "canonicalTerms in scanner source" grep -q "canonicalTerms" "$SCANNER"
+assert_pass "canonicalTerms in scanner source" grep -q "canonicalTerms" "$SCANNER_IMPL"
 
 # ---------------------------------------------------------------------------
 # Test: existing glossary detection

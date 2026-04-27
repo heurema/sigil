@@ -1,0 +1,6 @@
+[project]
+name = "manifest_project"
+version = "1.0.0"
+
+[project.scripts]
+manifest-py = "manifest_project.cli:main"

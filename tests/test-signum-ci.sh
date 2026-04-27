@@ -29,6 +29,23 @@ assert_exit() {
   fi
 }
 
+assert_exit_contains() {
+  local name="$1" expected_exit="$2" expected_output="$3"; shift 3
+  local output exit_code
+  set +e
+  output=$("$@" 2>&1)
+  exit_code=$?
+  set -e
+  if [[ "$exit_code" -eq "$expected_exit" && "$output" == *"$expected_output"* ]]; then
+    printf '  PASS: %s (exit=%s)\n' "$name" "$exit_code"
+    passed=$((passed + 1))
+  else
+    printf '  FAIL: %s — expected exit %s with \"%s\", got exit %s: %s\n' \
+      "$name" "$expected_exit" "$expected_output" "$exit_code" "$output"
+    failed=$((failed + 1))
+  fi
+}
+
 assert_contains() {
   local name="$1" expected="$2" output="$3"
   if [[ "$output" == *"$expected"* ]]; then
@@ -109,6 +126,9 @@ echo "=== Canonical file-mode seeding ==="
 
 assert_contains "CI script documents Phase 1 file import mode" \
   'Contract mode: file (Phase 1 imports SIGNUM_CONTRACT_PATH into canonical artifact root)' \
+  "$(cat "$CI_SCRIPT")"
+assert_contains "CI script invokes proofpack validator" \
+  'validate_proofpack.py' \
   "$(cat "$CI_SCRIPT")"
 
 if grep -Fq 'cp "$contract" "$project_root/.signum/contract.json"' "$CI_SCRIPT"; then
@@ -197,6 +217,40 @@ assert_equals "resolver keeps legacy root artifact dir as final fallback" \
 assert_equals "proofpack resolver keeps legacy root proofpack as final fallback" \
   "$(resolve_ci_proofpack_path "$ROOT_FALLBACK" "")" \
   "$ROOT_FALLBACK/.signum/proofpack.json"
+
+echo ""
+echo "=== Proofpack validation integration ==="
+
+VALIDATION_PROJECT="$WORK/validation-project"
+FAKEBIN="$WORK/fakebin"
+mkdir -p "$VALIDATION_PROJECT" "$FAKEBIN"
+cat > "$WORK/validation-contract.json" <<'EOF'
+{
+  "schemaVersion": "3.2",
+  "contractId": "sig-ci-validation",
+  "goal": "Validation failure test",
+  "inScope": ["test.py"],
+  "acceptanceCriteria": [{"id": "AC1", "description": "Test", "visibility": "visible"}],
+  "riskLevel": "low"
+}
+EOF
+cat > "$FAKEBIN/claude" <<'EOF'
+#!/usr/bin/env bash
+mkdir -p .signum/contracts/sig-ci-validation
+cat > .signum/contracts/sig-ci-validation/proofpack.json <<'JSON'
+{
+  "runId": "signum-invalid",
+  "decision": "AUTO_OK",
+  "confidence": {"overall": 99}
+}
+JSON
+EOF
+chmod +x "$FAKEBIN/claude"
+assert_exit_contains "validator failure causes CI failure" 1 "proofpack validation failed" \
+  env PATH="$FAKEBIN:$PATH" \
+      SIGNUM_CONTRACT_PATH="$WORK/validation-contract.json" \
+      SIGNUM_PROJECT_ROOT="$VALIDATION_PROJECT" \
+      bash "$CI_SCRIPT"
 
 echo ""
 echo "=== Exit code mapping (direct test) ==="

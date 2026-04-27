@@ -1,0 +1,3 @@
+diff --git a/docs/python-dependencies.md b/docs/python-dependencies.md
+@@ -0,0 +1,1 @@
++requests>=2.0

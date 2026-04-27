@@ -223,7 +223,7 @@ cmd_run() {
 
     # Run exec
     if [[ "$has_exec" == "true" ]]; then
-      step_stdout=$(_run_exec "$file" "$i") && __last_exit__=0 || __last_exit__=$?
+      step_stdout=$(_run_exec "$file" "$i" "$timeout_ms") && __last_exit__=0 || __last_exit__=$?
     fi
 
     # Save capture if requested
@@ -289,7 +289,7 @@ _run_http() {
 }
 
 _run_exec() {
-  local file="$1" idx="$2"
+  local file="$1" idx="$2" timeout_ms="$3"
   local argc
   argc=$(jq ".steps[$idx].exec.argv | length" "$file")
 
@@ -299,10 +299,49 @@ _run_exec() {
     argv+=("$(jq -r ".steps[$idx].exec.argv[$j]" "$file")")
   done
 
-  local output
-  output=$("${argv[@]}" 2>&1) || return $?
-  # Truncate to 64KB
-  printf '%s' "${output:0:$CAPTURE_MAX_BYTES}"
+  python3 - "$timeout_ms" "$CAPTURE_MAX_BYTES" "${argv[@]}" <<'PY'
+import os
+import signal
+import subprocess
+import sys
+
+timeout_ms = int(sys.argv[1])
+capture_max_bytes = int(sys.argv[2])
+argv = sys.argv[3:]
+
+try:
+    proc = subprocess.Popen(
+        argv,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+except FileNotFoundError as exc:
+    sys.stdout.buffer.write(str(exc).encode()[:capture_max_bytes])
+    sys.exit(127)
+except OSError as exc:
+    sys.stdout.buffer.write(str(exc).encode()[:capture_max_bytes])
+    sys.exit(126)
+
+try:
+    output, _ = proc.communicate(timeout=timeout_ms / 1000)
+    rc = proc.returncode
+except subprocess.TimeoutExpired:
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except Exception:
+        proc.kill()
+    output, _ = proc.communicate()
+    rc = 124
+
+if rc < 0:
+    rc = 128 + abs(rc)
+
+sys.stdout.buffer.write(output[:capture_max_bytes])
+sys.exit(rc)
+PY
 }
 
 _run_expect() {

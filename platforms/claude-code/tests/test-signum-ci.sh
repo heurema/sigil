@@ -29,6 +29,23 @@ assert_exit() {
   fi
 }
 
+assert_exit_contains() {
+  local name="$1" expected_exit="$2" expected_output="$3"; shift 3
+  local output exit_code
+  set +e
+  output=$("$@" 2>&1)
+  exit_code=$?
+  set -e
+  if [[ "$exit_code" -eq "$expected_exit" && "$output" == *"$expected_output"* ]]; then
+    printf '  PASS: %s (exit=%s)\n' "$name" "$exit_code"
+    passed=$((passed + 1))
+  else
+    printf '  FAIL: %s — expected exit %s with \"%s\", got exit %s: %s\n' \
+      "$name" "$expected_exit" "$expected_output" "$exit_code" "$output"
+    failed=$((failed + 1))
+  fi
+}
+
 assert_contains() {
   local name="$1" expected="$2" output="$3"
   if [[ "$output" == *"$expected"* ]]; then
@@ -46,7 +63,7 @@ assert_equals() {
     printf '  PASS: %s\n' "$name"
     passed=$((passed + 1))
   else
-    printf '  FAIL: %s — expected "%s", got "%s"\n' "$name" "$expected" "$actual"
+    printf '  FAIL: %s — expected \"%s\", got \"%s\"\n' "$name" "$expected" "$actual"
     failed=$((failed + 1))
   fi
 }
@@ -105,6 +122,24 @@ assert_contains "shows header" "=== Signum CI ===" "$output"
 assert_contains "shows contract path" "valid.json" "$output"
 
 echo ""
+echo "=== Canonical file-mode seeding ==="
+
+assert_contains "CI script documents Phase 1 file import mode" \
+  'Contract mode: file (Phase 1 imports SIGNUM_CONTRACT_PATH into canonical artifact root)' \
+  "$(cat "$CI_SCRIPT")"
+assert_contains "CI script invokes proofpack validator" \
+  'validate_proofpack.py' \
+  "$(cat "$CI_SCRIPT")"
+
+if grep -Fq 'cp "$contract" "$project_root/.signum/contract.json"' "$CI_SCRIPT"; then
+  printf '  FAIL: CI script still copies pre-approved contract into root .signum/contract.json\n'
+  failed=$((failed + 1))
+else
+  printf '  PASS: CI script no longer copies pre-approved contract into root .signum/contract.json\n'
+  passed=$((passed + 1))
+fi
+
+echo ""
 echo "=== Artifact discovery ==="
 
 CANONICAL="$WORK/canonical"
@@ -125,12 +160,37 @@ cat > "$CANONICAL/.signum/contracts/sig-ci-001/proofpack.json" <<'EOF'
 {"runId":"sig-ci-001","decision":"AUTO_OK","confidence":{"overall":91}}
 EOF
 
-assert_equals "overlay resolver prefers canonical contract dir by contract id" \
+assert_equals "resolver prefers canonical contract dir by contract id" \
   "$(resolve_ci_artifact_root "$CANONICAL" "sig-ci-001")" \
   "$CANONICAL/.signum/contracts/sig-ci-001"
-assert_equals "overlay proofpack resolver prefers canonical contract dir" \
+assert_equals "proofpack resolver prefers canonical contract dir" \
   "$(resolve_ci_proofpack_path "$CANONICAL" "sig-ci-001")" \
   "$CANONICAL/.signum/contracts/sig-ci-001/proofpack.json"
+
+INDEX_FALLBACK="$WORK/index-fallback"
+mkdir -p "$INDEX_FALLBACK/.signum/contracts/sig-ci-002"
+cat > "$INDEX_FALLBACK/.signum/contracts/index.json" <<'EOF'
+{
+  "activeContractId": null,
+  "contracts": [
+    {
+      "contractId": "sig-ci-002",
+      "status": "completed",
+      "directory": ".signum/contracts/sig-ci-002/"
+    }
+  ]
+}
+EOF
+cat > "$INDEX_FALLBACK/.signum/contracts/sig-ci-002/proofpack.json" <<'EOF'
+{"runId":"sig-ci-002","decision":"AUTO_BLOCK","confidence":{"overall":65}}
+EOF
+
+assert_equals "resolver falls back to last indexed contract dir" \
+  "$(resolve_ci_artifact_root "$INDEX_FALLBACK" "")" \
+  "$INDEX_FALLBACK/.signum/contracts/sig-ci-002"
+assert_equals "proofpack resolver falls back to last indexed contract proofpack" \
+  "$(resolve_ci_proofpack_path "$INDEX_FALLBACK" "")" \
+  "$INDEX_FALLBACK/.signum/contracts/sig-ci-002/proofpack.json"
 
 SINGLE_CANONICAL="$WORK/single-canonical"
 mkdir -p "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003"
@@ -138,10 +198,10 @@ cat > "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003/proofpack.json" <<'EOF'
 {"runId":"sig-ci-003","decision":"AUTO_OK","confidence":{"overall":88}}
 EOF
 
-assert_equals "overlay resolver falls back to single canonical contract dir without index" \
+assert_equals "resolver falls back to single canonical contract dir without index" \
   "$(resolve_ci_artifact_root "$SINGLE_CANONICAL" "")" \
   "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003"
-assert_equals "overlay proofpack resolver falls back to single canonical contract proofpack without index" \
+assert_equals "proofpack resolver falls back to single canonical contract proofpack without index" \
   "$(resolve_ci_proofpack_path "$SINGLE_CANONICAL" "")" \
   "$SINGLE_CANONICAL/.signum/contracts/sig-ci-003/proofpack.json"
 
@@ -151,12 +211,46 @@ cat > "$ROOT_FALLBACK/.signum/proofpack.json" <<'EOF'
 {"runId":"legacy","decision":"HUMAN_REVIEW","confidence":{"overall":50}}
 EOF
 
-assert_equals "overlay resolver keeps legacy root artifact dir as final fallback" \
+assert_equals "resolver keeps legacy root artifact dir as final fallback" \
   "$(resolve_ci_artifact_root "$ROOT_FALLBACK" "")" \
   "$ROOT_FALLBACK/.signum"
-assert_equals "overlay proofpack resolver keeps legacy root proofpack as final fallback" \
+assert_equals "proofpack resolver keeps legacy root proofpack as final fallback" \
   "$(resolve_ci_proofpack_path "$ROOT_FALLBACK" "")" \
   "$ROOT_FALLBACK/.signum/proofpack.json"
+
+echo ""
+echo "=== Proofpack validation integration ==="
+
+VALIDATION_PROJECT="$WORK/validation-project"
+FAKEBIN="$WORK/fakebin"
+mkdir -p "$VALIDATION_PROJECT" "$FAKEBIN"
+cat > "$WORK/validation-contract.json" <<'EOF'
+{
+  "schemaVersion": "3.2",
+  "contractId": "sig-ci-validation",
+  "goal": "Validation failure test",
+  "inScope": ["test.py"],
+  "acceptanceCriteria": [{"id": "AC1", "description": "Test", "visibility": "visible"}],
+  "riskLevel": "low"
+}
+EOF
+cat > "$FAKEBIN/claude" <<'EOF'
+#!/usr/bin/env bash
+mkdir -p .signum/contracts/sig-ci-validation
+cat > .signum/contracts/sig-ci-validation/proofpack.json <<'JSON'
+{
+  "runId": "signum-invalid",
+  "decision": "AUTO_OK",
+  "confidence": {"overall": 99}
+}
+JSON
+EOF
+chmod +x "$FAKEBIN/claude"
+assert_exit_contains "validator failure causes CI failure" 1 "proofpack validation failed" \
+  env PATH="$FAKEBIN:$PATH" \
+      SIGNUM_CONTRACT_PATH="$WORK/validation-contract.json" \
+      SIGNUM_PROJECT_ROOT="$VALIDATION_PROJECT" \
+      bash "$CI_SCRIPT"
 
 echo ""
 echo "=== Exit code mapping (direct test) ==="

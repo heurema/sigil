@@ -1,1 +1,1 @@
-{"steps":[{"exec":{"argv":["test","-f","README.md"]}}],"timeout_ms":5000}
+{"steps":[{"exec":{"argv":["test","-f","QUICKSTART.md"]}}],"timeout_ms":5000}

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_PROMPT="/Users/vi/personal/heurema/signum/agents/contractor.md"
-OVERLAY_PROMPT="/Users/vi/personal/heurema/signum/platforms/claude-code/agents/contractor.md"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ROOT_PROMPT="$ROOT_DIR/agents/contractor.md"
+OVERLAY_PROMPT="$ROOT_DIR/platforms/claude-code/agents/contractor.md"
 
 assert_contains() {
   local file="$1"

@@ -1,0 +1,11 @@
+diff --git a/src/scope-one.js b/src/scope-one.js
+@@ -0,0 +1,3 @@
++// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary local scope fixture
++const safe = 1;
++console.log("later active");
+diff --git a/src/scope-two.js b/src/scope-two.js
+@@ -0,0 +1,1 @@
++// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary no cross file fixture
+diff --git a/src/scope-three.js b/src/scope-three.js
+@@ -0,0 +1,1 @@
++console.log("other file active");

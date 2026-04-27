@@ -6,12 +6,16 @@
 #            get_active_contract, get_contract_status,
 #            describe_active_contract_state,
 #            active_artifact_root, active_artifact_path,
+#            reset_canonical_active_artifact,
+#            verify_canonical_contract_artifacts,
 #            link_active_artifact, ensure_active_artifact_dir,
 #            remove_root_artifact_view, archive_contract_artifacts,
 #            purge_root_working_set_views, reset_active_artifact,
 #            promote_root_artifact_to_active, current_contract_dir
 #
 # Requires: jq, bash 4.0+, standard POSIX utils
+
+# === Neutral/shared helpers ===
 
 # _random_hex4
 # Returns 4 lowercase hex chars.
@@ -81,6 +85,8 @@ _remove_artifact_path() {
   fi
 }
 
+# === Canonical contract artifact helpers ===
+
 # contract_dir <contractId>
 # Returns the path for a contract's isolated directory.
 contract_dir() {
@@ -111,9 +117,69 @@ init_contract_dir() {
   echo "Initialized contract directory: ${dir}"
 }
 
+# verify_canonical_contract_artifacts <contractId> <path...>
+# Canonical-only PACK finalization check. Reports artifact presence under the
+# contract root without importing or materializing root compatibility views.
+# Missing artifacts are non-fatal to preserve legacy sync's no-op behavior for
+# missing root sources.
+verify_canonical_contract_artifacts() {
+  local contract_id="${1:-}"
+  shift || true
+  if [[ -z "$contract_id" ]]; then
+    echo "verify_canonical_contract_artifacts: contractId required" >&2
+    return 1
+  fi
+  if [[ "$#" -eq 0 ]]; then
+    echo "verify_canonical_contract_artifacts: at least one artifact path required" >&2
+    return 1
+  fi
+
+  local dir
+  dir=$(contract_dir "$contract_id") || return 1
+  mkdir -p "$dir"
+
+  local rel path present=0 total=0
+  local missing_paths=()
+  for rel in "$@"; do
+    if [[ -z "$rel" ]]; then
+      continue
+    fi
+    if [[ "$rel" == /* || "$rel" == "." || "$rel" == ./* || "$rel" == *..* ]]; then
+      echo "verify_canonical_contract_artifacts: invalid relative path" >&2
+      return 1
+    fi
+    total=$((total + 1))
+    path="${dir}${rel}"
+    if [[ -e "$path" || -L "$path" ]]; then
+      present=$((present + 1))
+    else
+      missing_paths+=("$rel")
+    fi
+  done
+
+  if [[ "$total" -eq 0 ]]; then
+    echo "verify_canonical_contract_artifacts: at least one non-empty artifact path required" >&2
+    return 1
+  fi
+
+  echo "Verified ${present}/${total} canonical artifact(s) in ${dir}"
+  if [[ "${#missing_paths[@]}" -gt 0 ]]; then
+    printf 'Missing canonical artifact(s):'
+    for rel in "${missing_paths[@]}"; do
+      printf ' %s' "$rel"
+    done
+    printf '\n'
+  fi
+}
+
+# === Legacy root artifact compatibility layer ===
+# Compatibility/migration-only helpers below expose, import, or remove root
+# .signum working-set views while preserving the canonical contract root.
+# Do not use these helpers for new normal-runtime artifact writes.
+
 # sync_contract_artifacts <contractId> <path...>
-# Copies selected working-set artifacts from .signum/ into the contract's
-# durable directory, preserving relative subpaths.
+# LEGACY_ROOT_COMPAT: syncs selected root working-set views into the
+# contract's durable directory, preserving relative subpaths.
 sync_contract_artifacts() {
   local contract_id="${1:-}"
   shift || true
@@ -157,6 +223,8 @@ sync_contract_artifacts() {
 
   echo "Synced ${copied} artifact(s) to ${dir}"
 }
+
+# === Canonical contract registry and active-root helpers ===
 
 # _ensure_index
 # Creates .signum/contracts/index.json if it does not exist.
@@ -428,8 +496,51 @@ active_artifact_path() {
   printf '%s%s\n' "$root" "$rel"
 }
 
+# reset_canonical_active_artifact <relative_path> [file|dir]
+# Canonical-only reset for an artifact under the active contract root.
+# Does not touch root .signum/<artifact> compatibility views.
+reset_canonical_active_artifact() {
+  local rel="${1:-}"
+  local kind="${2:-file}"
+  if [[ -z "$rel" ]]; then
+    echo "reset_canonical_active_artifact: relative path required" >&2
+    return 1
+  fi
+  if [[ "$rel" == /* || "$rel" == "." || "$rel" == ./* || "$rel" == *..* ]]; then
+    echo "reset_canonical_active_artifact: invalid relative path" >&2
+    return 1
+  fi
+
+  case "$kind" in
+    file|dir)
+      ;;
+    *)
+      echo "reset_canonical_active_artifact: kind must be file or dir" >&2
+      return 1
+      ;;
+  esac
+
+  local active_path
+  active_path=$(active_artifact_path "$rel") || return 1
+
+  _remove_artifact_path "$active_path"
+
+  case "$kind" in
+    file)
+      mkdir -p "$(dirname "$active_path")"
+      ;;
+    dir)
+      mkdir -p "$active_path"
+      ;;
+  esac
+
+  echo "Reset canonical active artifact: ${active_path} (${kind})"
+}
+
+# === Legacy root artifact compatibility layer (continued) ===
+
 # remove_root_artifact_view <relative_path>
-# Removes only the root .signum/ compatibility view for an artifact.
+# LEGACY_ROOT_COMPAT: cleans only the root compatibility view for an artifact.
 remove_root_artifact_view() {
   local rel="${1:-}"
   if [[ -z "$rel" ]]; then
@@ -442,6 +553,8 @@ remove_root_artifact_view() {
 
   echo "Removed root artifact view: ${root_path}"
 }
+
+# === Canonical archive helpers ===
 
 # archive_contract_artifacts <contractId> <archive_dir>
 # Copies archive-worthy canonical artifacts for a contract into archive_dir.
@@ -489,8 +602,11 @@ archive_contract_artifacts() {
   echo "Archived ${copied} contract artifact(s) from ${dir} to ${archive_dir}"
 }
 
+# === Legacy root artifact compatibility layer (continued) ===
+
 # purge_root_working_set_views
-# Removes the root .signum/ compatibility surface for the active working set.
+# LEGACY_ROOT_COMPAT: cleans the root compatibility surface for the active
+# working set.
 purge_root_working_set_views() {
   local rel
   for rel in \
@@ -536,7 +652,8 @@ purge_root_working_set_views() {
 }
 
 # link_active_artifact <relative_path>
-# Creates a compatibility symlink in root .signum/ that points at the active contract artifact.
+# LEGACY_ROOT_COMPAT: links a root compatibility view to the active contract
+# artifact.
 link_active_artifact() {
   local rel="${1:-}"
   if [[ -z "$rel" ]]; then
@@ -562,8 +679,8 @@ link_active_artifact() {
 }
 
 # ensure_active_artifact_dir <relative_path>
-# Ensures a canonical directory exists in the active contract root and exposes
-# it through a root compatibility symlink.
+# LEGACY_ROOT_COMPAT: ensures a canonical directory exists, then exposes it
+# through a root compatibility view.
 ensure_active_artifact_dir() {
   local rel="${1:-}"
   if [[ -z "$rel" ]]; then
@@ -580,8 +697,9 @@ ensure_active_artifact_dir() {
 }
 
 # reset_active_artifact <relative_path> [file|dir]
-# Clears both the root compatibility path and the canonical active artifact.
-# For dir artifacts, recreates only the canonical active directory.
+# LEGACY_ROOT_COMPAT: clears both the root compatibility view and the
+# canonical active artifact. For dir artifacts, recreates only the canonical
+# active directory.
 reset_active_artifact() {
   local rel="${1:-}"
   local kind="${2:-file}"
@@ -613,8 +731,8 @@ reset_active_artifact() {
 }
 
 # promote_root_artifact_to_active <relative_path>
-# Moves an existing root .signum artifact into the active contract dir.
-# This is a one-time legacy import helper; it does not recreate a root view.
+# LEGACY_ROOT_COMPAT: promotes an existing root artifact into the active
+# contract dir. This one-time import helper does not recreate a root view.
 promote_root_artifact_to_active() {
   local rel="${1:-}"
   if [[ -z "$rel" ]]; then

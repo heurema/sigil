@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        # pinned from actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Tool versions
+        run: |
+          bash --version | head -1
+          python3 --version
+          jq --version
+
+      - name: Run deterministic tests
+        run: bash scripts/run-deterministic-tests.sh

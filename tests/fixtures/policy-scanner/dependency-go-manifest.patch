@@ -1,0 +1,3 @@
+diff --git a/go.mod b/go.mod
+@@ -0,0 +1,1 @@
++github.com/example/mod v1.2.3

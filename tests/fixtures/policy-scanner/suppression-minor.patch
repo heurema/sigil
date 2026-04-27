@@ -1,0 +1,4 @@
+diff --git a/src/debug.js b/src/debug.js
+@@ -0,0 +1,2 @@
++// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary debug output in CLI fixture
++console.log("debug fixture");

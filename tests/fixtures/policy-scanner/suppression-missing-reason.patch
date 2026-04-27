@@ -1,0 +1,4 @@
+diff --git a/src/missing-reason.js b/src/missing-reason.js
+@@ -0,0 +1,2 @@
++// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:
++console.log("debug fixture");

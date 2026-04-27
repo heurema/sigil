@@ -1,0 +1,3 @@
+diff --git a/Cargo.toml b/Cargo.toml
+@@ -0,0 +1,1 @@
++serde = "1"

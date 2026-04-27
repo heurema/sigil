@@ -14,6 +14,7 @@
 #   SIGNUM_PROJECT_ROOT  - project root (default: current directory)
 #   SIGNUM_AUDIT_MAX_ITERATIONS - max audit fix iterations (default: 20, inherited by pipeline)
 #   SIGNUM_CI_RELAXED    - if "true", HUMAN_REVIEW maps to exit 0 (pass with warning)
+#   SIGNUM_PROOFPACK_VALIDATOR - optional path to validate_proofpack.py
 
 set -euo pipefail
 
@@ -121,6 +122,35 @@ resolve_ci_proofpack_path() {
   return 1
 }
 
+resolve_ci_proofpack_validator() {
+  local project_root="${1:-}"
+  local script_dir=""
+  local candidate=""
+
+  if [ -n "${SIGNUM_PROOFPACK_VALIDATOR:-}" ]; then
+    if [ -f "$SIGNUM_PROOFPACK_VALIDATOR" ]; then
+      printf '%s\n' "$SIGNUM_PROOFPACK_VALIDATOR"
+      return 0
+    fi
+    echo "resolve_ci_proofpack_validator: configured validator not found: $SIGNUM_PROOFPACK_VALIDATOR" >&2
+    return 1
+  fi
+
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  for candidate in \
+    "$script_dir/../scripts/validate_proofpack.py" \
+    "$script_dir/../../scripts/validate_proofpack.py" \
+    "$project_root/scripts/validate_proofpack.py"; do
+    if [ -f "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  echo "resolve_ci_proofpack_validator: validate_proofpack.py not found" >&2
+  return 1
+}
+
 signum_ci_main() {
   local contract="${SIGNUM_CONTRACT_PATH:-}"
   local input_contract_id=""
@@ -133,6 +163,8 @@ signum_ci_main() {
   local confidence=""
   local run_id=""
   local pp_hash=""
+  local validator_script=""
+  local validator_args=()
 
   if [ -z "$contract" ]; then
     echo "ERROR: SIGNUM_CONTRACT_PATH is required" >&2
@@ -184,6 +216,20 @@ signum_ci_main() {
 
   if [ -z "$proofpack_path" ] || [ ! -f "$proofpack_path" ]; then
     echo "ERROR: proofpack.json not produced" >&2
+    exit 1
+  fi
+
+  validator_script=$(resolve_ci_proofpack_validator "$project_root" 2>/dev/null || true)
+  if [ -z "$validator_script" ]; then
+    echo "ERROR: proofpack validator not found" >&2
+    exit 1
+  fi
+  validator_args=("$proofpack_path" --repo-root "$project_root")
+  if [ -n "$artifact_root" ] && [ -d "$artifact_root" ]; then
+    validator_args+=(--contract-root "$artifact_root")
+  fi
+  if ! python3 "$validator_script" "${validator_args[@]}"; then
+    echo "ERROR: proofpack validation failed: $proofpack_path" >&2
     exit 1
   fi
 

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "source": "platforms/claude-code/commands/signum.md",
+  "fragments": [
+    {
+      "path": "commands/signum.shared.fragments/00-header.md",
+      "scope": "repo"
+    },
+    "10-init-command-redirect.md",
+    "20-explain-mode.md",
+    {
+      "path": "commands/signum.shared.fragments/30-archive-mode.md",
+      "scope": "repo"
+    },
+    {
+      "path": "commands/signum.shared.fragments/40-close-mode.md",
+      "scope": "repo"
+    },
+    {
+      "path": "commands/signum.shared.fragments/50-project-resolution.md",
+      "scope": "repo"
+    },
+    "60-setup.md",
+    "70-phase-contract.md",
+    "80-phase-execute.md",
+    "90-phase-audit.md",
+    "100-phase-pack.md",
+    "110-phase-reconcile.md",
+    "120-final-output.md",
+    {
+      "path": "commands/signum.shared.fragments/120-error-handling.md",
+      "scope": "repo"
+    }
+  ]
+}

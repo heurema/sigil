@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "rootManifest": "commands/signum.fragments/manifest.json",
+  "overlayManifest": "platforms/claude-code/commands/signum.fragments/manifest.json",
+  "sharedFragmentRoot": "commands/signum.shared.fragments",
+  "deriveLogicalName": "strip leading numeric prefix and .md extension from fragment path basename, for example 120-error-handling.md -> error-handling",
+  "reasonIds": {
+    "legacy-cleanup-order": "Setup cleanup list order differs without changing the explicit cleanup token set.",
+    "overlay-audit-flow": "Claude overlay AUDIT keeps platform-specific reviewer failure and repair-loop behavior.",
+    "overlay-contract-flow": "Claude overlay CONTRACT keeps platform-specific contractor retry and module lifecycle behavior.",
+    "overlay-execute-flow": "Claude overlay EXECUTE keeps platform-specific snapshot and scope-gate behavior.",
+    "overlay-explain-summary": "Claude overlay explain text reflects its shorter platform flow summary.",
+    "overlay-init-actualize": "Claude overlay init redirect supports the overlay-only init --actualize option.",
+    "overlay-reconcile-phase": "Claude overlay has an extra RECONCILE phase and Final Output reconcile summary.",
+    "root-final-output-cleanup": "Root Final Output has bounded archive/delete/finalize cleanup with purge_root_working_set_views.",
+    "root-optional-removal-evidence": "Root PACK can emit optional removalEvidence before Final Output cleanup; overlay handles cleanup obligations in RECONCILE.",
+    "root-proofpack-index": "Root PACK appends proofpack.json to the hash-linked proofpack index; overlay currently does not."
+  },
+  "fragments": [
+    {
+      "logicalName": "header",
+      "classification": "shared-source",
+      "shared": "commands/signum.shared.fragments/00-header.md",
+      "root": {"scope": "repo", "path": "commands/signum.shared.fragments/00-header.md"},
+      "overlay": {"scope": "repo", "path": "commands/signum.shared.fragments/00-header.md"},
+      "reasons": []
+    },
+    {
+      "logicalName": "init-command-redirect",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "10-init-command-redirect.md"},
+      "overlay": {"scope": "manifest", "path": "10-init-command-redirect.md"},
+      "reasons": ["overlay-init-actualize"]
+    },
+    {
+      "logicalName": "explain-mode",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "20-explain-mode.md"},
+      "overlay": {"scope": "manifest", "path": "20-explain-mode.md"},
+      "reasons": ["overlay-explain-summary"]
+    },
+    {
+      "logicalName": "archive-mode",
+      "classification": "shared-source",
+      "shared": "commands/signum.shared.fragments/30-archive-mode.md",
+      "root": {"scope": "repo", "path": "commands/signum.shared.fragments/30-archive-mode.md"},
+      "overlay": {"scope": "repo", "path": "commands/signum.shared.fragments/30-archive-mode.md"},
+      "reasons": []
+    },
+    {
+      "logicalName": "close-mode",
+      "classification": "shared-source",
+      "shared": "commands/signum.shared.fragments/40-close-mode.md",
+      "root": {"scope": "repo", "path": "commands/signum.shared.fragments/40-close-mode.md"},
+      "overlay": {"scope": "repo", "path": "commands/signum.shared.fragments/40-close-mode.md"},
+      "reasons": []
+    },
+    {
+      "logicalName": "project-resolution",
+      "classification": "shared-source",
+      "shared": "commands/signum.shared.fragments/50-project-resolution.md",
+      "root": {"scope": "repo", "path": "commands/signum.shared.fragments/50-project-resolution.md"},
+      "overlay": {"scope": "repo", "path": "commands/signum.shared.fragments/50-project-resolution.md"},
+      "reasons": []
+    },
+    {
+      "logicalName": "setup",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "60-setup.md"},
+      "overlay": {"scope": "manifest", "path": "60-setup.md"},
+      "reasons": ["legacy-cleanup-order"]
+    },
+    {
+      "logicalName": "phase-contract",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "70-phase-contract.md"},
+      "overlay": {"scope": "manifest", "path": "70-phase-contract.md"},
+      "reasons": ["overlay-contract-flow"]
+    },
+    {
+      "logicalName": "phase-execute",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "80-phase-execute.md"},
+      "overlay": {"scope": "manifest", "path": "80-phase-execute.md"},
+      "reasons": ["overlay-execute-flow"]
+    },
+    {
+      "logicalName": "phase-audit",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "90-phase-audit.md"},
+      "overlay": {"scope": "manifest", "path": "90-phase-audit.md"},
+      "reasons": ["overlay-audit-flow"]
+    },
+    {
+      "logicalName": "phase-pack",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "100-phase-pack.md"},
+      "overlay": {"scope": "manifest", "path": "100-phase-pack.md"},
+      "reasons": ["root-optional-removal-evidence", "root-proofpack-index"]
+    },
+    {
+      "logicalName": "phase-reconcile",
+      "classification": "overlay-only",
+      "root": null,
+      "overlay": {"scope": "manifest", "path": "110-phase-reconcile.md"},
+      "reasons": ["overlay-reconcile-phase"]
+    },
+    {
+      "logicalName": "final-output",
+      "classification": "divergent-bounded",
+      "root": {"scope": "manifest", "path": "110-final-output.md"},
+      "overlay": {"scope": "manifest", "path": "120-final-output.md"},
+      "reasons": ["root-final-output-cleanup", "overlay-reconcile-phase"]
+    },
+    {
+      "logicalName": "error-handling",
+      "classification": "shared-source",
+      "shared": "commands/signum.shared.fragments/120-error-handling.md",
+      "root": {"scope": "repo", "path": "commands/signum.shared.fragments/120-error-handling.md"},
+      "overlay": {"scope": "repo", "path": "commands/signum.shared.fragments/120-error-handling.md"},
+      "reasons": []
+    }
+  ]
+}

@@ -60,8 +60,16 @@ for rel in \
   "lib/dsl-runner.sh" \
   "lib/glossary-check.sh" \
   "lib/init-harness-scaffold.sh" \
+  "lib/init-scanner.sh" \
+  "lib/templates/init-harness/agents.md.tmpl" \
+  "lib/templates/init-harness/architecture.md.tmpl" \
+  "lib/templates/init-harness/plans.md.tmpl" \
+  "lib/templates/init-harness/reliability.md.tmpl" \
+  "lib/templates/init-harness/security.md.tmpl" \
+  "lib/templates/init-harness/quality-score.md.tmpl" \
   "lib/overlap-check.sh" \
   "lib/pack-anti-entropy.sh" \
+  "lib/policy-rules.json" \
   "lib/policy-scanner.sh" \
   "lib/prompts/review-template.md" \
   "lib/prompts/review-template-security.md" \
@@ -69,10 +77,15 @@ for rel in \
   "lib/schemas/contract.schema.json" \
   "lib/schemas/modules.schema.json" \
   "lib/schemas/proofpack.schema.json" \
+  "lib/signum-ci.sh" \
   "lib/snapshot-tree.sh" \
   "lib/staleness-check.sh" \
   "lib/terminology-check.sh" \
-  "lib/transition-verifier.sh"
+  "lib/tool-versions.env" \
+  "lib/transition-verifier.sh" \
+  "scripts/init_scanner.py" \
+  "scripts/render_signum_command.py" \
+  "scripts/validate_proofpack.py"
 do
   assert_same_file "$rel"
 done

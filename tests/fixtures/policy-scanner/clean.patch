@@ -1,0 +1,5 @@
+diff --git a/src/clean.py b/src/clean.py
+@@ -0,0 +1,3 @@
++def add(a, b):
++    result = a + b
++    return result
