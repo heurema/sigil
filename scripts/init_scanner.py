@@ -244,9 +244,11 @@ def compute_entrypoints(root: Path) -> str:
                 rel = candidate.relative_to(root).as_posix()
                 if "__pycache__" in rel:
                     continue
-                # Historical find -maxdepth 2 includes files directly in the dir
-                # and one level below it.
-                if len(Path(rel).parts) <= 2:
+                # Historical find -maxdepth 2 from the entrypoint dir includes
+                # files directly in the dir and one level below it; relative to
+                # the repo root that means up to 3 path parts (ep_dir + up to 2
+                # deeper components).
+                if len(Path(rel).parts) <= 3:
                     entries.append(rel)
         except OSError:
             entries = []
