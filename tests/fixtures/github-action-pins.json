@@ -47,6 +47,19 @@
       "peeledTagUsed": false
     },
     {
+      "file": ".github/workflows/pr-intake-gate.yml",
+      "occurrence": 2,
+      "uses": "heurema/repo-governance/actions/pr-intake-gate@b7a5cb71ec24c69b4c8295e211a851f8678b67a0",
+      "kind": "external_action",
+      "action": "heurema/repo-governance/actions/pr-intake-gate",
+      "status": "pinned",
+      "originalRef": "v0.1.0",
+      "pinnedSha": "b7a5cb71ec24c69b4c8295e211a851f8678b67a0",
+      "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
+      "resolution": "git rev-parse heurema/repo-governance v0.1.0",
+      "peeledTagUsed": false
+    },
+    {
       "file": ".github/workflows/release-guardrails.yml",
       "occurrence": 1,
       "uses": "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
