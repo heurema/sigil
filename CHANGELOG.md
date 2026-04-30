@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
+
 ## [4.21.0] - 2026-04-27
 
 ### Added
