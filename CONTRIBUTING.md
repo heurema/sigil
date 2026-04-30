@@ -87,30 +87,30 @@ For deterministic bug fixes, a failing test first is strongly preferred.
 
 This repository uses a deterministic PR Intake Gate before ordinary code review.
 
-For non-trivial changes, open an Issue or Discussion first and link it from the PR body. The intent should explain:
-- the problem;
-- the expected outcome;
-- why existing behavior/options are insufficient;
-- alternatives considered;
-- why this cannot be solved without code.
+Trusted repository authors pass intake automatically when GitHub reports `admin`, `maintain`, or `write` permission. If GitHub cannot return permission, the gate falls back only to trusted author associations (`OWNER`, `MEMBER`, `COLLABORATOR`).
 
-Direct PRs are allowed for:
-- typo/docs fixes;
-- small test-only changes;
-- clearly scoped bug fixes;
-- maintainer-approved changes.
+External non-trivial PRs need a linked Issue or Discussion and the required PR body context:
+- `Problem`;
+- `Why now`;
+- `Existing options checked`;
+- `Alternatives considered`;
+- `No-code alternative`;
+- `Why code is needed`.
 
-PRs touching security, auth, dependencies, workflows, public APIs, install scripts, schemas, command behavior, or runtime behavior require maintainer attention.
+Direct external PRs are allowed for small typo/docs/test-only changes within the configured trivial limits. External PRs touching security, auth, dependencies, workflows, public APIs, install scripts, schemas, command behavior, or runtime behavior require maintainer attention.
 
-Maintainers can bypass the intake gate with the `maintainer/override-intake` label. Use that label only when taking explicit responsibility for reviewing the PR without the normal intake path.
+Maintainers can bypass any intake case with `maintainer/override-intake`. For non-high-risk external PRs only, maintainers can add `intake/accepted-for-pr` to accept the PR for ordinary review without requiring the full questionnaire first.
 
 ### PR Intake Gate self-check
 
 Expected behavior:
-- docs-only PR: passes and receives `intake/pass`;
-- non-trivial PR without linked Issue/Discussion: fails with `intake/needs-issue` and a short bot comment;
-- PR touching `.github/workflows/**`: fails with `intake/high-risk` and a maintainer-review comment;
-- PR with `maintainer/override-intake`: passes.
+- trusted author PR: passes and receives `intake/pass`, even for high-risk paths;
+- small external docs-only PR: passes and receives `intake/pass`;
+- external non-trivial PR missing required context: fails with `intake/needs-more-context` or `intake/no-code-alternative`;
+- external non-trivial PR with full context but no linked Issue/Discussion: fails with `intake/needs-issue`;
+- external PR touching `.github/workflows/**`: fails with `intake/high-risk` unless `maintainer/override-intake` is present;
+- external non-high-risk PR with `intake/accepted-for-pr`: passes;
+- label/comment write failures are warnings and do not change the deterministic verdict.
 
 Local deterministic checks:
 

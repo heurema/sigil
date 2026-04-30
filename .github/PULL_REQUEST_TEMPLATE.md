@@ -15,9 +15,9 @@ What problem does this solve?
 
 Why is this needed now?
 
-## Existing options
+## Existing options checked
 
-Why are existing options or current behavior insufficient?
+Which existing options or current behavior did you check, and why are they insufficient?
 
 ## Alternatives considered
 
@@ -25,7 +25,11 @@ What alternatives did you consider?
 
 ## No-code alternative
 
-Why cannot this be solved without code?
+What docs, configuration, process, or support change could solve this without code?
+
+## Why code is needed
+
+Why is a code change still needed after checking no-code options?
 
 ## Summary
 

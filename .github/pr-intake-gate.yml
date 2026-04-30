@@ -34,20 +34,38 @@ high_risk_path_globs:
   - '**/crypto/**'
   - '**/migrations/**'
 
+trusted_authors:
+  permissions:
+    - 'admin'
+    - 'maintain'
+    - 'write'
+  fallback_author_associations:
+    - 'OWNER'
+    - 'MEMBER'
+    - 'COLLABORATOR'
+
+external_context:
+  required_sections:
+    - 'Problem'
+    - 'Why now'
+    - 'Existing options checked'
+    - 'Alternatives considered'
+    - 'No-code alternative'
+    - 'Why code is needed'
+  no_code_section: 'No-code alternative'
+  first_time_author_associations:
+    - 'FIRST_TIMER'
+    - 'FIRST_TIME_CONTRIBUTOR'
+
 labels:
   pass: 'intake/pass'
   needs_issue: 'intake/needs-issue'
   needs_more_context: 'intake/needs-more-context'
   no_code_alternative: 'intake/no-code-alternative'
   high_risk: 'intake/high-risk'
-  needs_maintainer: 'intake/needs-maintainer-decision'
   accepted_for_pr: 'intake/accepted-for-pr'
+  first_time: 'intake/first-time-contributor'
   override: 'maintainer/override-intake'
-
-verdicts:
-  pass: 'pass'
-  needs_issue: 'needs-issue'
-  high_risk: 'high-risk'
 
 linked_intent:
   accept_patterns:
@@ -56,6 +74,32 @@ linked_intent:
     - 'discussions/\d+'
     - '(close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+'
     - 'https://github.com/[^/\s]+/[^/\s]+/(issues|discussions)/\d+'
+
+label_details:
+  intake/pass:
+    color: '2ea44f'
+    description: 'PR intake passed'
+  intake/needs-issue:
+    color: 'd29922'
+    description: 'PR needs linked Issue or Discussion intent'
+  intake/needs-more-context:
+    color: 'd29922'
+    description: 'External PR needs required problem, timing, option, and alternative context'
+  intake/no-code-alternative:
+    color: 'd29922'
+    description: 'External PR needs no-code alternative analysis'
+  intake/high-risk:
+    color: 'cf222e'
+    description: 'PR touches high-risk Signum surfaces and needs maintainer attention'
+  intake/accepted-for-pr:
+    color: '0969da'
+    description: 'Maintainer accepted external PR intent for ordinary review'
+  intake/first-time-contributor:
+    color: 'bf8700'
+    description: 'External PR author appears to be a first-time contributor'
+  maintainer/override-intake:
+    color: '8250df'
+    description: 'Maintainer accepted responsibility to bypass intake gate'
 
 bot_comment:
   marker: '<!-- pr-intake-gate -->'
