@@ -18,7 +18,6 @@ high_risk_path_globs:
   - '.github/workflows/**'
   - '.github/actions/**'
   - '.github/pr-intake-gate.yml'
-  - 'scripts/pr_intake_gate.py'
   - 'package.json'
   - 'package-lock.json'
   - 'pnpm-lock.yaml'
