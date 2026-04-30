@@ -110,3 +110,5 @@ llm:
   model_fast: 'gpt-5.4-mini'
   model_reasoning: 'gpt-5.5'
   max_diff_chars: 30000
+
+# live trusted-author intake gate smoke test; temporary branch only
