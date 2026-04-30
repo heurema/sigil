@@ -112,12 +112,13 @@ Expected behavior:
 - external non-high-risk PR with `intake/accepted-for-pr`: passes;
 - label/comment write failures are warnings and do not change the deterministic verdict.
 
-Local deterministic checks:
+Shared gate engine:
 
-```bash
-python3 -m py_compile scripts/pr_intake_gate.py
-bash tests/test-pr-intake-gate.sh
-```
+- runtime action: `heurema/repo-governance/actions/pr-intake-gate` pinned in `.github/workflows/pr-intake-gate.yml`;
+- local policy: `.github/pr-intake-gate.yml`;
+- local workflow wrapper: `.github/workflows/pr-intake-gate.yml`.
+
+For policy changes, open a PR and verify the `pr-intake-gate` check.
 
 
 ## Commit sign-off (DCO)
