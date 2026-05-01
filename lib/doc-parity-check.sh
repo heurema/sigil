@@ -62,7 +62,7 @@ fi
 
 # 2. docs/reference.md schema range matches actual schema enum max
 SCHEMA_MAX=$(jq -r '.properties.schemaVersion.enum[]' "$SCHEMA_DOC" | sort -V | tail -1)
-SCHEMA_ROW=$(grep -F '| `schemaVersion` |' "$REFERENCE_DOC" | head -1 || true)
+SCHEMA_ROW=$(awk 'index($0, "| `schemaVersion` |") { print; exit }' "$REFERENCE_DOC")
 DOC_RANGE=$(echo "$SCHEMA_ROW" | sed -En 's/.*\| `schemaVersion` \| `\"([0-9.]+)\"`–`\"([0-9.]+)\"` \|.*/\1 \2/p')
 DOC_MIN=$(echo "$DOC_RANGE" | awk '{print $1}')
 DOC_MAX=$(echo "$DOC_RANGE" | awk '{print $2}')
@@ -123,7 +123,14 @@ fi
 
 # 5. Roadmap phases 1-5 are marked shipped in core
 for phase in 1 2 3 4 5; do
-  block=$(awk "/^### Phase $phase:/{flag=1;next}/^### Phase [0-9]+:/{flag=0}flag" "$ROADMAP_DOC" | head -n 5)
+  # Avoid piping awk into head under `set -o pipefail`: on GitHub-hosted
+  # Linux runners awk can receive SIGPIPE after head exits, causing an
+  # infrastructure failure even when parity is OK.
+  block=$(awk -v phase="$phase" '
+    $0 ~ "^### Phase " phase ":" { flag=1; count=0; next }
+    /^### Phase [0-9]+:/ { flag=0 }
+    flag && count < 5 { print; count++ }
+  ' "$ROADMAP_DOC")
   if ! echo "$block" | grep -Fq '**Status:** shipped in core'; then
     add_finding \
       "roadmap_phase_status_mismatch" \
