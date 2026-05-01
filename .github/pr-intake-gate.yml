@@ -39,6 +39,53 @@ high_risk_path_globs:
   - '**/crypto/**'
   - '**/migrations/**'
 
+instruction_surface:
+  description: 'Signum files that AI agents may read as instructions, project intent, commands, prompts, review templates, schemas, evals, or operating context'
+  path_globs:
+    - 'README.md'
+    - 'QUICKSTART.md'
+    - 'AGENTS.md'
+    - '**/AGENTS.md'
+    - 'CLAUDE.md'
+    - '**/CLAUDE.md'
+    - 'GEMINI.md'
+    - '**/GEMINI.md'
+    - 'SKILL.md'
+    - '**/SKILL.md'
+    - '.github/PULL_REQUEST_TEMPLATE.md'
+    - '.github/pull_request_template.md'
+    - '.github/pull_request_template/**'
+    - '.github/ISSUE_TEMPLATE/**'
+    - '.github/copilot-instructions.md'
+    - '.github/pr-intake-gate.yml'
+    - 'project.intent.md'
+    - '.punk/**'
+    - 'agents/**'
+    - 'commands/**'
+    - 'docs/research/**'
+    - 'docs/plans/**'
+    - 'evals/**'
+    - 'lib/prompts/**'
+    - 'platforms/**/SKILL.md'
+
+prompt_injection:
+  enabled: true
+  description: 'detect obvious prompt-injection-like additions in external PRs before ordinary review'
+  text_path_globs:
+    - '*.md'
+    - '**/*.md'
+    - '*.mdx'
+    - '**/*.mdx'
+    - '*.txt'
+    - '**/*.txt'
+    - '.github/**'
+    - 'agents/**'
+    - 'commands/**'
+    - 'docs/**'
+    - 'evals/**'
+    - 'lib/prompts/**'
+    - 'platforms/**'
+
 trusted_authors:
   permissions:
     - 'admin'
