@@ -9,6 +9,17 @@ on:
       - synchronize
       - labeled
       - unlabeled
+      - ready_for_review
+  pull_request_review:
+    types:
+      - submitted
+      - edited
+      - dismissed
+  pull_request_review_comment:
+    types:
+      - created
+      - edited
+      - deleted
 
 permissions:
   contents: read
@@ -31,7 +42,10 @@ jobs:
 
       - name: Run PR intake gate
         # pinned from heurema/repo-governance/actions/pr-intake-gate@main
-        uses: heurema/repo-governance/actions/pr-intake-gate@25de0a4c5b2f7316e90b3c373c9b4170c3ebcb4c
+        uses: heurema/repo-governance/actions/pr-intake-gate@06fb3a73bfbd4b3a087376beb2a95d36f0e32b78
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          codex-review-require-current-review: 'true'
+          codex-review-wait-seconds: '480'
+          codex-review-poll-interval-seconds: '10'
