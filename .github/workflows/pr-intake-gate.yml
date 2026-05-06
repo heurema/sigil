@@ -10,16 +10,6 @@ on:
       - labeled
       - unlabeled
       - ready_for_review
-  pull_request_review:
-    types:
-      - submitted
-      - edited
-      - dismissed
-  pull_request_review_comment:
-    types:
-      - created
-      - edited
-      - deleted
 
 permissions:
   contents: read
@@ -42,7 +32,7 @@ jobs:
 
       - name: Run PR intake gate
         # pinned from heurema/repo-governance/actions/pr-intake-gate@main
-        uses: heurema/repo-governance/actions/pr-intake-gate@06fb3a73bfbd4b3a087376beb2a95d36f0e32b78
+        uses: heurema/repo-governance/actions/pr-intake-gate@2413ba8db779a431d46505003870766b35b3ea57
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
