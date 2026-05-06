@@ -49,14 +49,14 @@
     {
       "file": ".github/workflows/pr-intake-gate.yml",
       "occurrence": 2,
-      "uses": "heurema/repo-governance/actions/pr-intake-gate@25de0a4c5b2f7316e90b3c373c9b4170c3ebcb4c",
+      "uses": "heurema/repo-governance/actions/pr-intake-gate@06fb3a73bfbd4b3a087376beb2a95d36f0e32b78",
       "kind": "external_action",
       "action": "heurema/repo-governance/actions/pr-intake-gate",
       "status": "pinned",
       "originalRef": "main",
-      "pinnedSha": "25de0a4c5b2f7316e90b3c373c9b4170c3ebcb4c",
+      "pinnedSha": "06fb3a73bfbd4b3a087376beb2a95d36f0e32b78",
       "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
-      "resolution": "git rev-parse heurema/repo-governance 25de0a4c5b2f7316e90b3c373c9b4170c3ebcb4c",
+      "resolution": "git rev-parse heurema/repo-governance 06fb3a73bfbd4b3a087376beb2a95d36f0e32b78",
       "peeledTagUsed": false
     },
     {
