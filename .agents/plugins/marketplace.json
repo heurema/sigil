@@ -1,7 +1,7 @@
 {
-  "name": "signum",
+  "name": "heurema",
   "interface": {
-    "displayName": "Signum"
+    "displayName": "Heurema"
   },
   "plugins": [
     {
