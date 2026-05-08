@@ -5,6 +5,15 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.1] - 2026-05-08
+
+### Added
+- Codex App plugin metadata via `.codex-plugin/plugin.json`, wired to the existing `platforms/codex/SKILL.md` overlay.
+- Codex plugin metadata guardrail coverage in release smoke and deterministic metadata checks.
+
+### Fixed
+- GitHub Action and runner pinning scans now ignore local `.signum/` snapshots so ignored proof artifacts do not break local guardrail runs.
+
 ## [4.21.0] - 2026-04-27
 
 ### Added
