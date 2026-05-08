@@ -60,6 +60,7 @@ def assert_all_eq(name, rel, pattern, expected):
 
 
 plugin_version = json.loads(read(".claude-plugin/plugin.json"))["version"]
+codex_plugin_path = repo_root / ".codex-plugin/plugin.json"
 root_schema = one_or_fail(
     "root proofpack schema source exists",
     "commands/signum.md",
@@ -83,6 +84,13 @@ if (repo_root / "platforms/claude-code/.claude-plugin/plugin.json").exists():
         pass_("Claude overlay plugin version matches root")
     else:
         fail("Claude overlay plugin version matches root", f"expected {plugin_version}, got {overlay_version}")
+
+if codex_plugin_path.exists():
+    codex_version = json.loads(read(".codex-plugin/plugin.json"))["version"]
+    if codex_version == plugin_version:
+        pass_("Codex plugin version matches root")
+    else:
+        fail("Codex plugin version matches root", f"expected {plugin_version}, got {codex_version}")
 
 for rel in command_files:
     assert_all_eq(

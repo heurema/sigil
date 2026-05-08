@@ -37,6 +37,7 @@ assert_not_contains() {
 
 echo "=== Release smoke wiring ==="
 assert_contains "smoke runs Emporium sync check" "$SMOKE_SCRIPT" 'bash lib/check-emporium-sync.sh'
+assert_contains "smoke covers Codex plugin metadata" "$SMOKE_SCRIPT" 'bash tests/test-codex-plugin-metadata.sh'
 assert_contains "smoke covers init command surface" "$SMOKE_SCRIPT" 'bash tests/test-init-command-surface.sh'
 assert_contains "smoke covers init harness scaffold" "$SMOKE_SCRIPT" 'bash tests/test-init-harness-scaffold.sh'
 assert_contains "smoke covers brownfield harness flow" "$SMOKE_SCRIPT" 'bash tests/test-brownfield-harness-flow.sh'
@@ -75,10 +76,12 @@ assert_contains "README documents Emporium release step" "$README_FILE" 'heurema
 assert_contains "README documents automation ssh key" "$README_FILE" 'EMPORIUM_SSH_KEY'
 assert_contains "README documents automatic sync workflow" "$README_FILE" 'Sync Emporium marketplace entry'
 assert_contains "README documents release smoke command" "$README_FILE" 'bash lib/release-smoke.sh'
+assert_contains "README documents Codex plugin metadata" "$README_FILE" '.codex-plugin/plugin.json'
 assert_contains "README documents harness smoke coverage" "$README_FILE" '/signum:init --harness'
 assert_contains "README documents trigger rationale" "$README_FILE" 'workflow_dispatch'
 assert_contains "Reliability doc includes release smoke" "$RELIABILITY_FILE" 'bash lib/release-smoke.sh'
 assert_contains "Reliability doc mentions marketplace install journey" "$RELIABILITY_FILE" 'Fresh marketplace install resolves current Signum release'
+assert_contains "Reliability doc mentions Codex plugin metadata" "$RELIABILITY_FILE" '.codex-plugin/plugin.json'
 assert_contains "Reliability doc documents automation ssh key" "$RELIABILITY_FILE" 'EMPORIUM_SSH_KEY'
 
 echo ""

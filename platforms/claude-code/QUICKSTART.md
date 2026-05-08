@@ -4,7 +4,9 @@ Get from zero to a verified code change in 3 minutes.
 
 ## 1. Install
 
-Signum is a Claude Code plugin. Install it:
+Signum is available as a Claude Code plugin and ships Codex App plugin metadata.
+
+For Claude Code, install it:
 
 ```bash
 claude plugin marketplace add heurema/emporium
@@ -17,12 +19,37 @@ Verify:
 claude "/signum explain"
 ```
 
+For Codex App, install Signum from a Codex plugin marketplace entry that points at the plugin package. The install manifest lives at `.codex-plugin/plugin.json` and exposes the `signum` skill from `platforms/codex/SKILL.md`.
+
+Example Codex marketplace entry:
+
+```json
+{
+  "name": "signum",
+  "source": {
+    "source": "local",
+    "path": "./plugins/signum"
+  },
+  "policy": {
+    "installation": "AVAILABLE",
+    "authentication": "ON_INSTALL"
+  },
+  "category": "Coding"
+}
+```
+
 ## 2. Run Your First Pipeline
 
 Give Signum a task:
 
 ```bash
 claude "/signum Add a health check endpoint that returns {status: ok}"
+```
+
+In Codex App, use the skill-oriented prompt form:
+
+```text
+Use Signum to add a health check endpoint that returns {status: ok}
 ```
 
 Signum runs 4 phases automatically:

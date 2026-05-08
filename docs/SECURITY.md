@@ -11,7 +11,7 @@ review_cadence: quarterly
 - **Local deterministic boundary**: shell scripts in `lib/`, schemas, proofpack assembly, receipt logic.
 - **Claude Code / LLM orchestration boundary**: `commands/` and `agents/` define what context goes to contractor/engineer/reviewer agents.
 - **External provider boundary**: current docs state Codex CLI and Gemini CLI receive the diff only, not the full codebase.
-- **Plugin/install boundary**: plugin metadata and install surfaces live under `.claude-plugin/`.
+- **Plugin/install boundary**: plugin metadata and install surfaces live under `.claude-plugin/` for Claude Code and `.codex-plugin/` plus `platforms/codex/SKILL.md` for Codex App.
 
 ## Sensitive Surfaces
 
