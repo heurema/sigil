@@ -5,7 +5,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.21.6",
+  "version": "4.21.7",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
