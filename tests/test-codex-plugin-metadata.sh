@@ -9,6 +9,7 @@ MARKETPLACE_PLUGIN_JSON="$REPO_ROOT/platforms/codex/.codex-plugin/plugin.json"
 MARKETPLACE_JSON="$REPO_ROOT/.agents/plugins/marketplace.json"
 CLAUDE_PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
 CODEX_SKILL="$REPO_ROOT/platforms/codex/SKILL.md"
+CODEX_ICON="$REPO_ROOT/platforms/codex/assets/signum-icon.png"
 
 passed=0
 failed=0
@@ -57,6 +58,7 @@ assert_file "Codex plugin manifest exists" "$PLUGIN_JSON"
 assert_file "Codex marketplace plugin manifest exists" "$MARKETPLACE_PLUGIN_JSON"
 assert_file "Codex marketplace exists" "$MARKETPLACE_JSON"
 assert_file "Codex skill entrypoint exists" "$CODEX_SKILL"
+assert_file "Codex icon asset exists" "$CODEX_ICON"
 
 if [ -f "$PLUGIN_JSON" ]; then
   jq empty "$PLUGIN_JSON"
@@ -68,6 +70,8 @@ if [ -f "$PLUGIN_JSON" ]; then
   assert_json_eq "plugin points at Codex skill overlay" "$PLUGIN_JSON" '.skills' "./platforms/codex/"
   assert_json_eq "plugin display name is Signum" "$PLUGIN_JSON" '.interface.displayName' "Signum"
   assert_json_eq "plugin category is Coding" "$PLUGIN_JSON" '.interface.category' "Coding"
+  assert_json_eq "plugin composer icon points at Signum icon" "$PLUGIN_JSON" '.interface.composerIcon' "./platforms/codex/assets/signum-icon.png"
+  assert_json_eq "plugin logo points at Signum icon" "$PLUGIN_JSON" '.interface.logo' "./platforms/codex/assets/signum-icon.png"
 fi
 
 if [ -f "$MARKETPLACE_PLUGIN_JSON" ]; then
@@ -80,6 +84,8 @@ if [ -f "$MARKETPLACE_PLUGIN_JSON" ]; then
   assert_json_eq "marketplace plugin points at local Codex skill" "$MARKETPLACE_PLUGIN_JSON" '.skills' "./"
   assert_json_eq "marketplace plugin display name is Signum" "$MARKETPLACE_PLUGIN_JSON" '.interface.displayName' "Signum"
   assert_json_eq "marketplace plugin category is Coding" "$MARKETPLACE_PLUGIN_JSON" '.interface.category' "Coding"
+  assert_json_eq "marketplace plugin composer icon points at local Signum icon" "$MARKETPLACE_PLUGIN_JSON" '.interface.composerIcon' "./assets/signum-icon.png"
+  assert_json_eq "marketplace plugin logo points at local Signum icon" "$MARKETPLACE_PLUGIN_JSON" '.interface.logo' "./assets/signum-icon.png"
 fi
 
 if [ -f "$MARKETPLACE_JSON" ]; then
