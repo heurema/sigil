@@ -79,6 +79,8 @@ Treat `network_error`, `timeout`, and `server_error` as degraded audit coverage,
 5. Keep pipeline artifacts under the active contract artifact root `.signum/contracts/<contractId>/`. Treat root `.signum/` as registry/state plus compatibility views.
 6. If the pipeline cannot verify a claim, say so explicitly.
 7. If the task is too small for the full pipeline, reduce scope but keep the contract-first principle.
+8. Present the contract before EXECUTE and record approval before implementation for non-trivial changes.
+9. Preserve deterministic guardrails even when external model reviewers are unavailable.
 
 ## Artifact Layout
 
@@ -90,19 +92,34 @@ Create and use the active contract artifact root:
 Within that active contract root, create and use:
 
 - `contract.json`
+- `spec_quality.json`
+- `spec_validation.json`
+- `clover_report.json`
+- `intent_check.json`
+- `approval.json`
+- `contract-hash.txt`
 - `contract-engineer.json`
 - `contract-policy.json`
+- `execution_context.json`
 - `baseline.json`
 - `execute_log.json`
 - `combined.patch`
 - `iteration_delta.patch`
 - `mechanic_report.json`
+- `holdout_report.json`
+- `policy_violations.json`
+- `policy_scan.json`
 - `audit_summary.json`
 - `audit_iteration_log.json`
 - `repair_brief.json`
+- `flaky_tests.json`
 - `proofpack.json`
+- `anti_entropy_report.json`
 - `reviews/`
 - `iterations/`
+- `receipts/`
+- `runs/<runId>/`
+- `snapshots/`
 
 Also ensure root `.signum/` is ignored by git when appropriate.
 
@@ -155,6 +172,15 @@ Hard-stop conditions:
 - no meaningful acceptance criteria
 - no verification path for critical behavior
 
+For medium/high risk work, also run or emulate these canonical quality checks when the needed local files exist:
+
+- prose and glossary checks into `spec_quality.json`
+- intent alignment into `intent_check.json`
+- optional multi-model spec validation into `spec_validation.json`
+- Clover reconstruction into `clover_report.json`
+
+Treat quality warnings as evidence. Treat missing required inputs, unresolved open questions, and blocking staleness as hard stops.
+
 ### Holdouts
 
 When appropriate, add hidden holdout scenarios for blind validation.
@@ -165,6 +191,17 @@ Rules:
 - do not expose them to the implementation context if you are preserving blinding
 - if the task is tiny, holdouts may be omitted
 
+### Approval Gate
+
+Before EXECUTE, show the contract summary to the user and record the decision in `approval.json`.
+
+For an approved contract, record `contract-hash.txt`, activate the contract in `.signum/contracts/index.json`, and derive:
+
+- `contract-engineer.json`: visible implementation contract with hidden holdouts removed
+- `contract-policy.json`: deterministic execution policy
+
+If the user does not approve, revise CONTRACT or stop. Do not implement against an unapproved non-trivial contract.
+
 ## Phase 2: EXECUTE
 
 Goal: implement against the contract, not against a vague prompt.
@@ -174,6 +211,8 @@ Before coding:
 1. Capture baseline checks into `baseline.json` under the active contract artifact root
 2. Derive a reduced implementation contract in `contract-engineer.json` under the active contract artifact root
 3. Derive an execution policy in `contract-policy.json` under the active contract artifact root
+4. Record `execution_context.json` with run id, base commit, risk level, and policy metadata
+5. Capture a pre-execute workspace snapshot under `snapshots/`
 
 The policy should restrict:
 
@@ -192,11 +231,22 @@ Implementation rules:
 
 Record attempts and outcomes in `execute_log.json` under the active contract artifact root.
 
+After implementation:
+
+1. Write `combined.patch` from the final worktree diff.
+2. Run the scope gate against `inScope` and `allowNewFilesUnder`.
+3. Run the execution policy compliance check and write `policy_violations.json` when violations exist.
+4. Run the scope existence gate for declared in-scope files.
+5. Run boundary verification and transition verification.
+6. Store execute receipts under `receipts/` and run records under `runs/<runId>/`.
+
+Policy violations, scope violations, or failed boundary/transition verification block the pipeline before AUDIT unless the contract explicitly allows the exception.
+
 ## Phase 3: AUDIT
 
 Goal: determine whether the implementation actually satisfies the contract and whether new risks were introduced.
 
-Audit has 3 layers:
+Audit has these layers:
 
 ### `mechanic`
 
@@ -210,6 +260,12 @@ Deterministic checks first:
 
 If new failures appear versus baseline, treat them as regressions.
 
+### `policy scanner`
+
+Run the zero-LLM policy scanner on `combined.patch` and write `policy_scan.json`.
+
+Critical policy findings are deterministic block signals. Continue through synthesis so the final `audit_summary.json` records the reason instead of silently stopping without evidence.
+
 ### `review`
 
 Optional multi-model review if external providers are available.
@@ -222,6 +278,14 @@ Recommended roles:
 
 External reviewers should get only the minimum context needed.
 
+For risk-proportional review:
+
+- low risk: deterministic audit plus one available semantic/local review is enough
+- medium risk: use available external reviewers when ready, but degrade gracefully
+- high risk: reduced external coverage should normally produce `HUMAN_REVIEW`, not `AUTO_OK`
+
+Build `review_context.json` from changed-file history and issue references when available. Keep external Codex/Gemini-style prompts diff-focused; do not send hidden holdout details.
+
 If provider CLIs are unavailable, continue with deterministic audit and Codex-only analysis.
 If the current execution context has no usable outbound network or DNS, classify external reviewers as `network_error` and skip them immediately instead of waiting for long timeouts.
 If a provider returns a transient upstream failure, retry once with a short backoff, then mark reduced coverage.
@@ -232,6 +296,26 @@ If a provider returns `auth_error`, do not retry automatically.
 Run hidden or extra scenarios if they exist.
 
 If holdouts fail, the pipeline should not claim success even if visible acceptance criteria pass.
+
+### `synthesis`
+
+Write `audit_summary.json` from deterministic evidence plus available reviewer outputs.
+
+At minimum include:
+
+- `decision`: `AUTO_OK`, `AUTO_BLOCK`, or `HUMAN_REVIEW`
+- `releaseVerdict`: release gate verdict such as `PASS` or `HOLD`
+- `confidence`
+- `availableReviews`
+- `reviewCoverage`
+- mechanic, policy, holdout, and review summaries
+- reduced-coverage notes when external reviewers were skipped or failed
+
+Synthesis rules:
+
+- new mechanic regressions, failed boundary checks, critical policy findings, or CRITICAL review findings => `AUTO_BLOCK`
+- MAJOR remaining findings, failed holdouts, mixed evidence, or materially reduced coverage on medium/high risk => `HUMAN_REVIEW`
+- all deterministic checks pass, holdouts pass or were legitimately omitted, and no serious findings remain => `AUTO_OK`
 
 ### `iterative repair`
 
@@ -266,11 +350,18 @@ Goal: package the run into a self-contained proof artifact.
 - baseline summary
 - implementation summary
 - audit summary
+- policy scanner summary
 - review summaries
 - external audit coverage summary
 - final verdict
+- `releaseVerdict`
+- `reviewCoverage`
+- `baselineComparison` when a previous proofpack exists
 - confidence level
-- artifact references or embedded content
+- artifact references or embedded content with SHA-256 checksums and size metadata
+- `iterativeAudit` when more than one AUDIT pass was used
+- approval and execution context envelopes when available
+- receipt and snapshot references when available
 
 Possible verdicts:
 
@@ -286,6 +377,18 @@ Guidance:
 
 Do not upgrade to `AUTO_OK` if the audit coverage was materially reduced by external-review failures and the task risk is medium or high. In that case prefer `HUMAN_REVIEW`.
 
+After proofpack assembly, write `anti_entropy_report.json` as a report-only follow-up artifact when the local helper is available. It must not change the pipeline decision.
+
+### Finalization
+
+After displaying the decision:
+
+- `AUTO_OK`: archive the completed contract artifacts and clean the active working set automatically.
+- `HUMAN_REVIEW`: keep artifacts by default and let the user choose archive, keep, or delete.
+- `AUTO_BLOCK`: keep artifacts by default for debugging; archive or delete only after the user chooses.
+
+Never delete the only copy of `contract.json` or `proofpack.json` unless the user explicitly chooses delete.
+
 ## Resume Behavior
 
 If `contracts/index.json.activeContractId` or other pipeline artifacts already exist:
@@ -293,6 +396,8 @@ If `contracts/index.json.activeContractId` or other pipeline artifacts already e
 1. Inspect what phases are complete.
 2. Resume from the first incomplete phase when safe.
 3. If artifacts are inconsistent, prefer a clean restart and explain why.
+4. Treat root-level legacy contract/artifact files as import signals only.
+5. If a previous run is completed, prefer archive/close behavior over mutating it in place.
 
 Do not silently overwrite an existing pipeline run without making that decision explicit.
 
@@ -341,12 +446,15 @@ Do not silently overwrite an existing pipeline run without making that decision 
 - If the contract is invalid, stop before coding.
 - If baseline cannot be captured, record the limitation and lower confidence.
 - If implementation cannot satisfy verifies after bounded attempts, stop and report failure.
+- If scope, policy, boundary, or transition verification fails, block before AUDIT and preserve evidence.
 - If external reviewers are unavailable, degrade gracefully and mark reduced audit coverage.
 - If the current sandbox or execution context cannot resolve or reach the provider network, classify external review as `network_error` and skip provider calls immediately.
 - If an external provider returns a transient server-side failure, retry once, then mark reduced coverage.
 - If an external provider returns an auth failure, record `auth_error` and continue without it.
 - If reduced audit coverage affects a medium- or high-risk task, prefer `HUMAN_REVIEW` over `AUTO_OK`.
 - If proofpack assembly fails, preserve intermediate artifacts and report the failure.
+- If final restoration of the best iterative candidate fails, force `HUMAN_REVIEW` and preserve iteration artifacts.
+- If finalization or archive is incomplete, keep the working set intact.
 
 ## Boundaries
 
@@ -355,3 +463,5 @@ Do not silently overwrite an existing pipeline run without making that decision 
 - Do not claim blind validation if holdouts were not actually hidden.
 - Do not let external review replace deterministic checks.
 - Do not modify unrelated files under the cover of “pipeline work”.
+- Do not materialize root `.signum/` runtime artifact files during normal runs.
+- Do not send hidden holdout details to implementation or external review contexts.

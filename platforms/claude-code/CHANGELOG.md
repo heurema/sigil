@@ -5,6 +5,11 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.7] - 2026-05-08
+
+### Added
+- Codex App skill metadata now covers the full canonical Signum flow: approval, receipt-chain verification, policy scanning, proofpack metadata, anti-entropy, and finalization.
+
 ## [4.21.6] - 2026-05-08
 
 ### Added
