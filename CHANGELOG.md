@@ -5,6 +5,11 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.6] - 2026-05-08
+
+### Added
+- Codex App skill metadata now explicitly documents iterative AUDIT repair loops, iteration artifacts, and proofpack output.
+
 ## [4.21.5] - 2026-05-08
 
 ### Added

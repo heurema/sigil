@@ -138,7 +138,7 @@ Sparse paths: leave blank
 
 After the marketplace is added, it appears in the Plugins source dropdown as **Heurema**; the installable plugin inside it is **Signum**.
 
-If you need sparse checkout for the marketplace install, include `.agents/plugins` and `platforms/codex`. Include `.codex-plugin` only for direct local-folder installs. For pinned installs, use `v4.21.5` or a newer release tag.
+If you need sparse checkout for the marketplace install, include `.agents/plugins` and `platforms/codex`. Include `.codex-plugin` only for direct local-folder installs. For pinned installs, use `v4.21.6` or a newer release tag.
 
 In Codex, invoke the workflow with a prompt such as:
 

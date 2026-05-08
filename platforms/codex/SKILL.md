@@ -95,10 +95,14 @@ Within that active contract root, create and use:
 - `baseline.json`
 - `execute_log.json`
 - `combined.patch`
+- `iteration_delta.patch`
 - `mechanic_report.json`
 - `audit_summary.json`
+- `audit_iteration_log.json`
+- `repair_brief.json`
 - `proofpack.json`
 - `reviews/`
+- `iterations/`
 
 Also ensure root `.signum/` is ignored by git when appropriate.
 
@@ -228,6 +232,27 @@ If a provider returns `auth_error`, do not retry automatically.
 Run hidden or extra scenarios if they exist.
 
 If holdouts fail, the pipeline should not claim success even if visible acceptance criteria pass.
+
+### `iterative repair`
+
+If synthesis finds MAJOR or CRITICAL review findings, mechanic regressions, or holdout failures, enter iterative AUDIT instead of stopping after the first audit pass.
+
+Use `SIGNUM_AUDIT_MAX_ITERATIONS` as the maximum repair count; default to `20` when it is unset.
+
+For each iteration:
+
+1. Build a sanitized `repair_brief.json` under the active contract artifact root.
+2. Include only actionable findings, mechanic regression summaries, and holdout categories; never reveal hidden holdout details.
+3. Start a fresh repair context that fixes only the listed findings.
+4. Re-run the full safety chain: scope gate, policy checks, mechanic checks, holdouts, available reviewers, and synthesis.
+5. Store the full pass snapshot under `iterations/NN/`, including `combined.patch`, `iteration_delta.patch` when present, mechanic and holdout reports, reviewer outputs, and `audit_summary.json`.
+6. Append per-pass metadata to `audit_iteration_log.json`.
+
+Score each pass with the same severity weighting used by canonical Signum: CRITICAL findings dominate MAJOR findings, mechanic regressions, holdout failures, and MINOR findings. Keep the best-scoring candidate, not necessarily the last candidate.
+
+Stop early after two consecutive non-improving iterations. Before PACK, restore the best candidate and make its `audit_summary.json`, `combined.patch`, `reviews/`, and verification artifacts the active artifacts.
+
+When more than one audit iteration was used, include an `iterativeAudit` section in `proofpack.json` with `iterationsUsed`, `iterationsMax`, `bestIteration`, `auditIterations`, `resolvedFindings`, and `remainingFindings`.
 
 ## Phase 4: PACK
 
