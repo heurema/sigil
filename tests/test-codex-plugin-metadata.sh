@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 PLUGIN_JSON="$REPO_ROOT/.codex-plugin/plugin.json"
+MARKETPLACE_PLUGIN_JSON="$REPO_ROOT/platforms/codex/.codex-plugin/plugin.json"
 MARKETPLACE_JSON="$REPO_ROOT/.agents/plugins/marketplace.json"
 CLAUDE_PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
 CODEX_SKILL="$REPO_ROOT/platforms/codex/SKILL.md"
@@ -53,6 +54,7 @@ assert_contains() {
 echo "=== Codex plugin metadata ==="
 
 assert_file "Codex plugin manifest exists" "$PLUGIN_JSON"
+assert_file "Codex marketplace plugin manifest exists" "$MARKETPLACE_PLUGIN_JSON"
 assert_file "Codex marketplace exists" "$MARKETPLACE_JSON"
 assert_file "Codex skill entrypoint exists" "$CODEX_SKILL"
 
@@ -68,6 +70,18 @@ if [ -f "$PLUGIN_JSON" ]; then
   assert_json_eq "plugin category is Coding" "$PLUGIN_JSON" '.interface.category' "Coding"
 fi
 
+if [ -f "$MARKETPLACE_PLUGIN_JSON" ]; then
+  jq empty "$MARKETPLACE_PLUGIN_JSON"
+  pass "Codex marketplace plugin manifest is valid JSON"
+
+  ROOT_VERSION="$(jq -r '.version' "$CLAUDE_PLUGIN_JSON")"
+  assert_json_eq "marketplace plugin name is signum" "$MARKETPLACE_PLUGIN_JSON" '.name' "signum"
+  assert_json_eq "marketplace plugin version matches release metadata" "$MARKETPLACE_PLUGIN_JSON" '.version' "$ROOT_VERSION"
+  assert_json_eq "marketplace plugin points at local Codex skill" "$MARKETPLACE_PLUGIN_JSON" '.skills' "./"
+  assert_json_eq "marketplace plugin display name is Signum" "$MARKETPLACE_PLUGIN_JSON" '.interface.displayName' "Signum"
+  assert_json_eq "marketplace plugin category is Coding" "$MARKETPLACE_PLUGIN_JSON" '.interface.category' "Coding"
+fi
+
 if [ -f "$MARKETPLACE_JSON" ]; then
   jq empty "$MARKETPLACE_JSON"
   pass "Codex marketplace is valid JSON"
@@ -76,7 +90,8 @@ if [ -f "$MARKETPLACE_JSON" ]; then
   assert_json_eq "marketplace display name is Signum" "$MARKETPLACE_JSON" '.interface.displayName' "Signum"
   assert_json_eq "marketplace has one Signum plugin" "$MARKETPLACE_JSON" '[.plugins[] | select(.name == "signum")] | length' "1"
   assert_json_eq "marketplace plugin source is local" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.source' "local"
-  assert_json_eq "marketplace plugin points at repo root" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.path' "./"
+  assert_json_eq "marketplace plugin points at Codex platform root" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.path' "./platforms/codex"
+  assert_json_eq "marketplace plugin path is non-empty" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | (.source.path != "." and .source.path != "./" and .source.path != "")' "true"
   assert_json_eq "marketplace plugin install is available" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .policy.installation' "AVAILABLE"
   assert_json_eq "marketplace plugin auth is on install" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .policy.authentication' "ON_INSTALL"
   assert_json_eq "marketplace plugin category is Coding" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .category' "Coding"

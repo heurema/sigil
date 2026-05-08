@@ -78,6 +78,7 @@ assert_contains "README documents automatic sync workflow" "$README_FILE" 'Sync 
 assert_contains "README documents release smoke command" "$README_FILE" 'bash lib/release-smoke.sh'
 assert_contains "README documents Codex plugin metadata" "$README_FILE" '.codex-plugin/plugin.json'
 assert_contains "README documents Codex marketplace metadata" "$README_FILE" '.agents/plugins/marketplace.json'
+assert_contains "README documents Codex marketplace plugin root" "$README_FILE" 'platforms/codex/.codex-plugin/plugin.json'
 assert_contains "README documents direct Codex marketplace source" "$README_FILE" 'Source: heurema/signum'
 assert_contains "README documents direct Codex marketplace ref" "$README_FILE" 'Git ref: main'
 assert_contains "README documents harness smoke coverage" "$README_FILE" '/signum:init --harness'

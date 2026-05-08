@@ -16,7 +16,7 @@
     "evidence-driven",
     "proofpack"
   ],
-  "skills": "./platforms/codex/",
+  "skills": "./",
   "interface": {
     "displayName": "Signum",
     "shortDescription": "Contract-first implementation with audit evidence",
