@@ -2,11 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+- PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
+
+## [4.21.2] - 2026-05-08
+
 ### Added
 - Codex App repo-level marketplace metadata via `.agents/plugins/marketplace.json`, enabling `heurema/signum` to be added directly from the Plugins UI.
 
-### Changed
-- PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
+### Fixed
+- Codex App marketplace installs now point at the non-empty `platforms/codex` plugin root, so the Plugins UI does not skip Signum with `local plugin source path must not be empty`.
 
 ## [4.21.1] - 2026-05-08
 

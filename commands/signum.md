@@ -46,7 +46,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.21.1",
+  "version": "4.21.2",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -3546,7 +3546,7 @@ PACK_AVAILABLE_REVIEWS=$(jq -r '.availableReviews // 0' "$AUDIT_SUMMARY_PATH" 2>
 # Final assembly
 jq -n \
   --arg schemaVersion "4.8" \
-  --arg signumVersion "4.21.1" \
+  --arg signumVersion "4.21.2" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \

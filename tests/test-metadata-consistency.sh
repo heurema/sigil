@@ -61,6 +61,7 @@ def assert_all_eq(name, rel, pattern, expected):
 
 plugin_version = json.loads(read(".claude-plugin/plugin.json"))["version"]
 codex_plugin_path = repo_root / ".codex-plugin/plugin.json"
+codex_marketplace_plugin_path = repo_root / "platforms/codex/.codex-plugin/plugin.json"
 root_schema = one_or_fail(
     "root proofpack schema source exists",
     "commands/signum.md",
@@ -91,6 +92,13 @@ if codex_plugin_path.exists():
         pass_("Codex plugin version matches root")
     else:
         fail("Codex plugin version matches root", f"expected {plugin_version}, got {codex_version}")
+
+if codex_marketplace_plugin_path.exists():
+    codex_marketplace_version = json.loads(read("platforms/codex/.codex-plugin/plugin.json"))["version"]
+    if codex_marketplace_version == plugin_version:
+        pass_("Codex marketplace plugin version matches root")
+    else:
+        fail("Codex marketplace plugin version matches root", f"expected {plugin_version}, got {codex_marketplace_version}")
 
 for rel in command_files:
     assert_all_eq(

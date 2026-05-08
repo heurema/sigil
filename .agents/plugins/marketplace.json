@@ -8,7 +8,7 @@
       "name": "signum",
       "source": {
         "source": "local",
-        "path": "./"
+        "path": "./platforms/codex"
       },
       "policy": {
         "installation": "AVAILABLE",

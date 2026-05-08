@@ -22,7 +22,7 @@ review_cadence: quarterly
 | Deterministic core | `lib/` | Shell checks, DSL runner, scanners, state/policy helpers | `@vi` | Prefer tests for every behavioral change |
 | Schemas and contracts | `lib/schemas/` | Contract / proofpack / modules schemas | `@vi` | Treat schema changes as compatibility-sensitive |
 | Platform overlays | `platforms/` | Surface-specific command/docs variants | `@vi` | Root command/docs remain canonical unless an overlay deviation is explicitly documented |
-| Codex plugin metadata | `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/SKILL.md` | Codex App marketplace, install manifest, and skill entry point | `@vi` | Keep version aligned with `.claude-plugin/plugin.json`; Codex skill remains an overlay |
+| Codex plugin metadata | `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md` | Codex App marketplace, install manifest, and skill entry point | `@vi` | Keep version aligned with `.claude-plugin/plugin.json`; Codex skill remains an overlay |
 | Verification surface | `tests/` | Shell tests for deterministic behavior | `@vi` | If a deterministic behavior changes, add/update a test |
 
 ## Repo-Specific Rules
@@ -40,14 +40,14 @@ review_cadence: quarterly
 - `lib/policy-scanner.sh`, `lib/policy-resolver.sh` — execution policy enforcement
 - `lib/contract-injection-scan.sh` — prompt/contract injection defense
 - `lib/schemas/*.json` — compatibility-sensitive contract/proofpack formats
-- `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/SKILL.md` — Codex App marketplace, install, and orchestration surface
+- `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md` — Codex App marketplace, install, and orchestration surface
 
 ## First Reads By Task Type
 - **Understand the product**: `README.md`, `project.intent.md`, `docs/how-it-works.md`
 - **Change core pipeline behavior**: `commands/signum.md`, `docs/reference.md`, matching `tests/*`
 - **Change init/bootstrap behavior**: `commands/init.md`, `agents/init-synthesizer.md`, `lib/init-scanner.sh`, `lib/init-harness-scaffold.sh`, `tests/test-init*.sh`
 - **Change docs/parity policy**: `docs/reference.md`, `docs/overlay-deviations.json`, `lib/doc-parity-check.sh`, `tests/test-doc-parity.sh`
-- **Change Codex App plugin support**: `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/SKILL.md`, `tests/test-codex-plugin-metadata.sh`
+- **Change Codex App plugin support**: `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md`, `tests/test-codex-plugin-metadata.sh`
 - **Change future architecture direction**: `docs/plans/2026-03-15-large-project-support-roadmap.md`, `docs/thin-cli-extraction-plan.md`
 
 ## Update Protocol

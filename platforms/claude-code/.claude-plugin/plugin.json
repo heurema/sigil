@@ -1,7 +1,7 @@
 {
   "name": "signum",
   "description": "Evidence-driven development pipeline with multi-model code review",
-  "version": "4.21.1",
+  "version": "4.21.2",
   "author": {
     "name": "heurema"
   },

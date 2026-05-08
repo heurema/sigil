@@ -27,7 +27,7 @@ Git ref: main
 Sparse paths: leave blank
 ```
 
-The repo-level marketplace lives at `.agents/plugins/marketplace.json`, and the install manifest lives at `.codex-plugin/plugin.json`. If you need sparse checkout, include `.agents/plugins`, `.codex-plugin`, and `platforms/codex`. For pinned installs, use a release tag created after this marketplace file is present.
+The repo-level marketplace lives at `.agents/plugins/marketplace.json`, and the marketplace plugin manifest lives at `platforms/codex/.codex-plugin/plugin.json`. If you need sparse checkout for the marketplace install, include `.agents/plugins` and `platforms/codex`. For pinned installs, use `v4.21.2` or a newer release tag.
 
 ## 2. Run Your First Pipeline
 
