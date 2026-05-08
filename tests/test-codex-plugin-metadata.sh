@@ -86,8 +86,8 @@ if [ -f "$MARKETPLACE_JSON" ]; then
   jq empty "$MARKETPLACE_JSON"
   pass "Codex marketplace is valid JSON"
 
-  assert_json_eq "marketplace name is signum" "$MARKETPLACE_JSON" '.name' "signum"
-  assert_json_eq "marketplace display name is Signum" "$MARKETPLACE_JSON" '.interface.displayName' "Signum"
+  assert_json_eq "marketplace name is heurema" "$MARKETPLACE_JSON" '.name' "heurema"
+  assert_json_eq "marketplace display name is Heurema" "$MARKETPLACE_JSON" '.interface.displayName' "Heurema"
   assert_json_eq "marketplace has one Signum plugin" "$MARKETPLACE_JSON" '[.plugins[] | select(.name == "signum")] | length' "1"
   assert_json_eq "marketplace plugin source is local" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.source' "local"
   assert_json_eq "marketplace plugin points at Codex platform root" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.path' "./platforms/codex"

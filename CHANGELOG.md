@@ -5,6 +5,11 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.3] - 2026-05-08
+
+### Fixed
+- Codex App marketplace metadata now names the marketplace source `heurema` / `Heurema` while keeping the plugin entry as `signum` / `Signum`.
+
 ## [4.21.2] - 2026-05-08
 
 ### Added
