@@ -1,6 +1,6 @@
 {
   "name": "signum",
-  "version": "4.21.3",
+  "version": "4.21.4",
   "description": "Evidence-driven development pipeline with multi-model code review",
   "author": {
     "name": "heurema",
@@ -31,6 +31,8 @@
     "defaultPrompt": [
       "Use Signum to implement this with a contract, audit, and proofpack."
     ],
-    "brandColor": "#111827"
+    "brandColor": "#111827",
+    "composerIcon": "./platforms/codex/assets/signum-icon.png",
+    "logo": "./platforms/codex/assets/signum-icon.png"
   }
 }

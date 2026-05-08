@@ -5,6 +5,11 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.4] - 2026-05-08
+
+### Added
+- Codex App plugin metadata now includes a Signum icon asset for marketplace and direct-install plugin cards.
+
 ## [4.21.3] - 2026-05-08
 
 ### Fixed
