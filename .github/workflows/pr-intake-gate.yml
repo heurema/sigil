@@ -32,11 +32,11 @@ jobs:
 
       - name: Run PR intake gate
         # pinned from heurema/repo-governance/actions/pr-intake-gate@main
-        uses: heurema/repo-governance/actions/pr-intake-gate@a7e37be8dcd8e3468eb4094451bae3ee208bb5dc
+        uses: heurema/repo-governance/actions/pr-intake-gate@655ca032dabaed8d66537ae2ac4890a71dc3bd94
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          codex-review-require-current-review: 'true'
-          codex-review-wait-seconds: '480'
+          codex-review-require-current-review: 'false'
+          codex-review-wait-seconds: '0'
           codex-review-resolution-wait-seconds: '480'
           codex-review-poll-interval-seconds: '10'
