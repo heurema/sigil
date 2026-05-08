@@ -115,6 +115,11 @@ if [ -f "$CODEX_SKILL" ]; then
   assert_contains "Codex skill declares Signum name" "$CODEX_SKILL" "name: signum"
   assert_contains "Codex skill uses contract-first pipeline" "$CODEX_SKILL" "CONTRACT -> EXECUTE -> AUDIT -> PACK"
   assert_contains "Codex skill uses canonical artifact root" "$CODEX_SKILL" ".signum/contracts/<contractId>/"
+  assert_contains "Codex skill declares iterative AUDIT" "$CODEX_SKILL" "iterative repair"
+  assert_contains "Codex skill documents audit iteration limit" "$CODEX_SKILL" "SIGNUM_AUDIT_MAX_ITERATIONS"
+  assert_contains "Codex skill stores iteration artifacts" "$CODEX_SKILL" "iterations/NN/"
+  assert_contains "Codex skill records audit iteration log" "$CODEX_SKILL" "audit_iteration_log.json"
+  assert_contains "Codex skill packages iterative audit proof" "$CODEX_SKILL" "iterativeAudit"
   assert_contains "Codex skill treats external reviewers as optional" "$CODEX_SKILL" "optional evidence sources"
 fi
 
