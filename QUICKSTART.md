@@ -19,24 +19,15 @@ Verify:
 claude "/signum explain"
 ```
 
-For Codex App, install Signum from a Codex plugin marketplace entry that points at the plugin package. The install manifest lives at `.codex-plugin/plugin.json` and exposes the `signum` skill from `platforms/codex/SKILL.md`.
+For Codex App, open **Plugins -> Add marketplace** and use:
 
-Example Codex marketplace entry:
-
-```json
-{
-  "name": "signum",
-  "source": {
-    "source": "local",
-    "path": "./plugins/signum"
-  },
-  "policy": {
-    "installation": "AVAILABLE",
-    "authentication": "ON_INSTALL"
-  },
-  "category": "Coding"
-}
+```text
+Source: heurema/signum
+Git ref: main
+Sparse paths: leave blank
 ```
+
+The repo-level marketplace lives at `.agents/plugins/marketplace.json`, and the install manifest lives at `.codex-plugin/plugin.json`. If you need sparse checkout, include `.agents/plugins`, `.codex-plugin`, and `platforms/codex`. For pinned installs, use a release tag created after this marketplace file is present.
 
 ## 2. Run Your First Pipeline
 

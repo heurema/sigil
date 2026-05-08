@@ -77,11 +77,15 @@ assert_contains "README documents automation ssh key" "$README_FILE" 'EMPORIUM_S
 assert_contains "README documents automatic sync workflow" "$README_FILE" 'Sync Emporium marketplace entry'
 assert_contains "README documents release smoke command" "$README_FILE" 'bash lib/release-smoke.sh'
 assert_contains "README documents Codex plugin metadata" "$README_FILE" '.codex-plugin/plugin.json'
+assert_contains "README documents Codex marketplace metadata" "$README_FILE" '.agents/plugins/marketplace.json'
+assert_contains "README documents direct Codex marketplace source" "$README_FILE" 'Source: heurema/signum'
+assert_contains "README documents direct Codex marketplace ref" "$README_FILE" 'Git ref: main'
 assert_contains "README documents harness smoke coverage" "$README_FILE" '/signum:init --harness'
 assert_contains "README documents trigger rationale" "$README_FILE" 'workflow_dispatch'
 assert_contains "Reliability doc includes release smoke" "$RELIABILITY_FILE" 'bash lib/release-smoke.sh'
 assert_contains "Reliability doc mentions marketplace install journey" "$RELIABILITY_FILE" 'Fresh marketplace install resolves current Signum release'
 assert_contains "Reliability doc mentions Codex plugin metadata" "$RELIABILITY_FILE" '.codex-plugin/plugin.json'
+assert_contains "Reliability doc mentions Codex marketplace metadata" "$RELIABILITY_FILE" '.agents/plugins/marketplace.json'
 assert_contains "Reliability doc documents automation ssh key" "$RELIABILITY_FILE" 'EMPORIUM_SSH_KEY'
 
 echo ""

@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 PLUGIN_JSON="$REPO_ROOT/.codex-plugin/plugin.json"
+MARKETPLACE_JSON="$REPO_ROOT/.agents/plugins/marketplace.json"
 CLAUDE_PLUGIN_JSON="$REPO_ROOT/.claude-plugin/plugin.json"
 CODEX_SKILL="$REPO_ROOT/platforms/codex/SKILL.md"
 
@@ -52,6 +53,7 @@ assert_contains() {
 echo "=== Codex plugin metadata ==="
 
 assert_file "Codex plugin manifest exists" "$PLUGIN_JSON"
+assert_file "Codex marketplace exists" "$MARKETPLACE_JSON"
 assert_file "Codex skill entrypoint exists" "$CODEX_SKILL"
 
 if [ -f "$PLUGIN_JSON" ]; then
@@ -64,6 +66,27 @@ if [ -f "$PLUGIN_JSON" ]; then
   assert_json_eq "plugin points at Codex skill overlay" "$PLUGIN_JSON" '.skills' "./platforms/codex/"
   assert_json_eq "plugin display name is Signum" "$PLUGIN_JSON" '.interface.displayName' "Signum"
   assert_json_eq "plugin category is Coding" "$PLUGIN_JSON" '.interface.category' "Coding"
+fi
+
+if [ -f "$MARKETPLACE_JSON" ]; then
+  jq empty "$MARKETPLACE_JSON"
+  pass "Codex marketplace is valid JSON"
+
+  assert_json_eq "marketplace name is signum" "$MARKETPLACE_JSON" '.name' "signum"
+  assert_json_eq "marketplace display name is Signum" "$MARKETPLACE_JSON" '.interface.displayName' "Signum"
+  assert_json_eq "marketplace has one Signum plugin" "$MARKETPLACE_JSON" '[.plugins[] | select(.name == "signum")] | length' "1"
+  assert_json_eq "marketplace plugin source is local" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.source' "local"
+  assert_json_eq "marketplace plugin points at repo root" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .source.path' "./"
+  assert_json_eq "marketplace plugin install is available" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .policy.installation' "AVAILABLE"
+  assert_json_eq "marketplace plugin auth is on install" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .policy.authentication' "ON_INSTALL"
+  assert_json_eq "marketplace plugin category is Coding" "$MARKETPLACE_JSON" '.plugins[] | select(.name == "signum") | .category' "Coding"
+
+  MARKETPLACE_PLUGIN_ROOT="$REPO_ROOT/$(jq -r '.plugins[] | select(.name == "signum") | .source.path' "$MARKETPLACE_JSON")"
+  if [ -f "$MARKETPLACE_PLUGIN_ROOT/.codex-plugin/plugin.json" ]; then
+    pass "marketplace plugin path resolves to Codex manifest"
+  else
+    fail "marketplace plugin path resolves to Codex manifest" "missing $MARKETPLACE_PLUGIN_ROOT/.codex-plugin/plugin.json"
+  fi
 fi
 
 if [ -f "$CODEX_SKILL" ]; then

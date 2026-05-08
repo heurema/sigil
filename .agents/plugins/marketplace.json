@@ -1,0 +1,20 @@
+{
+  "name": "signum",
+  "interface": {
+    "displayName": "Signum"
+  },
+  "plugins": [
+    {
+      "name": "signum",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    }
+  ]
+}
