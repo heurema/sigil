@@ -1,7 +1,8 @@
 {
   "name": "heurema",
   "interface": {
-    "displayName": "Heurema"
+    "displayName": "Heurema",
+    "logo": "./platforms/codex/assets/signum-icon.png"
   },
   "plugins": [
     {

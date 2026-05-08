@@ -29,7 +29,7 @@ Sparse paths: leave blank
 
 After the marketplace is added, it appears in the Plugins source dropdown as **Heurema**; the installable plugin inside it is **Signum**.
 
-The repo-level marketplace lives at `.agents/plugins/marketplace.json`, and the marketplace plugin manifest lives at `platforms/codex/.codex-plugin/plugin.json`. If you need sparse checkout for the marketplace install, include `.agents/plugins` and `platforms/codex`. For pinned installs, use `v4.21.4` or a newer release tag.
+The repo-level marketplace lives at `.agents/plugins/marketplace.json`, and the marketplace plugin manifest lives at `platforms/codex/.codex-plugin/plugin.json`. If you need sparse checkout for the marketplace install, include `.agents/plugins` and `platforms/codex`. For pinned installs, use `v4.21.5` or a newer release tag.
 
 ## 2. Run Your First Pipeline
 
