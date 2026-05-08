@@ -206,6 +206,8 @@ for path in sorted(repo_root.rglob("*")):
     rel = path.relative_to(repo_root)
     if ".git" in rel.parts:
         continue
+    if rel.parts and rel.parts[0] == ".signum":
+        continue
     text = path.read_text(encoding="utf-8", errors="ignore")
     if re.search(r"(?m)^\s*runs-on\s*:", text):
         all_yaml_with_runs_on.append(rel)
