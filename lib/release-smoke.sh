@@ -16,6 +16,7 @@ run_step() {
 cd "$REPO_ROOT"
 
 run_step "Emporium sync check" bash lib/check-emporium-sync.sh
+run_step "Codex plugin metadata" bash tests/test-codex-plugin-metadata.sh
 run_step "/signum:init --harness command surface" bash tests/test-init-command-surface.sh
 run_step "/signum:init --harness scaffold coverage" bash tests/test-init-harness-scaffold.sh
 run_step "/signum:init --harness brownfield smoke" bash tests/test-brownfield-harness-flow.sh

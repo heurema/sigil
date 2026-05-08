@@ -46,7 +46,7 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```json
 {
   "name": "Signum",
-  "version": "4.21.0",
+  "version": "4.21.5",
   "pipeline": ["CONTRACT", "EXECUTE", "AUDIT", "PACK"],
   "phases": {
     "CONTRACT": {
@@ -88,7 +88,6 @@ If the user's task is exactly `explain` (case-insensitive), do NOT run the pipel
 ```
 
 Do not proceed to Setup or any phase.
-
 ## Archive Mode
 
 If the user's task starts with `archive` (case-insensitive), do NOT run the pipeline. Instead, archive a completed contract.
@@ -3547,7 +3546,7 @@ PACK_AVAILABLE_REVIEWS=$(jq -r '.availableReviews // 0' "$AUDIT_SUMMARY_PATH" 2>
 # Final assembly
 jq -n \
   --arg schemaVersion "4.8" \
-  --arg signumVersion "4.21.0" \
+  --arg signumVersion "4.21.5" \
   --arg createdAt "$RUN_DATE" \
   --arg runId "$RUN_ID" \
   --arg contractId "$PACK_CONTRACT_ID" \
@@ -3702,7 +3701,6 @@ fi
 ```
 
 ---
-
 ## Final Output
 
 Display to the user:

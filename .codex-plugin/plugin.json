@@ -1,0 +1,38 @@
+{
+  "name": "signum",
+  "version": "4.21.5",
+  "description": "Evidence-driven development pipeline with multi-model code review",
+  "author": {
+    "name": "heurema",
+    "url": "https://github.com/heurema"
+  },
+  "homepage": "https://github.com/heurema/signum",
+  "repository": "https://github.com/heurema/signum",
+  "license": "MIT",
+  "keywords": [
+    "dev-pipeline",
+    "code-review",
+    "multi-model",
+    "evidence-driven",
+    "proofpack"
+  ],
+  "skills": "./platforms/codex/",
+  "interface": {
+    "displayName": "Signum",
+    "shortDescription": "Contract-first implementation with audit evidence",
+    "longDescription": "Run a CONTRACT -> EXECUTE -> AUDIT -> PACK workflow for agentic code changes and package the result as local proof artifacts.",
+    "developerName": "heurema",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/heurema/signum",
+    "defaultPrompt": [
+      "Use Signum to implement this with a contract, audit, and proofpack."
+    ],
+    "brandColor": "#111827",
+    "composerIcon": "./platforms/codex/assets/signum-icon.png",
+    "logo": "./platforms/codex/assets/signum-icon.png"
+  }
+}

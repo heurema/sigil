@@ -1,0 +1,21 @@
+{
+  "name": "heurema",
+  "interface": {
+    "displayName": "Heurema",
+    "logo": "./platforms/codex/assets/signum-icon.png"
+  },
+  "plugins": [
+    {
+      "name": "signum",
+      "source": {
+        "source": "local",
+        "path": "./platforms/codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    }
+  ]
+}

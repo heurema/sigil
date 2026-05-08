@@ -128,6 +128,24 @@ Use the canonical init command:
 
 For Claude Code usage, install the Claude Code CLI according to your environment.
 
+For Codex App usage, Signum ships a direct-install manifest at `.codex-plugin/plugin.json`, a repo-level marketplace at `.agents/plugins/marketplace.json`, and the marketplace plugin root at `platforms/codex/.codex-plugin/plugin.json`. In **Plugins -> Add marketplace**, use:
+
+```text
+Source: heurema/signum
+Git ref: main
+Sparse paths: leave blank
+```
+
+After the marketplace is added, it appears in the Plugins source dropdown as **Heurema**; the installable plugin inside it is **Signum**.
+
+If you need sparse checkout for the marketplace install, include `.agents/plugins` and `platforms/codex`. Include `.codex-plugin` only for direct local-folder installs. For pinned installs, use `v4.21.5` or a newer release tag.
+
+In Codex, invoke the workflow with a prompt such as:
+
+```text
+Use Signum to add a health check endpoint that returns {status: ok}
+```
+
 Optional reviewer tools may be used when available, but Signum keeps deterministic checks separate from model-based review.
 
 ### Run local deterministic checks
@@ -359,6 +377,7 @@ Signum includes a maintainer release path for syncing the plugin entry with the 
 
 - **Release smoke test**: run `bash lib/release-smoke.sh` before publishing release metadata.
 - **Marketplace sync**: the `Sync Emporium marketplace entry` workflow updates `heurema/emporium/.claude-plugin/marketplace.json`.
+- **Codex plugin metadata**: `.codex-plugin/plugin.json` defines the direct Codex App install manifest; `.agents/plugins/marketplace.json` points marketplace installs at `platforms/codex/.codex-plugin/plugin.json`, which loads `platforms/codex/SKILL.md`.
 - **Automation secret**: non-dry-run cross-repo sync requires `EMPORIUM_SSH_KEY`.
 - **Manual trigger**: the workflow supports `workflow_dispatch` so maintainers can run a controlled release dry-run or sync.
 - **Release trigger**: the workflow also runs on release publication so marketplace metadata stays aligned with Signum releases.
