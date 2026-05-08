@@ -128,24 +128,15 @@ Use the canonical init command:
 
 For Claude Code usage, install the Claude Code CLI according to your environment.
 
-For Codex App usage, Signum ships plugin metadata at `.codex-plugin/plugin.json`. The Codex plugin entry point is the `signum` skill under `platforms/codex/SKILL.md`, so a Codex plugin marketplace entry should point at a Signum plugin checkout and use that manifest.
+For Codex App usage, Signum ships both the plugin manifest at `.codex-plugin/plugin.json` and a repo-level marketplace at `.agents/plugins/marketplace.json`. In **Plugins -> Add marketplace**, use:
 
-Example Codex marketplace entry:
-
-```json
-{
-  "name": "signum",
-  "source": {
-    "source": "local",
-    "path": "./plugins/signum"
-  },
-  "policy": {
-    "installation": "AVAILABLE",
-    "authentication": "ON_INSTALL"
-  },
-  "category": "Coding"
-}
+```text
+Source: heurema/signum
+Git ref: main
+Sparse paths: leave blank
 ```
+
+If you need sparse checkout, include `.agents/plugins`, `.codex-plugin`, and `platforms/codex`. For pinned installs, use a release tag created after this marketplace file is present.
 
 In Codex, invoke the workflow with a prompt such as:
 
@@ -384,7 +375,7 @@ Signum includes a maintainer release path for syncing the plugin entry with the 
 
 - **Release smoke test**: run `bash lib/release-smoke.sh` before publishing release metadata.
 - **Marketplace sync**: the `Sync Emporium marketplace entry` workflow updates `heurema/emporium/.claude-plugin/marketplace.json`.
-- **Codex plugin metadata**: `.codex-plugin/plugin.json` defines the Codex App install manifest and points at `platforms/codex/SKILL.md`.
+- **Codex plugin metadata**: `.codex-plugin/plugin.json` defines the Codex App install manifest and points at `platforms/codex/SKILL.md`; `.agents/plugins/marketplace.json` lets Codex App add `heurema/signum` directly as a marketplace.
 - **Automation secret**: non-dry-run cross-repo sync requires `EMPORIUM_SSH_KEY`.
 - **Manual trigger**: the workflow supports `workflow_dispatch` so maintainers can run a controlled release dry-run or sync.
 - **Release trigger**: the workflow also runs on release publication so marketplace metadata stays aligned with Signum releases.

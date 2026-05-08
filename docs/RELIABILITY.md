@@ -12,7 +12,7 @@ review_cadence: quarterly
 | Journey | Why it matters | Primary Surfaces | Current Evidence |
 | --- | --- | --- | --- |
 | Run `/signum <task>` end-to-end | Core product promise | `commands/signum.md`, `agents/`, `lib/`, schemas | README + reference docs + deterministic shell tests |
-| Fresh marketplace install resolves current Signum release | Users should not install a stale registry target after a version bump | `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `platforms/codex/SKILL.md`, `heurema/emporium/.claude-plugin/marketplace.json`, `lib/update-emporium-marketplace.sh`, `lib/check-emporium-sync.sh`, `.github/workflows/release-guardrails.yml` | `bash lib/release-smoke.sh`, `bash tests/test-emporium-sync.sh`, `bash tests/test-update-emporium-marketplace.sh`, `bash tests/test-codex-plugin-metadata.sh`; CI syncs first, then verifies |
+| Fresh marketplace install resolves current Signum release | Users should not install a stale registry target after a version bump | `.claude-plugin/plugin.json`, `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/SKILL.md`, `heurema/emporium/.claude-plugin/marketplace.json`, `lib/update-emporium-marketplace.sh`, `lib/check-emporium-sync.sh`, `.github/workflows/release-guardrails.yml` | `bash lib/release-smoke.sh`, `bash tests/test-emporium-sync.sh`, `bash tests/test-update-emporium-marketplace.sh`, `bash tests/test-codex-plugin-metadata.sh`; CI syncs first, then verifies |
 | Generate correct runtime artifacts in `.signum/` | Needed for auditability and CI gating | `commands/signum.md`, `lib/`, `.signum/` artifact contract | `docs/reference.md`, `docs/how-it-works.md` |
 | Bootstrap project context with `/signum init` | Reduces missing-context failures in downstream repos | `commands/init.md`, `agents/init-synthesizer.md`, `lib/init-scanner.sh`, `lib/init-harness-scaffold.sh` | `tests/test-init.sh`, `tests/test-init-harness-scaffold.sh` |
 | Keep root docs and overlays aligned | Prevents trust loss from doc drift | `docs/reference.md`, `docs/overlay-deviations.json`, `lib/doc-parity-check.sh` | `tests/test-doc-parity.sh`, `.github/workflows/doc-parity.yml` |
@@ -51,4 +51,4 @@ review_cadence: quarterly
 - Most reliability evidence is still shell-script unit coverage plus documentation, not integrated scenario runs.
 - Anti-entropy / recurring cleanup mode is planned but not yet a canonical root feature.
 - Cross-repo Claude marketplace writes require the `EMPORIUM_SSH_KEY` secret in `heurema/signum`; without it, guardrails still fail loudly on drift but cannot self-heal.
-- Codex App install metadata is present in `.codex-plugin/plugin.json`, but publishing that metadata to a shared Codex plugin marketplace is a separate distribution step.
+- Codex App can add `heurema/signum` directly through `.agents/plugins/marketplace.json`, but promotion to any shared curated Codex marketplace is still a separate distribution step.
