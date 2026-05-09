@@ -10,6 +10,7 @@ Read the contract's `riskLevel` and apply the matching ceremony profile. Steps m
 |------|-----|--------|------|
 | 3.0.5 Repo-contract invariants | run | run | run |
 | 3.1 Mechanic | run | run | run |
+| 3.1.4 Reuse and duplication audit | conditional | conditional | conditional |
 | 3.1.5 Holdout validation | skip (0 required) | run (≥2 required) | run (≥5 required) |
 | 3.2 Prepare review prompts | skip | run | run |
 | 3.2.5 Launch reviews | Claude only | Claude + available externals | Claude + Codex + Gemini (all 3) |
@@ -163,6 +164,91 @@ echo "Policy scan: critical=$POLICY_CRITICAL findings total=$(jq -r '.summaryCou
 ```
 
 If `POLICY_CRITICAL` is greater than 0, the synthesizer will AUTO_BLOCK. Continue to reviews — the synthesizer reads `policy_scan.json` and applies the block rule deterministically.
+
+### Step 3.1.4: REUSE_AND_DUPLICATION_AUDIT
+
+When Codebase Awareness is enabled, run the deterministic post-diff reuse/duplicate audit and write `duplicate_scan.json` under the active contract artifact root. This artifact remains evidence-only and does not contain final verdict vocabulary.
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+
+CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"
+STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
+REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+export SIGNUM_CODEBASE_AWARENESS="$CODEBASE_AWARENESS_MODE"
+
+if [ "$CODEBASE_AWARENESS_MODE" = "off" ]; then
+  echo "REUSE_AND_DUPLICATION_AUDIT: skipped (Codebase Awareness off)"
+else
+  echo "REUSE_AND_DUPLICATION_AUDIT: mode=$CODEBASE_AWARENESS_MODE output=$DUPLICATE_SCAN_PATH"
+  set +e
+  python3 scripts/audit_codebase_reuse.py \
+    --project-root . \
+    --contract "$CONTRACT_PATH" \
+    --patch "$COMBINED_PATCH_PATH" \
+    --codebase-index "$CODEBASE_INDEX_PATH" \
+    --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+    --reuse-decision "$REUSE_DECISION_PATH" \
+    --output "$DUPLICATE_SCAN_PATH" \
+    --style-profile "$STYLE_PROFILE_PATH" \
+    --implementation-context "$IMPLEMENTATION_CONTEXT_PATH" \
+    --mode "$CODEBASE_AWARENESS_MODE"
+  _REUSE_DUPLICATION_AUDIT_STATUS=$?
+  set -e
+
+  if [ "$_REUSE_DUPLICATION_AUDIT_STATUS" -eq 0 ]; then
+    echo "REUSE_AND_DUPLICATION_AUDIT: wrote $DUPLICATE_SCAN_PATH"
+  elif [ "$CODEBASE_AWARENESS_MODE" = "gate" ]; then
+    echo "ERROR: REUSE_AND_DUPLICATION_AUDIT failed in gate mode (exit=$_REUSE_DUPLICATION_AUDIT_STATUS, output=$DUPLICATE_SCAN_PATH)" >&2
+    exit "$_REUSE_DUPLICATION_AUDIT_STATUS"
+  else
+    echo "WARNING: REUSE_AND_DUPLICATION_AUDIT failed in $CODEBASE_AWARENESS_MODE mode (exit=$_REUSE_DUPLICATION_AUDIT_STATUS, output=$DUPLICATE_SCAN_PATH); continuing AUDIT" >&2
+  fi
+fi
+```
 
 ### Step 3.1.5: Holdout validation
 
@@ -658,13 +744,56 @@ Read `mechanic_report.json`, `reviews/claude.json`, `reviews/codex.json`, `revie
 Apply deterministic synthesis rules, compute confidence scores, and write `audit_summary.json` to that same canonical artifact root.
 ```
 
-After it finishes, read and display the audit summary:
+After it finishes, apply conservative Codebase Awareness verdict mapping to `audit_summary.json`, then read and display the audit summary:
 
 ```bash
 source lib/contract-dir.sh 2>/dev/null || true
 ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
 test -f "$AUDIT_SUMMARY_PATH" || { echo "ERROR: audit_summary.json not found"; exit 1; }
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+python3 scripts/evaluate_codebase_awareness_audit.py \
+  --audit-summary "$AUDIT_SUMMARY_PATH" \
+  --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+  --mode "$CODEBASE_AWARENESS_MODE" \
+  --output "$AUDIT_SUMMARY_PATH"
 
 jq -r '"=== AUDIT SUMMARY ===",
        "Mechanic: " + (.mechanic // "unknown"),
@@ -1255,7 +1384,7 @@ fi
 
 **Re-run the full audit subpipeline:**
 
-Re-run Steps 2.4 (scope gate), 2.4.5 (policy compliance if applicable), 2.4.6 (scope existence gate), 2.5 (boundary verification), 2.6 (transition verification), 3.0.5 (repo-contract invariants), 3.1 (mechanic), 3.1.3 (policy scanner), 3.1.5 (holdout validation), 3.2-3.3.5 (reviews — risk-proportional), and 3.5 (synthesizer).
+Re-run Steps 2.4 (scope gate), 2.4.5 (policy compliance if applicable), 2.4.6 (scope existence gate), 2.5 (boundary verification), 2.6 (transition verification), 3.0.5 (repo-contract invariants), 3.1 (mechanic), 3.1.3 (policy scanner), 3.1.4 (reuse and duplication audit), 3.1.5 (holdout validation), 3.2-3.3.5 (reviews — risk-proportional), and 3.5 (synthesizer).
 
 Pass `currentIteration` to the synthesizer prompt:
 
@@ -1282,6 +1411,50 @@ EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
 AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
 REPAIR_BRIEF_PATH="${ARTIFACT_ROOT}repair_brief.json"
 AUDIT_ITERATION_LOG_PATH="${ARTIFACT_ROOT}audit_iteration_log.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+python3 scripts/evaluate_codebase_awareness_audit.py \
+  --audit-summary "$AUDIT_SUMMARY_PATH" \
+  --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+  --mode "$CODEBASE_AWARENESS_MODE" \
+  --output "$AUDIT_SUMMARY_PATH"
+
 mkdir -p "$ITER_REVIEWS_DIR"
 cp "$COMBINED_PATCH_PATH" "$ITER_DIR/"
 cp "$ITERATION_DELTA_PATH" "$ITER_DIR/" 2>/dev/null || true
@@ -1436,6 +1609,50 @@ if [ "$RESTORE_FAILED" != "true" ]; then
      }' "$AUDIT_SUMMARY_PATH" > "${AUDIT_SUMMARY_PATH}.tmp"      && mv "${AUDIT_SUMMARY_PATH}.tmp" "$AUDIT_SUMMARY_PATH"
 fi
 
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+python3 scripts/evaluate_codebase_awareness_audit.py \
+  --audit-summary "$AUDIT_SUMMARY_PATH" \
+  --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+  --mode "$CODEBASE_AWARENESS_MODE" \
+  --output "$AUDIT_SUMMARY_PATH"
+FINAL_DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
+
 echo "=== ITERATIVE AUDIT COMPLETE ==="
 echo "Iterations: $ITERATIONS_USED/$MAX_ITERATIONS (best: $BEST_ITERATION)"
 echo "Early stop: $EARLY_STOP ${EARLY_STOP_REASON:+($EARLY_STOP_REASON)}"
@@ -1447,4 +1664,3 @@ Display the final audit summary (same display as after Step 3.5).
 Proceed to Phase 4: PACK.
 
 ---
-

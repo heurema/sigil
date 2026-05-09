@@ -52,6 +52,23 @@ Read `.signum/contracts/<contractId>/contract-engineer.json`. Extract:
 
 Read `.signum/contracts/<contractId>/baseline.json` (written by orchestrator). Note any pre-existing failures -- you are NOT responsible for fixing them, but you MUST NOT introduce new ones.
 
+### Step 2.1: Codebase Awareness / Reuse Decision Protocol
+
+Before implementing code changes, check whether these artifacts exist under the active contract root:
+- `implementation_context.json`
+- `reuse_candidates.json`
+
+When they exist:
+1. Read `implementation_context.json` and `reuse_candidates.json`.
+2. Inspect the most relevant existing helpers, shared modules, local patterns, tests, and boundaries referenced by the candidates.
+3. Before editing code, write `reuse_decision.json`.
+4. For each selected candidate, choose `reuse`, `adapt`, `reject`, `follow-pattern`, `respect-boundary`, `inspect-only`, or `defer`.
+5. If rejecting a candidate, explain why it is unsuitable for this task.
+6. If creating a new helper, validator, wrapper, shared abstraction, or repeated logic, justify why existing candidates do not fit.
+7. Prefer the repository's existing test, error-handling, config, logging, and module-boundary conventions from `implementation_context.json`.
+
+In `hint` mode this is advisory. In `warn` and `gate` modes `reuse_decision.json` is required by the orchestrator.
+
 ### Step 2.5: Execute removals (v3.8)
 
 If the contract has a `removals` array:

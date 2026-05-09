@@ -212,6 +212,10 @@ assert_true("inventory doc marks root artifacts as legacy migration inputs", "le
 assert_true("inventory doc mentions contract-dir legacy helpers", "lib/contract-dir.sh" in doc_text and ".signum/${rel}" in doc_text, "missing contract-dir helper inventory")
 assert_true("inventory doc mentions command cleanup/import", "commands/signum.md" in doc_text and ".signum/policy_scan.json" in doc_text, "missing command inventory")
 assert_true("inventory doc separates project-level state", "project-level" in doc_text and ".signum/proofpack-index.jsonl" in doc_text, "missing project-level state classification")
+assert_true("inventory doc classifies .signum/cache as rebuildable derived state", ".signum/cache/" in doc_text and "rebuildable derived state" in doc_text, "missing .signum/cache rebuildable derived state wording")
+assert_true("inventory doc classifies reuse decision as active-root evidence", "reuse_decision.json" in doc_text and "active contract artifact root" in doc_text, "missing reuse_decision active-root evidence wording")
+assert_true("inventory doc classifies duplicate scan as active-root evidence", "duplicate_scan.json" in doc_text and "active contract artifact root" in doc_text, "missing duplicate_scan active-root evidence wording")
+assert_true("inventory doc classifies reuse summary as active-root evidence", "reuse_summary.json" in doc_text and "active contract artifact root" in doc_text, "missing reuse_summary active-root evidence wording")
 assert_true("inventory doc notes historical references ignored", "docs/plans/" in doc_text and "synthetic fixtures" in doc_text, "missing historical ignore note")
 
 # Root/overlay command cleanup should not drift for classified legacy policy artifacts.

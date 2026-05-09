@@ -30,11 +30,12 @@ legacy-restart-cleanup|commands/signum.md|1|.signum/review_prompt_codex.txt
 legacy-restart-cleanup|commands/signum.md|1|.signum/review_prompt_gemini.txt
 legacy-restart-cleanup|commands/signum.md|1|.signum/spec_quality.json
 legacy-restart-cleanup|commands/signum.md|1|.signum/spec_validation.json
-legacy-artifact-root-fallback|commands/signum.md|69|ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+legacy-artifact-root-fallback|commands/signum.md|72|ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 project-derived-cache|commands/signum.md|1|.signum/cache
-project-derived-cache|commands/signum.md|1|.signum/cache/codebase-index-v1.json
-project-derived-cache|commands/signum.md|1|.signum/cache/style-profile-v1.json
-project-policy|commands/signum.md|2|.signum/policy.toml
+project-derived-cache|commands/signum.md|1|.signum/cache/
+project-derived-cache|commands/signum.md|2|.signum/cache/codebase-index-v1.json
+project-derived-cache|commands/signum.md|2|.signum/cache/style-profile-v1.json
+project-policy|commands/signum.md|16|.signum/policy.toml
 legacy-compat-helper|lib/contract-dir.sh|4|.signum/${rel}
 legacy-scan-fallback|lib/contract-injection-scan.sh|2|.signum/contract.json
 project-bootstrap-input|scripts/init_scanner.py|1|.signum/project.glossary.json
@@ -77,11 +78,12 @@ legacy-restart-cleanup|platforms/claude-code/commands/signum.md|1|.signum/review
 legacy-restart-cleanup|platforms/claude-code/commands/signum.md|1|.signum/review_prompt_gemini.txt
 legacy-restart-cleanup|platforms/claude-code/commands/signum.md|1|.signum/spec_quality.json
 legacy-restart-cleanup|platforms/claude-code/commands/signum.md|1|.signum/spec_validation.json
-legacy-artifact-root-fallback|platforms/claude-code/commands/signum.md|69|ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+legacy-artifact-root-fallback|platforms/claude-code/commands/signum.md|72|ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache
-project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache/codebase-index-v1.json
-project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache/style-profile-v1.json
-project-policy|platforms/claude-code/commands/signum.md|2|.signum/policy.toml
+project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache/
+project-derived-cache|platforms/claude-code/commands/signum.md|2|.signum/cache/codebase-index-v1.json
+project-derived-cache|platforms/claude-code/commands/signum.md|2|.signum/cache/style-profile-v1.json
+project-policy|platforms/claude-code/commands/signum.md|16|.signum/policy.toml
 legacy-compat-helper|platforms/claude-code/lib/contract-dir.sh|4|.signum/${rel}
 project-bootstrap-input|platforms/claude-code/scripts/init_scanner.py|1|.signum/project.glossary.json
 project-bootstrap-input|platforms/claude-code/scripts/init_scanner.py|1|.signum/project.intent.md

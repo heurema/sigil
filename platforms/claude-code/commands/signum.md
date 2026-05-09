@@ -1596,7 +1596,7 @@ echo "Pre-execute snapshot captured"
 
 ### Step 2.0.6: Codebase Awareness hint context
 
-Use the Bash tool to derive optional Codebase Awareness context before launching the Engineer. This PR1C wiring is non-blocking: it never changes the final verdict and does not require or enforce any reuse decision.
+Use the Bash tool to derive optional Codebase Awareness context before launching the Engineer. Context generation stays non-blocking; reuse decision validation runs after the Engineer returns.
 
 ```bash
 source lib/contract-dir.sh 2>/dev/null || true
@@ -1608,6 +1608,7 @@ CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"
 STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"
 IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
 REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
 
 _POLICY_CODEBASE_MODE=""
 _POLICY_CODEBASE_MAX_CANDIDATES=""
@@ -1668,7 +1669,7 @@ if [ "$CODEBASE_AWARENESS_MODE" = "off" ]; then
   echo "Codebase Awareness: off (skipping CODEBASE_RECON and REUSE_MATCH)"
 else
   if [ "$CODEBASE_AWARENESS_MODE" = "warn" ] || [ "$CODEBASE_AWARENESS_MODE" = "gate" ]; then
-    echo "NOTE: Codebase Awareness $CODEBASE_AWARENESS_MODE enforcement is not implemented in PR1C; running hint-only context generation."
+    echo "NOTE: Codebase Awareness $CODEBASE_AWARENESS_MODE will validate $REUSE_DECISION_PATH after the Engineer returns."
   fi
 
   mkdir -p .signum/cache "$(dirname "$IMPLEMENTATION_CONTEXT_PATH")"
@@ -1720,6 +1721,106 @@ The canonical artifact root for this execute phase is `.signum/contracts/<active
 Read `contract-engineer.json` and `baseline.json` from that canonical artifact root.
 Implement, run the repair loop (max 3 attempts), save artifacts.
 Write `combined.patch` and `execute_log.json` to that same canonical artifact root.
+```
+
+### Step 2.1.5: Validate Codebase Awareness reuse decision
+
+Use the Bash tool to validate `reuse_decision.json` after the Engineer returns and before checking execute status. `warn` mode emits warnings only; `gate` mode blocks on missing or invalid reuse decisions.
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+
+case "$CODEBASE_AWARENESS_MODE" in
+  off)
+    echo "Codebase Awareness reuse decision validation: off"
+    ;;
+  hint)
+    if [ -f "$REUSE_DECISION_PATH" ]; then
+      echo "REUSE_DECISION: validating optional $REUSE_DECISION_PATH"
+      if python3 scripts/validate_reuse_decision.py \
+        --contract "$CONTRACT_PATH" \
+        --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+        --reuse-decision "$REUSE_DECISION_PATH" \
+        --mode "$CODEBASE_AWARENESS_MODE"; then
+        echo "REUSE_DECISION: valid"
+      else
+        _REUSE_DECISION_EXIT=$?
+        echo "WARNING: optional REUSE_DECISION validation failed with exit $_REUSE_DECISION_EXIT; continuing because mode is hint"
+      fi
+    else
+      echo "Codebase Awareness: hint mode and no reuse_decision.json found; skipping validation"
+    fi
+    ;;
+  warn)
+    echo "REUSE_DECISION: validating $REUSE_DECISION_PATH for warn mode"
+    if python3 scripts/validate_reuse_decision.py \
+      --contract "$CONTRACT_PATH" \
+      --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+      --reuse-decision "$REUSE_DECISION_PATH" \
+      --mode "$CODEBASE_AWARENESS_MODE"; then
+      echo "REUSE_DECISION: valid"
+    else
+      _REUSE_DECISION_EXIT=$?
+      echo "WARNING: REUSE_DECISION validation failed with exit $_REUSE_DECISION_EXIT; continuing because mode is warn"
+    fi
+    ;;
+  gate)
+    echo "REUSE_DECISION: validating $REUSE_DECISION_PATH for gate mode"
+    if python3 scripts/validate_reuse_decision.py \
+      --contract "$CONTRACT_PATH" \
+      --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+      --reuse-decision "$REUSE_DECISION_PATH" \
+      --mode "$CODEBASE_AWARENESS_MODE"; then
+      echo "REUSE_DECISION: valid"
+    else
+      _REUSE_DECISION_EXIT=$?
+      echo "ERROR: REUSE_DECISION validation failed with exit $_REUSE_DECISION_EXIT; Codebase Awareness gate mode blocks EXECUTE"
+      exit "$_REUSE_DECISION_EXIT"
+    fi
+    ;;
+esac
 ```
 
 ### Step 2.2: Check result
@@ -1976,6 +2077,7 @@ Read the contract's `riskLevel` and apply the matching ceremony profile. Steps m
 |------|-----|--------|------|
 | 3.0.5 Repo-contract invariants | run | run | run |
 | 3.1 Mechanic | run | run | run |
+| 3.1.4 Reuse and duplication audit | conditional | conditional | conditional |
 | 3.1.5 Holdout validation | skip (0 required) | run (≥2 required) | run (≥5 required) |
 | 3.2 Prepare review prompts | skip | run | run |
 | 3.2.5 Launch reviews | Claude only | Claude + available externals | Claude + Codex + Gemini (all 3) |
@@ -2129,6 +2231,91 @@ echo "Policy scan: critical=$POLICY_CRITICAL findings total=$(jq -r '.summaryCou
 ```
 
 If `POLICY_CRITICAL` is greater than 0, the synthesizer will AUTO_BLOCK. Continue to reviews — the synthesizer reads `policy_scan.json` and applies the block rule deterministically.
+
+### Step 3.1.4: REUSE_AND_DUPLICATION_AUDIT
+
+When Codebase Awareness is enabled, run the deterministic post-diff reuse/duplicate audit and write `duplicate_scan.json` under the active contract artifact root. This artifact remains evidence-only and does not contain final verdict vocabulary.
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+
+CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"
+STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+COMBINED_PATCH_PATH="${ARTIFACT_ROOT}combined.patch"
+IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
+REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+export SIGNUM_CODEBASE_AWARENESS="$CODEBASE_AWARENESS_MODE"
+
+if [ "$CODEBASE_AWARENESS_MODE" = "off" ]; then
+  echo "REUSE_AND_DUPLICATION_AUDIT: skipped (Codebase Awareness off)"
+else
+  echo "REUSE_AND_DUPLICATION_AUDIT: mode=$CODEBASE_AWARENESS_MODE output=$DUPLICATE_SCAN_PATH"
+  set +e
+  python3 scripts/audit_codebase_reuse.py \
+    --project-root . \
+    --contract "$CONTRACT_PATH" \
+    --patch "$COMBINED_PATCH_PATH" \
+    --codebase-index "$CODEBASE_INDEX_PATH" \
+    --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+    --reuse-decision "$REUSE_DECISION_PATH" \
+    --output "$DUPLICATE_SCAN_PATH" \
+    --style-profile "$STYLE_PROFILE_PATH" \
+    --implementation-context "$IMPLEMENTATION_CONTEXT_PATH" \
+    --mode "$CODEBASE_AWARENESS_MODE"
+  _REUSE_DUPLICATION_AUDIT_STATUS=$?
+  set -e
+
+  if [ "$_REUSE_DUPLICATION_AUDIT_STATUS" -eq 0 ]; then
+    echo "REUSE_AND_DUPLICATION_AUDIT: wrote $DUPLICATE_SCAN_PATH"
+  elif [ "$CODEBASE_AWARENESS_MODE" = "gate" ]; then
+    echo "ERROR: REUSE_AND_DUPLICATION_AUDIT failed in gate mode (exit=$_REUSE_DUPLICATION_AUDIT_STATUS, output=$DUPLICATE_SCAN_PATH)" >&2
+    exit "$_REUSE_DUPLICATION_AUDIT_STATUS"
+  else
+    echo "WARNING: REUSE_AND_DUPLICATION_AUDIT failed in $CODEBASE_AWARENESS_MODE mode (exit=$_REUSE_DUPLICATION_AUDIT_STATUS, output=$DUPLICATE_SCAN_PATH); continuing AUDIT" >&2
+  fi
+fi
+```
 
 ### Step 3.1.5: Holdout validation
 
@@ -2624,13 +2811,56 @@ Read `mechanic_report.json`, `reviews/claude.json`, `reviews/codex.json`, `revie
 Apply deterministic synthesis rules, compute confidence scores, and write `audit_summary.json` to that same canonical artifact root.
 ```
 
-After it finishes, read and display the audit summary:
+After it finishes, apply conservative Codebase Awareness verdict mapping to `audit_summary.json`, then read and display the audit summary:
 
 ```bash
 source lib/contract-dir.sh 2>/dev/null || true
 ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
 AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
 test -f "$AUDIT_SUMMARY_PATH" || { echo "ERROR: audit_summary.json not found"; exit 1; }
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+python3 scripts/evaluate_codebase_awareness_audit.py \
+  --audit-summary "$AUDIT_SUMMARY_PATH" \
+  --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+  --mode "$CODEBASE_AWARENESS_MODE" \
+  --output "$AUDIT_SUMMARY_PATH"
 
 jq -r '"=== AUDIT SUMMARY ===",
        "Mechanic: " + (.mechanic // "unknown"),
@@ -3221,7 +3451,7 @@ fi
 
 **Re-run the full audit subpipeline:**
 
-Re-run Steps 2.4 (scope gate), 2.4.5 (policy compliance if applicable), 2.4.6 (scope existence gate), 2.5 (boundary verification), 2.6 (transition verification), 3.0.5 (repo-contract invariants), 3.1 (mechanic), 3.1.3 (policy scanner), 3.1.5 (holdout validation), 3.2-3.3.5 (reviews — risk-proportional), and 3.5 (synthesizer).
+Re-run Steps 2.4 (scope gate), 2.4.5 (policy compliance if applicable), 2.4.6 (scope existence gate), 2.5 (boundary verification), 2.6 (transition verification), 3.0.5 (repo-contract invariants), 3.1 (mechanic), 3.1.3 (policy scanner), 3.1.4 (reuse and duplication audit), 3.1.5 (holdout validation), 3.2-3.3.5 (reviews — risk-proportional), and 3.5 (synthesizer).
 
 Pass `currentIteration` to the synthesizer prompt:
 
@@ -3248,6 +3478,50 @@ EXECUTE_LOG_PATH="${ARTIFACT_ROOT}execute_log.json"
 AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
 REPAIR_BRIEF_PATH="${ARTIFACT_ROOT}repair_brief.json"
 AUDIT_ITERATION_LOG_PATH="${ARTIFACT_ROOT}audit_iteration_log.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+python3 scripts/evaluate_codebase_awareness_audit.py \
+  --audit-summary "$AUDIT_SUMMARY_PATH" \
+  --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+  --mode "$CODEBASE_AWARENESS_MODE" \
+  --output "$AUDIT_SUMMARY_PATH"
+
 mkdir -p "$ITER_REVIEWS_DIR"
 cp "$COMBINED_PATCH_PATH" "$ITER_DIR/"
 cp "$ITERATION_DELTA_PATH" "$ITER_DIR/" 2>/dev/null || true
@@ -3402,6 +3676,50 @@ if [ "$RESTORE_FAILED" != "true" ]; then
      }' "$AUDIT_SUMMARY_PATH" > "${AUDIT_SUMMARY_PATH}.tmp"      && mv "${AUDIT_SUMMARY_PATH}.tmp" "$AUDIT_SUMMARY_PATH"
 fi
 
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+python3 scripts/evaluate_codebase_awareness_audit.py \
+  --audit-summary "$AUDIT_SUMMARY_PATH" \
+  --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+  --mode "$CODEBASE_AWARENESS_MODE" \
+  --output "$AUDIT_SUMMARY_PATH"
+FINAL_DECISION=$(jq -r '.decision' "$AUDIT_SUMMARY_PATH")
+
 echo "=== ITERATIVE AUDIT COMPLETE ==="
 echo "Iterations: $ITERATIONS_USED/$MAX_ITERATIONS (best: $BEST_ITERATION)"
 echo "Early stop: $EARLY_STOP ${EARLY_STOP_REASON:+($EARLY_STOP_REASON)}"
@@ -3413,7 +3731,6 @@ Display the final audit summary (same display as after Step 3.5).
 Proceed to Phase 4: PACK.
 
 ---
-
 ## Phase 4: PACK
 
 **Goal:** Bundle all artifacts into a self-contained, verifiable proof package (schema v4.8) with embedded artifact contents.
@@ -3433,6 +3750,98 @@ jq --arg ts "$COMPLETED_TS" \
   "$CONTRACT_PATH" > "$CONTRACT_TMP_PATH" && \
   mv "$CONTRACT_TMP_PATH" "$CONTRACT_PATH"
 echo "Contract status: active → completed at $COMPLETED_TS"
+```
+
+### Step 4.0.5: PROOFPACK_REUSE_SUMMARY
+
+When Codebase Awareness is enabled, summarize run-scoped reuse evidence for PACK. This packages existing evidence only; it does not change the audit decision.
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
+REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
+AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
+REUSE_SUMMARY_PATH="${ARTIFACT_ROOT}reuse_summary.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+export SIGNUM_CODEBASE_AWARENESS="$CODEBASE_AWARENESS_MODE"
+
+if [ "$CODEBASE_AWARENESS_MODE" = "off" ]; then
+  echo "PROOFPACK_REUSE_SUMMARY: skipped (Codebase Awareness off)"
+else
+  rm -f "$REUSE_SUMMARY_PATH"
+  if [ "$CODEBASE_AWARENESS_MODE" = "hint" ] \
+    && [ ! -f "$IMPLEMENTATION_CONTEXT_PATH" ] \
+    && [ ! -f "$REUSE_CANDIDATES_PATH" ] \
+    && [ ! -f "$REUSE_DECISION_PATH" ] \
+    && [ ! -f "$DUPLICATE_SCAN_PATH" ]; then
+    echo "PROOFPACK_REUSE_SUMMARY: skipped (no Codebase Awareness artifacts found)"
+  else
+    echo "PROOFPACK_REUSE_SUMMARY: mode=$CODEBASE_AWARENESS_MODE output=$REUSE_SUMMARY_PATH"
+    set +e
+    python3 scripts/build_reuse_summary.py \
+      --project-root . \
+      --contract "$CONTRACT_PATH" \
+      --implementation-context "$IMPLEMENTATION_CONTEXT_PATH" \
+      --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+      --reuse-decision "$REUSE_DECISION_PATH" \
+      --duplicate-scan "$DUPLICATE_SCAN_PATH" \
+      --audit-summary "$AUDIT_SUMMARY_PATH" \
+      --output "$REUSE_SUMMARY_PATH" \
+      --mode "$CODEBASE_AWARENESS_MODE"
+    _REUSE_SUMMARY_STATUS=$?
+    set -e
+
+    if [ "$_REUSE_SUMMARY_STATUS" -eq 0 ]; then
+      echo "PROOFPACK_REUSE_SUMMARY: wrote $REUSE_SUMMARY_PATH"
+    elif [ "$CODEBASE_AWARENESS_MODE" = "gate" ]; then
+      echo "ERROR: PROOFPACK_REUSE_SUMMARY failed in gate mode (exit=$_REUSE_SUMMARY_STATUS, output=$REUSE_SUMMARY_PATH)" >&2
+      exit "$_REUSE_SUMMARY_STATUS"
+    else
+      echo "WARNING: PROOFPACK_REUSE_SUMMARY failed in $CODEBASE_AWARENESS_MODE mode (exit=$_REUSE_SUMMARY_STATUS, output=$REUSE_SUMMARY_PATH); continuing PACK" >&2
+    fi
+  fi
+fi
 ```
 
 ### Step 4.1: Collect metadata and build proofpack
@@ -3474,6 +3883,8 @@ AUDIT_SUMMARY_PATH="${ARTIFACT_ROOT}audit_summary.json"
 APPROVAL_PATH="${ARTIFACT_ROOT}approval.json"
 PROOFPACK_PATH="${ARTIFACT_ROOT}proofpack.json"
 ANTI_ENTROPY_PATH="${ARTIFACT_ROOT}anti_entropy_report.json"
+REUSE_SUMMARY_PATH="${ARTIFACT_ROOT}reuse_summary.json"
+DUPLICATE_SCAN_PATH="${ARTIFACT_ROOT}duplicate_scan.json"
 CONTRACT_HASH_PATH="${ARTIFACT_ROOT}contract-hash.txt"
 EXECUTION_CONTEXT_PATH="${ARTIFACT_ROOT}execution_context.json"
 AUDIT_ITERATION_LOG_PATH="${ARTIFACT_ROOT}audit_iteration_log.json"
@@ -3570,6 +3981,78 @@ build_envelope "$POLICY_SCAN_PATH" > "$POLICY_SCAN_ENV_TMP"
 
 # Audit summary envelope
 AUDIT_ENV=$(build_envelope "$AUDIT_SUMMARY_PATH")
+
+# Codebase Awareness PACK evidence envelopes.
+# Project-level cache files under .signum/cache/ are rebuildable and are not
+# embedded in proofpack; PACK includes run-scoped summary evidence only.
+REUSE_SUMMARY_ENV=$(build_envelope "$REUSE_SUMMARY_PATH")
+DUPLICATE_SCAN_ENV=$(build_envelope "$DUPLICATE_SCAN_PATH")
+CODEBASE_AWARENESS_JSON="null"
+
+_PACK_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _PACK_POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+PACK_CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_PACK_POLICY_CODEBASE_MODE:-off}}"
+case "$PACK_CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    PACK_CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+
+if [ "$PACK_CODEBASE_AWARENESS_MODE" != "off" ] && [ -f "$REUSE_SUMMARY_PATH" ]; then
+  REUSE_SUMMARY_MODE=$(jq -r '.mode // ""' "$REUSE_SUMMARY_PATH" 2>/dev/null || echo "")
+  REUSE_SUMMARY_STATUS=$(jq -r '.status // ""' "$REUSE_SUMMARY_PATH" 2>/dev/null || echo "")
+  if [ "$REUSE_SUMMARY_MODE" = "$PACK_CODEBASE_AWARENESS_MODE" ] \
+    && [ "$REUSE_SUMMARY_STATUS" != "disabled" ] \
+    && [ "$REUSE_SUMMARY_STATUS" != "missing" ]; then
+    DUPLICATE_SCAN_PRESENT=false
+    [ -f "$DUPLICATE_SCAN_PATH" ] && DUPLICATE_SCAN_PRESENT=true
+    CODEBASE_AWARENESS_JSON=$(jq -n \
+      --slurpfile summary "$REUSE_SUMMARY_PATH" \
+      --arg reuseSummaryPath "reuse_summary.json" \
+      --arg duplicateScanPath "duplicate_scan.json" \
+      --argjson duplicateScanPresent "$DUPLICATE_SCAN_PRESENT" \
+      '($summary[0]) as $s |
+       ($s.evidenceRefs // []) as $evidenceRefs |
+       {
+         reuseSummaryPath: $reuseSummaryPath,
+         duplicateScanPath: (if $duplicateScanPresent then $duplicateScanPath else null end),
+         status: $s.status,
+         mode: $s.mode,
+         candidateSummary: $s.candidateSummary,
+         decisionSummary: $s.decisionSummary,
+         duplicateAuditSummary: $s.duplicateAuditSummary,
+         verdictImpact: $s.verdictImpact,
+         artifactRefs: ([{path: $reuseSummaryPath}] + ($evidenceRefs | map({path: .})))
+       }')
+  fi
+fi
 
 # Approval envelope
 APPROVAL_ENV=$(build_envelope "$APPROVAL_PATH")
@@ -3702,6 +4185,9 @@ jq -n \
   --argjson holdoutEnv "$HOLDOUT_ENV" \
   --slurpfile policyScanEnv "$POLICY_SCAN_ENV_TMP" \
   --argjson auditEnv "$AUDIT_ENV" \
+  --argjson reuseSummaryEnv "$REUSE_SUMMARY_ENV" \
+  --argjson duplicateScanEnv "$DUPLICATE_SCAN_ENV" \
+  --argjson codebaseAwarenessJson "$CODEBASE_AWARENESS_JSON" \
   --argjson approvalEnv "$APPROVAL_ENV" \
   --argjson reviewsEnv "$REVIEWS_JSON" \
   --arg contractSource "$CONTRACT_SOURCE" \
@@ -3745,6 +4231,11 @@ jq -n \
       auditSummary: $auditEnv
     }
   }
+  | if $codebaseAwarenessJson != null then
+      .checks += {codebaseAwareness: {reuseSummary: $reuseSummaryEnv, duplicateScan: $duplicateScanEnv}}
+      | .codebaseAwareness = $codebaseAwarenessJson
+      | .artifactRefs = ((.artifactRefs // []) + ($codebaseAwarenessJson.artifactRefs // []))
+    else . end
   | if $ciContext != null then . + {ciContext: $ciContext} else . end
   | if $baselineComp != null then . + {baselineComparison: $baselineComp} else . end
   | if $iterativeAuditJson != null then . + {iterativeAudit: $iterativeAuditJson} else . end

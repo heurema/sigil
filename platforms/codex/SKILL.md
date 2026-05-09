@@ -102,6 +102,9 @@ Within that active contract root, create and use:
 - `contract-policy.json`
 - `execution_context.json`
 - `baseline.json`
+- `implementation_context.json`
+- `reuse_candidates.json`
+- `reuse_decision.json`
 - `execute_log.json`
 - `combined.patch`
 - `iteration_delta.patch`
@@ -109,10 +112,12 @@ Within that active contract root, create and use:
 - `holdout_report.json`
 - `policy_violations.json`
 - `policy_scan.json`
+- `duplicate_scan.json`
 - `audit_summary.json`
 - `audit_iteration_log.json`
 - `repair_brief.json`
 - `flaky_tests.json`
+- `reuse_summary.json`
 - `proofpack.json`
 - `anti_entropy_report.json`
 - `reviews/`
@@ -213,6 +218,9 @@ Before coding:
 3. Derive an execution policy in `contract-policy.json` under the active contract artifact root
 4. Record `execution_context.json` with run id, base commit, risk level, and policy metadata
 5. Capture a pre-execute workspace snapshot under `snapshots/`
+6. When Codebase Awareness is enabled, use `implementation_context.json` and `reuse_candidates.json`; in `warn` or `gate` mode the Engineer must write `reuse_decision.json` before code changes.
+
+When Codebase Awareness is enabled, AUDIT may produce `duplicate_scan.json` as reuse/duplicate evidence. In `warn`, unresolved major/critical duplicate findings cap AUDIT at `HUMAN_REVIEW`; in `gate`, critical and narrow high-confidence unresolved major findings can force `AUTO_BLOCK`. PACK writes `reuse_summary.json` as compact run-scoped Codebase Awareness evidence and proofpack includes or references that summary. Do not pack project-level `.signum/cache/` scanner cache files by default.
 
 The policy should restrict:
 
@@ -359,6 +367,7 @@ Goal: package the run into a self-contained proof artifact.
 - `baselineComparison` when a previous proofpack exists
 - confidence level
 - artifact references or embedded content with SHA-256 checksums and size metadata
+- Codebase Awareness `reuse_summary.json` evidence when Codebase Awareness was enabled
 - `iterativeAudit` when more than one AUDIT pass was used
 - approval and execution context envelopes when available
 - receipt and snapshot references when available
