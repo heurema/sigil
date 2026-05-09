@@ -1,0 +1,56 @@
+"""Run archive helpers for signum-evolve v0."""
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+from typing import Any, Dict
+
+from .candidate import write_json
+
+
+def prepare_run_dir(repo_root: Path, run_id: str) -> Path:
+    out_root = (repo_root / "experiments" / "signum_evolve" / "out").resolve()
+    run_dir = (out_root / run_id).resolve()
+    if run_dir == out_root:
+        raise ValueError("run_id must name a child directory under experiments/signum_evolve/out")
+    try:
+        run_dir.relative_to(out_root)
+    except ValueError as exc:
+        raise ValueError("run_id must stay under experiments/signum_evolve/out") from exc
+    if run_dir.exists():
+        shutil.rmtree(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "candidates").mkdir(exist_ok=True)
+    return run_dir
+
+
+def write_run_manifest(
+    run_dir: Path,
+    *,
+    run_id: str,
+    config_path: Path,
+    seed: int,
+    max_candidates: int,
+    candidate_count: int,
+    baseline_summary: Dict[str, Any],
+) -> Dict[str, Any]:
+    manifest = {
+        "baseline": baseline_summary,
+        "candidateCount": candidate_count,
+        "config": config_path.as_posix(),
+        "createdAt": None,
+        "maxCandidates": max_candidates,
+        "runId": run_id,
+        "schemaVersion": "1.0",
+        "seed": seed,
+    }
+    write_json(run_dir / "run_manifest.json", manifest)
+    return manifest
+
+
+def archive_candidate(run_dir: Path, candidate: Dict[str, Any]) -> Path:
+    candidate_dir = run_dir / "candidates" / candidate["candidateId"]
+    candidate_dir.mkdir(parents=True, exist_ok=True)
+    write_json(candidate_dir / "candidate.json", candidate)
+    write_json(candidate_dir / "policy-rules.json", candidate["catalog"])
+    return candidate_dir
