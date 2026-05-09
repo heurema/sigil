@@ -98,8 +98,10 @@ Regression thresholds:
 - recall must not drop
 - critical recall must not drop
 - false positives must not increase without material recall improvement
-- `runtimeMsP95` must not exceed `1.5x` baseline
 - known baseline failures must not increase
+
+`runtimeMsP95` remains in `deltas` as an informational signal, but it is not a
+regression gate because scanner subprocess runtime is host-dependent.
 
 ## Fixture schema
 

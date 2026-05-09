@@ -193,15 +193,6 @@ def compare_scorecards(baseline_report: Dict[str, Any], candidate_report: Dict[s
             reason="false positives exceed the 10 percent budget",
         )
 
-    baseline_runtime = number(baseline, "runtimeMsP95")
-    if baseline_runtime > 0 and number(candidate, "runtimeMsP95") > baseline_runtime * 1.5:
-        append_metric_change(
-            regressions,
-            metric="runtimeMsP95",
-            baseline=baseline.get("runtimeMsP95"),
-            candidate=candidate.get("runtimeMsP95"),
-            reason="p95 runtime exceeded 1.5x baseline",
-        )
     if known_failure_delta > 0:
         append_metric_change(
             regressions,

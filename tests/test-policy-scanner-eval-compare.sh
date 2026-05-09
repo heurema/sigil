@@ -64,3 +64,27 @@ for key in (
     if key not in deltas:
         raise SystemExit(f"missing delta metric: {key}")
 PY
+
+SLOW_CANDIDATE="$WORK/policy-candidate-slow-runtime.json"
+SLOW_COMPARE="$WORK/policy-compare-slow-runtime.json"
+jq '.summary.runtimeMsP95 = (.summary.runtimeMsP95 * 10)' "$CANDIDATE" > "$SLOW_CANDIDATE"
+
+python3 "$ROOT_DIR/evals/policy_scanner/compare_policy_scanner_eval.py" \
+  --baseline "$ROOT_DIR/evals/policy_scanner/baselines/current.json" \
+  --candidate "$SLOW_CANDIDATE" \
+  > "$SLOW_COMPARE"
+
+python3 - "$SLOW_COMPARE" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+runtime_regressions = [item for item in report.get("regressions", []) if item.get("metric") == "runtimeMsP95"]
+if runtime_regressions:
+    raise SystemExit(f"runtime delta should not create regressions: {runtime_regressions}")
+if report["status"] == "worse":
+    raise SystemExit("runtime-only delta should not make candidate worse")
+if "runtimeMsP95" not in report.get("deltas", {}):
+    raise SystemExit("runtime delta should remain visible in deltas")
+PY
