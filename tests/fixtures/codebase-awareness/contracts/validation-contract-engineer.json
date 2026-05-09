@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "validation-contract",
+  "summary": "Engineer should inspect src/shared/validation.ts before editing signup validation.",
+  "targetFiles": [
+    "src/shared/validation.ts",
+    "src/features/signup.ts"
+  ]
+}
