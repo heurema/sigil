@@ -32,7 +32,7 @@ jobs:
 
       - name: Run PR intake gate
         # pinned from heurema/repo-governance/actions/pr-intake-gate@main
-        uses: heurema/repo-governance/actions/pr-intake-gate@5f109136c7a4e9f5a06fdc9422b1aa65d9695b29
+        uses: heurema/repo-governance/actions/pr-intake-gate@a1f0c72edbbbe0513471b973e5afc799e7c51da1
         with:
           policy-path: .github/pr-intake-gate.yml
           github-token: ${{ secrets.GITHUB_TOKEN }}
