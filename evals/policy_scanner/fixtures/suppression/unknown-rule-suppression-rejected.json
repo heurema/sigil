@@ -1,0 +1,20 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-unknown-rule-rejected",
+  "description": "Unknown rule ID suppression marker should be rejected.",
+  "expectedFindings": [],
+  "expectedRejectedSuppressions": [
+    {
+      "file": "src/unknown.py",
+      "line": 1,
+      "rejectedReason": "unknown_rule_id",
+      "ruleId": "POLICY_UNKNOWN_RULE"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/unknown.py b/src/unknown.py\n@@ -0,0 +1,1 @@\n+# SIGNUM_POLICY_ALLOW:POLICY_UNKNOWN_RULE:temporary unknown rule fixture\n",
+  "tags": [
+    "suppression",
+    "negative"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-docs-dependency-like-line",
+  "description": "Dependency-like package line in docs should not count as a production dependency finding.",
+  "expectedFindings": [],
+  "kind": "adversarial",
+  "patch": "diff --git a/docs/package-example.md b/docs/package-example.md\n@@ -0,0 +1,3 @@\n+# Example package snippet\n+\"left-pad\": \"^1.3.0\"\n+This is documentation, not a manifest.\n",
+  "tags": [
+    "dependency",
+    "docs",
+    "negative"
+  ]
+}

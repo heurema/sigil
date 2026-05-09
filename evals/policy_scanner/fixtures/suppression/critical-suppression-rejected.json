@@ -1,0 +1,30 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-critical-rejected",
+  "description": "Critical suppression attempt should be rejected and still produce an active critical finding.",
+  "expectedFindings": [
+    {
+      "file": "src/eval.js",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "expectedRejectedSuppressions": [
+    {
+      "file": "src/eval.js",
+      "line": 2,
+      "rejectedReason": "critical_not_suppressible",
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/eval.js b/src/eval.js\n@@ -0,0 +1,2 @@\n+// SIGNUM_POLICY_ALLOW:POLICY_DYNAMIC_CODE_EXECUTION:temporary fixture cannot suppress critical\n+const runner = eval(userInput);\n",
+  "tags": [
+    "suppression",
+    "javascript",
+    "critical"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-weak-crypto-valid",
+  "description": "Valid non-critical weak crypto suppression should suppress the active finding and retain suppressed evidence.",
+  "expectedFindings": [],
+  "expectedSuppressedFindings": [
+    {
+      "file": "src/hash.py",
+      "line": 3,
+      "mustBlock": false,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/hash.py b/src/hash.py\n@@ -0,0 +1,3 @@\n+import hashlib\n+# SIGNUM_POLICY_ALLOW:POLICY_WEAK_CRYPTO:legacy fixture hash compatibility\n+digest = hashlib.md5(payload).hexdigest()\n",
+  "tags": [
+    "suppression",
+    "crypto",
+    "major"
+  ]
+}

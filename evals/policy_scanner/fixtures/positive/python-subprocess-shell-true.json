@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-python-subprocess-shell-true",
+  "description": "Python subprocess call with shell=True must trigger the current subprocess shell injection rule.",
+  "expectedFindings": [
+    {
+      "file": "app.py",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/app.py b/app.py\n@@ -0,0 +1,2 @@\n+import subprocess\n+subprocess.run(user_input, shell=True)\n",
+  "tags": [
+    "python",
+    "security",
+    "critical"
+  ]
+}

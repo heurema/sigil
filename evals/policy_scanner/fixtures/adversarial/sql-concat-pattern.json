@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-sql-concat-pattern",
+  "description": "SQL query string concatenation pattern must trigger the current SQL injection rule.",
+  "expectedFindings": [
+    {
+      "file": "src/query.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_SQL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/query.py b/src/query.py\n@@ -0,0 +1,1 @@\n+query = \"SELECT * FROM users WHERE name = '\" + name + \"'\"\n",
+  "tags": [
+    "python",
+    "security",
+    "critical",
+    "sql"
+  ]
+}

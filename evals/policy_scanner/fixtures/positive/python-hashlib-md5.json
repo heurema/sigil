@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-python-hashlib-md5",
+  "description": "Python hashlib.md5 usage must trigger the current weak crypto rule.",
+  "expectedFindings": [
+    {
+      "file": "crypto.py",
+      "line": 2,
+      "mustBlock": false,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/crypto.py b/crypto.py\n@@ -0,0 +1,2 @@\n+import hashlib\n+digest = hashlib.md5(payload).hexdigest()\n",
+  "tags": [
+    "python",
+    "security",
+    "major"
+  ]
+}

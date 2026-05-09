@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-js-innerhtml-assignment",
+  "description": "JavaScript innerHTML assignment must trigger the current XSS sink rule.",
+  "expectedFindings": [
+    {
+      "file": "web.js",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/web.js b/web.js\n@@ -0,0 +1,2 @@\n+const target = document.getElementById(\"out\");\n+target.innerHTML = userHtml;\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical"
+  ]
+}

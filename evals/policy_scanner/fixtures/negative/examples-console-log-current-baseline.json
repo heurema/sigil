@@ -1,0 +1,14 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-examples-console-log-current-baseline",
+  "description": "Regression guard: console.log in examples/demo.js should not be treated as production debug output.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/examples/demo.js b/examples/demo.js\n@@ -0,0 +1,1 @@\n+console.log(\"demo output\");\n",
+  "tags": [
+    "javascript",
+    "negative",
+    "debug-print",
+    "non-production"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-document-write-whitespace",
+  "description": "document.write with whitespace before the call parenthesis must trigger the current XSS sink rule.",
+  "expectedFindings": [
+    {
+      "file": "public/render.js",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/public/render.js b/public/render.js\n@@ -0,0 +1,3 @@\n+function render(html) {\n+  document.write   (html);\n+}\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical",
+    "whitespace"
+  ]
+}
