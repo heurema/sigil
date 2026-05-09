@@ -1,0 +1,12 @@
+diff --git a/docs/demo.md b/docs/demo.md
+@@ -0,0 +1,1 @@
++console.log("debug");
+diff --git a/fixtures/demo.js b/fixtures/demo.js
+@@ -0,0 +1,1 @@
++console.log("debug");
+diff --git a/tests/demo.js b/tests/demo.js
+@@ -0,0 +1,1 @@
++console.log("debug");
+diff --git a/test/demo.js b/test/demo.js
+@@ -0,0 +1,1 @@
++console.log("debug");
