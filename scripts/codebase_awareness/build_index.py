@@ -34,15 +34,15 @@ IGNORE_DIRS = {
     ".mypy_cache",
     ".pytest_cache",
     "__pycache__",
-    "bin",
     "build",
     "coverage",
     "dist",
     "node_modules",
-    "obj",
     "target",
     "venv",
 }
+BUILD_OUTPUT_DIRS = {"bin", "obj"}
+SOURCE_ROOT_DIRS = {"lib", "source", "src", "test", "tests"}
 GENERATED_MARKER_SCAN_BYTES = 8192
 GENERATED_MARKER_SCAN_LINES = 40
 GENERATED_MARKER_RE = re.compile(
@@ -163,7 +163,16 @@ def relpath(path: Path, root: Path) -> str:
 
 def should_ignore_dir(rel: str) -> bool:
     parts = rel.split("/") if rel else []
-    return any(part in IGNORE_DIRS for part in parts)
+    for index, part in enumerate(parts):
+        if part in IGNORE_DIRS:
+            return True
+        if part in BUILD_OUTPUT_DIRS:
+            if index == 0:
+                return True
+            parent = parts[index - 1]
+            if parent not in SOURCE_ROOT_DIRS:
+                return True
+    return False
 
 
 def iter_candidate_files(root: Path) -> list[Path]:
