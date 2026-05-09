@@ -8,6 +8,32 @@
   ],
   "pins": [
     {
+      "file": ".github/workflows/codex-review-ready.yml",
+      "occurrence": 1,
+      "uses": "heurema/repo-governance/actions/codex-review-ready@5f109136c7a4e9f5a06fdc9422b1aa65d9695b29",
+      "kind": "external_action",
+      "action": "heurema/repo-governance/actions/codex-review-ready",
+      "status": "pinned",
+      "originalRef": "main",
+      "pinnedSha": "5f109136c7a4e9f5a06fdc9422b1aa65d9695b29",
+      "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
+      "resolution": "git rev-parse heurema/repo-governance main",
+      "peeledTagUsed": false
+    },
+    {
+      "file": ".github/workflows/codex-review-ready.yml",
+      "occurrence": 2,
+      "uses": "heurema/repo-governance/actions/codex-review-ready@5f109136c7a4e9f5a06fdc9422b1aa65d9695b29",
+      "kind": "external_action",
+      "action": "heurema/repo-governance/actions/codex-review-ready",
+      "status": "pinned",
+      "originalRef": "main",
+      "pinnedSha": "5f109136c7a4e9f5a06fdc9422b1aa65d9695b29",
+      "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
+      "resolution": "git rev-parse heurema/repo-governance main",
+      "peeledTagUsed": false
+    },
+    {
       "file": ".github/workflows/ci.yml",
       "occurrence": 1,
       "uses": "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
@@ -49,12 +75,12 @@
     {
       "file": ".github/workflows/pr-intake-gate.yml",
       "occurrence": 2,
-      "uses": "heurema/repo-governance/actions/pr-intake-gate@655ca032dabaed8d66537ae2ac4890a71dc3bd94",
+      "uses": "heurema/repo-governance/actions/pr-intake-gate@5f109136c7a4e9f5a06fdc9422b1aa65d9695b29",
       "kind": "external_action",
       "action": "heurema/repo-governance/actions/pr-intake-gate",
       "status": "pinned",
       "originalRef": "main",
-      "pinnedSha": "655ca032dabaed8d66537ae2ac4890a71dc3bd94",
+      "pinnedSha": "5f109136c7a4e9f5a06fdc9422b1aa65d9695b29",
       "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
       "resolution": "git rev-parse heurema/repo-governance main",
       "peeledTagUsed": false
