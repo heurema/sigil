@@ -43,7 +43,26 @@ IGNORE_DIRS = {
     "target",
     "venv",
 }
-GENERATED_MARKER_RE = re.compile(r"(@generated|auto-generated|do not edit|generated)", re.IGNORECASE)
+GENERATED_MARKER_SCAN_BYTES = 8192
+GENERATED_MARKER_SCAN_LINES = 40
+GENERATED_MARKER_RE = re.compile(
+    r"""
+    ^
+    \s*
+    (?:
+      (?://+|/\*+|\*+|\#+|;|--|<!--)\s*
+    )?
+    (?:
+      @generated\b
+      | auto-generated\b
+      | automatically\ generated\b
+      | generated\ by\b
+      | this\ file\ (?:is|was)\ generated\b
+      | do\ not\ edit\b
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
 
 LANGUAGE_BY_SUFFIX = {
     ".cjs": "javascript",
@@ -189,10 +208,11 @@ def is_binary_data(data: bytes) -> bool:
 
 def has_generated_marker(data: bytes) -> bool:
     try:
-        prefix = data[:8192].decode("utf-8", errors="replace")
+        prefix = data[:GENERATED_MARKER_SCAN_BYTES].decode("utf-8", errors="replace")
     except OSError:
         return False
-    return bool(GENERATED_MARKER_RE.search(prefix))
+    lines = prefix.splitlines()[:GENERATED_MARKER_SCAN_LINES]
+    return any(GENERATED_MARKER_RE.match(line) for line in lines)
 
 
 def decode_text_for_extraction(data: bytes) -> str:
