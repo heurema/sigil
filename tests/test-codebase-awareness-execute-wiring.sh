@@ -125,9 +125,12 @@ check_execute_surface() {
   assert_contains "$file" 'scripts/build_codebase_index.py' "$label runs codebase scanner"
   assert_contains "$file" 'scripts/build_reuse_candidates.py' "$label runs reuse matcher"
   assert_contains "$file" '--style-output "$STYLE_PROFILE_PATH"' "$label uses canonical scanner style output flag"
+  assert_contains "$file" '--digests-output "$FILE_DIGESTS_PATH"' "$label writes scanner digest cache"
+  assert_contains "$file" '--previous-digests "$FILE_DIGESTS_PATH"' "$label reuses previous digest input when present"
   assert_contains "$file" '--style-profile "$STYLE_PROFILE_PATH"' "$label uses canonical matcher style input flag"
   assert_contains "$file" 'CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"' "$label writes canonical codebase index cache"
   assert_contains "$file" 'STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"' "$label writes canonical style profile cache"
+  assert_contains "$file" 'FILE_DIGESTS_PATH=".signum/cache/file-digests-v1.json"' "$label writes canonical file digest cache"
   assert_contains "$file" 'IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"' "$label writes implementation context under active artifact root"
   assert_contains "$file" 'REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"' "$label writes reuse candidates under active artifact root"
   assert_contains "$file" 'REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"' "$label resolves reuse decision under active artifact root"
@@ -215,6 +218,7 @@ assert_pr1c_artifacts_present() {
 
   assert_contains "$project/.signum/cache/codebase-index-v1.json" '"schemaVersion"' "$label creates project codebase index"
   assert_contains "$project/.signum/cache/style-profile-v1.json" '"schemaVersion"' "$label creates project style profile"
+  assert_contains "$project/.signum/cache/file-digests-v1.json" '"schemaVersion"' "$label creates project file digest cache"
   assert_contains "$project/.signum/contracts/example/implementation_context.json" '"schemaVersion"' "$label creates implementation context"
   assert_contains "$project/.signum/contracts/example/reuse_candidates.json" '"schemaVersion"' "$label creates reuse candidates"
 }
@@ -225,6 +229,7 @@ assert_pr1c_artifacts_absent() {
 
   assert_missing "$project/.signum/cache/codebase-index-v1.json" "$label does not create project codebase index"
   assert_missing "$project/.signum/cache/style-profile-v1.json" "$label does not create project style profile"
+  assert_missing "$project/.signum/cache/file-digests-v1.json" "$label does not create project file digest cache"
   assert_missing "$project/.signum/contracts/example/implementation_context.json" "$label does not create implementation context"
   assert_missing "$project/.signum/contracts/example/reuse_candidates.json" "$label does not create reuse candidates"
 }
