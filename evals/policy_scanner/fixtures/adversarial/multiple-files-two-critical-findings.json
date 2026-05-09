@@ -1,0 +1,28 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-multiple-files-two-critical-findings",
+  "description": "Multiple files in one patch should report both critical findings.",
+  "expectedFindings": [
+    {
+      "file": "src/a.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    },
+    {
+      "file": "src/b.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/a.py b/src/a.py\n@@ -0,0 +1,1 @@\n+value = eval(user_input)\ndiff --git a/src/b.js b/src/b.js\n@@ -0,0 +1,1 @@\n+target.innerHTML = userHtml;\n",
+  "tags": [
+    "multi-file",
+    "security",
+    "critical"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-docs-static-sql-no-injection",
+  "description": "Static SQL keywords in documentation should not trigger SQL injection.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/docs/query.md b/docs/query.md\n@@ -0,0 +1,1 @@\n+Use SELECT * FROM users WHERE id = 1 in the example dataset.\n",
+  "tags": [
+    "docs",
+    "negative",
+    "sql"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-readme-sha1-mention-no-weak",
+  "description": "A README mention of sha1 without a call expression should not trigger weak crypto.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/README.md b/README.md\n@@ -0,0 +1,1 @@\n+The legacy import mentions sha1 only as historical context.\n",
+  "tags": [
+    "docs",
+    "negative",
+    "crypto"
+  ]
+}

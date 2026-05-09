@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-dynamic-new-function-whitespace",
+  "description": "new Function with extra whitespace must still trigger dynamic code execution.",
+  "expectedFindings": [
+    {
+      "file": "src/loader.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/loader.js b/src/loader.js\n@@ -0,0 +1,1 @@\n+const fn = new   Function   (source);\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical",
+    "whitespace"
+  ]
+}

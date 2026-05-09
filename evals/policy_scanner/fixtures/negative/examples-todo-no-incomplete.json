@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-examples-todo-no-incomplete",
+  "description": "TODO in examples should not trigger incomplete implementation.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/examples/demo.py b/examples/demo.py\n@@ -0,0 +1,1 @@\n+value = 1  # TODO: explain in tutorial\n",
+  "tags": [
+    "examples",
+    "negative",
+    "incomplete"
+  ]
+}

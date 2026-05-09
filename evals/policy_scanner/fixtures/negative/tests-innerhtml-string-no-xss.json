@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-tests-innerhtml-string-no-xss",
+  "description": "A string containing innerHTML in tests should not trigger an XSS sink when there is no assignment.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/tests/render.test.js b/tests/render.test.js\n@@ -0,0 +1,1 @@\n+const label = \"innerHTML should be escaped\";\n",
+  "tags": [
+    "javascript",
+    "negative",
+    "xss"
+  ]
+}

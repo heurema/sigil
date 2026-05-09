@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-dependency-cargo-lock",
+  "description": "Cargo.lock dependency-looking line must trigger new cargo dependency.",
+  "expectedFindings": [
+    {
+      "file": "Cargo.lock",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_NEW_CARGO_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/Cargo.lock b/Cargo.lock\n@@ -0,0 +1,1 @@\n+serde = \"1\"\n",
+  "tags": [
+    "rust",
+    "dependency",
+    "major"
+  ]
+}

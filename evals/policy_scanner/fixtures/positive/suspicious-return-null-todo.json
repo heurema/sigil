@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-suspicious-return-null-todo",
+  "description": "return null with TODO comment must trigger suspicious return.",
+  "expectedFindings": [
+    {
+      "file": "src/service.js",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_SUSPICIOUS_RETURN",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/service.js b/src/service.js\n@@ -0,0 +1,1 @@\n+return null // TODO\n",
+  "tags": [
+    "javascript",
+    "unsafe",
+    "minor"
+  ]
+}

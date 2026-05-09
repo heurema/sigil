@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-incomplete-stub-throw-todo",
+  "description": "throw new Error(\"TODO\") must trigger incomplete stub.",
+  "expectedFindings": [
+    {
+      "file": "src/service.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_INCOMPLETE_STUB",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/service.js b/src/service.js\n@@ -0,0 +1,1 @@\n+throw new Error(\"TODO\");\n",
+  "tags": [
+    "javascript",
+    "unsafe",
+    "critical"
+  ]
+}

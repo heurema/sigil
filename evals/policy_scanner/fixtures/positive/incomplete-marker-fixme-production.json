@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-incomplete-marker-fixme-production",
+  "description": "Production FIXME marker must trigger incomplete implementation.",
+  "expectedFindings": [
+    {
+      "file": "src/handler.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_INCOMPLETE_MARKER",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/handler.py b/src/handler.py\n@@ -0,0 +1,1 @@\n+result = process(event)  # FIXME: handle failure\n",
+  "tags": [
+    "python",
+    "unsafe",
+    "critical"
+  ]
+}

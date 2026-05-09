@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-incomplete-stub-panic-not-implemented",
+  "description": "panic(\"not implemented\") must trigger incomplete stub.",
+  "expectedFindings": [
+    {
+      "file": "src/service.rs",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_INCOMPLETE_STUB",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/service.rs b/src/service.rs\n@@ -0,0 +1,1 @@\n+panic(\"not implemented\");\n",
+  "tags": [
+    "rust",
+    "unsafe",
+    "critical"
+  ]
+}

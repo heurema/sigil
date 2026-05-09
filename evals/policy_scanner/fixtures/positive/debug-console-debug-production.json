@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-debug-console-debug-production",
+  "description": "Production console.debug call must trigger debug print.",
+  "expectedFindings": [
+    {
+      "file": "server/index.ts",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/server/index.ts b/server/index.ts\n@@ -0,0 +1,1 @@\n+console.debug(\"request\", req.id);\n",
+  "tags": [
+    "typescript",
+    "unsafe",
+    "minor"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-docs-fixme-no-incomplete",
+  "description": "FIXME in docs should not trigger incomplete implementation.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/docs/plan.md b/docs/plan.md\n@@ -0,0 +1,1 @@\n+FIXME: capture open research question before implementation.\n",
+  "tags": [
+    "docs",
+    "negative",
+    "incomplete"
+  ]
+}

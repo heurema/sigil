@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-weak-python-hashlib-sha1",
+  "description": "Python hashlib.sha1 usage must trigger weak crypto.",
+  "expectedFindings": [
+    {
+      "file": "src/hash.py",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/hash.py b/src/hash.py\n@@ -0,0 +1,1 @@\n+digest = hashlib.sha1(data).hexdigest()\n",
+  "tags": [
+    "python",
+    "security",
+    "major"
+  ]
+}

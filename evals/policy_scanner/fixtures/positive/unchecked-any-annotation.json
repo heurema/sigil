@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-unchecked-any-annotation",
+  "description": "TypeScript any annotation must trigger unchecked any.",
+  "expectedFindings": [
+    {
+      "file": "src/types.ts",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_UNCHECKED_ANY",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/types.ts b/src/types.ts\n@@ -0,0 +1,1 @@\n+const value: any = input;\n",
+  "tags": [
+    "typescript",
+    "unsafe",
+    "minor"
+  ]
+}

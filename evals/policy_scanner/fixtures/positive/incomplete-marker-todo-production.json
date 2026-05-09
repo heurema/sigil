@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-incomplete-marker-todo-production",
+  "description": "Production TODO marker must trigger incomplete implementation.",
+  "expectedFindings": [
+    {
+      "file": "src/service.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_INCOMPLETE_MARKER",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/service.py b/src/service.py\n@@ -0,0 +1,1 @@\n+value = compute()  # TODO: finish validation\n",
+  "tags": [
+    "python",
+    "unsafe",
+    "critical"
+  ]
+}

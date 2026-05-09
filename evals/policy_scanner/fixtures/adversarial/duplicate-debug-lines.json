@@ -1,0 +1,29 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-duplicate-debug-lines",
+  "description": "Duplicate debug lines in production should produce two active debug findings.",
+  "expectedFindings": [
+    {
+      "file": "src/debug_many.js",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    },
+    {
+      "file": "src/debug_many.js",
+      "line": 2,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/debug_many.js b/src/debug_many.js\n@@ -0,0 +1,2 @@\n+console.log(\"one\");\n+console.log(\"two\");\n",
+  "tags": [
+    "javascript",
+    "unsafe",
+    "minor",
+    "duplicates"
+  ]
+}

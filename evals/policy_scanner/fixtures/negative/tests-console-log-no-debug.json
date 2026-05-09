@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-tests-console-log-no-debug",
+  "description": "console.log in tests should not trigger production debug print.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/tests/demo.js b/tests/demo.js\n@@ -0,0 +1,1 @@\n+console.log(\"test output\");\n",
+  "tags": [
+    "javascript",
+    "negative",
+    "debug-print"
+  ]
+}

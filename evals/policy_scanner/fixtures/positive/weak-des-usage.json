@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-weak-des-usage",
+  "description": "DES usage pattern must trigger weak crypto.",
+  "expectedFindings": [
+    {
+      "file": "src/crypto.py",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/crypto.py b/src/crypto.py\n@@ -0,0 +1,1 @@\n+cipher = DES.new(key)\n",
+  "tags": [
+    "python",
+    "security",
+    "major"
+  ]
+}

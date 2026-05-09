@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-fixtures-console-debug-no-debug",
+  "description": "console.debug in fixtures should not trigger production debug print.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/fixtures/demo.js b/fixtures/demo.js\n@@ -0,0 +1,1 @@\n+console.debug(\"fixture output\");\n",
+  "tags": [
+    "javascript",
+    "negative",
+    "debug-print"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-xss-line-null-match",
+  "description": "Line-null matching remains available for brittle XSS fixture layouts.",
+  "expectedFindings": [
+    {
+      "file": "src/frag.js",
+      "line": null,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/frag.js b/src/frag.js\n@@ -10,0 +11,2 @@\n+const html = userHtml;\n+target.outerHTML = html;\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical",
+    "line-null"
+  ]
+}

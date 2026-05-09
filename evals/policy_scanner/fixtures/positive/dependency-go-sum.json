@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-dependency-go-sum",
+  "description": "go.sum module version line must trigger new Go dependency.",
+  "expectedFindings": [
+    {
+      "file": "go.sum",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_NEW_GO_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/go.sum b/go.sum\n@@ -0,0 +1,1 @@\n+github.com/example/mod v1.2.3\n",
+  "tags": [
+    "go",
+    "dependency",
+    "major"
+  ]
+}

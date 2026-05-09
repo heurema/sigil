@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-xss-insert-adjacent-html",
+  "description": "insertAdjacentHTML must trigger the current XSS sink rule.",
+  "expectedFindings": [
+    {
+      "file": "src/widget.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/widget.js b/src/widget.js\n@@ -0,0 +1,1 @@\n+node.insertAdjacentHTML(\"beforeend\", html);\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical"
+  ]
+}

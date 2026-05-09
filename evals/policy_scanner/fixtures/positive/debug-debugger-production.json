@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-debug-debugger-production",
+  "description": "Production debugger statement must trigger debug print.",
+  "expectedFindings": [
+    {
+      "file": "src/app.js",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/app.js b/src/app.js\n@@ -0,0 +1,1 @@\n+debugger;\n",
+  "tags": [
+    "javascript",
+    "unsafe",
+    "minor"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-weak-js-md5-call",
+  "description": "A generic md5 call in production JavaScript must trigger weak crypto.",
+  "expectedFindings": [
+    {
+      "file": "src/password.js",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/password.js b/src/password.js\n@@ -0,0 +1,1 @@\n+const digest = md5(password);\n",
+  "tags": [
+    "javascript",
+    "security",
+    "major"
+  ]
+}
