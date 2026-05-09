@@ -2,8 +2,10 @@
 # run-deterministic-tests.sh -- local deterministic checks for PR CI
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+export CDPATH=
+
+SCRIPT_DIR="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd "$SCRIPT_DIR/.." && pwd)"
 
 run_step() {
   local label="$1"
