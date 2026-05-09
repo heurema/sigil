@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "go-validation-contract",
+  "goal": "Add email validation to Go user signup flow",
+  "riskLevel": "low",
+  "inScope": [
+    "internal/users"
+  ],
+  "acceptanceCriteria": [
+    "Signup rejects malformed email values",
+    "Existing Go validation helpers are reused when relevant"
+  ],
+  "openQuestions": [],
+  "requiredInputsProvided": true
+}

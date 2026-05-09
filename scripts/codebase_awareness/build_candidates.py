@@ -71,6 +71,23 @@ SUMMARY_KEYS = {"goal", "objective", "summary", "task", "title"}
 SCOPE_KEYS = {"acceptancecriteria", "acceptance", "inscope", "scope"}
 RISK_KEYS = {"policy", "policyhints", "risk", "risklevel", "risks"}
 SHARED_DIR_HINTS = {"common", "lib", "shared", "utils"}
+VALIDATION_TOKENS = {"assert", "check", "parse", "schema", "valid", "validate", "validation", "validator"}
+GENERIC_DOMAIN_TOKENS = {
+    "add",
+    "code",
+    "existing",
+    "flow",
+    "go",
+    "golang",
+    "helper",
+    "helpers",
+    "javascript",
+    "python",
+    "rust",
+    "shell",
+    "task",
+    "typescript",
+}
 
 SUGGESTED_ACTION_BY_KIND = {
     "config-pattern": "follow-pattern",
@@ -372,7 +389,9 @@ def is_test_path(path: str | None) -> bool:
     return (
         "test" in parts
         or "tests" in parts
+        or "testdata" in parts
         or name.startswith("test_")
+        or name.endswith("_test.go")
         or name.endswith("_test.py")
         or ".test." in name
         or ".spec." in name
@@ -439,11 +458,38 @@ def add_draft(
             draft["pairedTests"].append(test_path)
     if isinstance(record, dict) and record.get("exported") is True:
         draft["exported"] = True
+    if isinstance(record, dict) and "exported-symbols" in as_list(record.get("reasons")):
+        draft["exported"] = True
+    if isinstance(record, dict):
+        for hint in as_list(record.get("boundaryHints")):
+            if not isinstance(hint, dict):
+                continue
+            kind_value = str(hint.get("kind") or "")
+            if kind_value == "go-internal":
+                risk = "Go internal package boundary; verify the importing path is allowed before reuse."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "go-pkg":
+                why = "pkg/ is a weak Go reusable package convention"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "go-cmd":
+                risk = "Go cmd/ package is an executable entrypoint boundary, not a generic helper."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
     if kind == "duplicate-risk":
         reason = "similar or repeated code fingerprint reported by scanner"
         if reason not in draft["risks"]:
             draft["risks"].append(reason)
     draft["record"].append(record)
+
+
+def shared_symbol_record(record: dict[str, Any], name: str) -> dict[str, Any]:
+    symbol_record = dict(record)
+    symbol_record["name"] = name
+    symbol_record["tokens"] = split_identifier(name)
+    symbol_record["symbols"] = [name]
+    return symbol_record
 
 
 def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) -> dict[tuple[str, str, str], dict[str, Any]]:
@@ -479,7 +525,7 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
                     language=language,
                     source_artifact="codebase-index-v1.json",
                     source_section="sharedCandidates",
-                    record=record,
+                    record=shared_symbol_record(record, name),
                     base_why=["symbol is exposed from a shared candidate module"],
                 )
 
@@ -519,6 +565,22 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
             source_section="modules",
             record=record,
             base_why=["module is present in scanner index"],
+        )
+
+    for record in as_list(codebase_index.get("moduleBoundaries")):
+        path = record_path(record)
+        if not path:
+            continue
+        add_draft(
+            drafts,
+            kind="module-boundary",
+            path=path,
+            symbol=None,
+            language=record_language(record, path),
+            source_artifact="codebase-index-v1.json",
+            source_section="moduleBoundaries",
+            record=record,
+            base_why=["scanner reported module boundary convention"],
         )
 
     for record in as_list(codebase_index.get("imports")):
@@ -634,6 +696,8 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
             languages.add(language)
     token_map = {
         "javascript": "javascript",
+        "go": "go",
+        "golang": "go",
         "js": "javascript",
         "py": "python",
         "python": "python",
@@ -650,6 +714,52 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
     return languages
 
 
+def go_internal_allowed(candidate_path: str, target_paths: list[str]) -> bool | None:
+    parts = Path(candidate_path).parts
+    if "internal" not in parts:
+        return None
+    internal_index = parts.index("internal")
+    allowed_root = "/".join(parts[:internal_index])
+    if not target_paths:
+        return None
+    if not allowed_root:
+        return True
+    for target in target_paths:
+        normalized = str(target).strip("/")
+        if normalized == allowed_root or normalized.startswith(f"{allowed_root}/"):
+            return True
+    return False
+
+
+def validation_domain_overlap(intent_tokens: set[str], candidate_tokens: set[str]) -> list[str]:
+    return sorted((intent_tokens & candidate_tokens) - VALIDATION_TOKENS - GENERIC_DOMAIN_TOKENS)
+
+
+def validation_symbol_tokens(draft: dict[str, Any], symbol_text: str, candidate_tokens: set[str]) -> set[str]:
+    tokens = tokenize_text(symbol_text)
+    if tokens:
+        if tokens & VALIDATION_TOKENS:
+            return tokens
+        if candidate_tokens & VALIDATION_TOKENS:
+            return tokens | (candidate_tokens & VALIDATION_TOKENS)
+        return set()
+
+    helper_tokens: set[str] = set()
+    for record in draft.get("record", []):
+        if not isinstance(record, dict):
+            continue
+        for symbol in as_list(record.get("symbols")):
+            name = symbol if isinstance(symbol, str) else record_symbol(symbol)
+            symbol_tokens = tokenize_text(name or "")
+            if symbol_tokens & VALIDATION_TOKENS:
+                helper_tokens.update(symbol_tokens)
+    if helper_tokens:
+        return helper_tokens
+    if candidate_tokens & VALIDATION_TOKENS:
+        return candidate_tokens
+    return set()
+
+
 def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: set[str]) -> dict[str, Any] | None:
     intent_tokens = set(task_intent.get("tokens", []))
     target_paths = [str(path) for path in task_intent.get("targetPaths", [])]
@@ -663,6 +773,8 @@ def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: s
     score = 0.05
     confidence = 0.32
     why: list[str] = []
+    risks = [str(risk) for risk in draft.get("risks", []) if risk]
+    kind = str(draft.get("kind"))
     for item in draft.get("why", []):
         if item and item not in why:
             why.append(str(item))
@@ -725,7 +837,27 @@ def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: s
         score += 0.03
         confidence += 0.015
 
-    kind = str(draft.get("kind"))
+    validation_tokens = validation_symbol_tokens(draft, symbol_text, candidate_tokens)
+    if kind in {"existing-helper", "shared-module"} and (intent_tokens & VALIDATION_TOKENS) and validation_tokens:
+        why.append("validation helper signal")
+        domain_overlap = validation_domain_overlap(intent_tokens, validation_tokens)
+        if domain_overlap:
+            why.append(f"domain terms matched validation helper: {','.join(domain_overlap[:6])}")
+            score += 0.12 + min(0.12, 0.06 * len(domain_overlap))
+            confidence += 0.06 + min(0.06, 0.03 * len(domain_overlap))
+        else:
+            score += 0.08
+            confidence += 0.04
+
+    internal_allowed = go_internal_allowed(path, target_paths)
+    if internal_allowed is True:
+        why.append("within Go internal package boundary")
+        confidence += 0.02
+    elif internal_allowed is False:
+        risks.append("Go internal package boundary may reject imports from the contract target path.")
+        score -= 0.08
+        confidence -= 0.04
+
     if kind in {"test-pattern", "error-handling-pattern", "config-pattern", "local-pattern"}:
         score += 0.08
         confidence += 0.05
@@ -764,7 +896,7 @@ def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: s
         "whyRelevant": dedupe_preserve_order(why),
         "suggestedAction": SUGGESTED_ACTION_BY_KIND.get(kind, "inspect-before-editing"),
         "exampleCallsites": sorted(set(draft.get("exampleCallsites", [])))[:8],
-        "risks": sorted(set(draft.get("risks", [])))[:8],
+        "risks": sorted(set(risks))[:8],
         "source": draft.get("source"),
     }
 
@@ -823,6 +955,7 @@ def dominant_conventions(style_profile: dict[str, Any]) -> dict[str, list[str]]:
         "logging": [summarize_convention(item) for item in as_list(style_profile.get("logging"))][:6],
         "config": [summarize_convention(item) for item in as_list(style_profile.get("config"))][:6],
         "validation": [summarize_convention(item) for item in as_list(style_profile.get("validation"))][:6],
+        "go": [summarize_convention(item) for item in as_list(style_profile.get("goConventions"))][:6],
     }
 
 
@@ -858,11 +991,14 @@ def nearby_modules(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return nearby
 
 
-def module_boundaries(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def module_boundaries(candidates: list[dict[str, Any]], codebase_index: dict[str, Any]) -> list[dict[str, Any]]:
     boundaries = []
+    seen: set[tuple[str, str]] = set()
     for candidate in candidates:
         if candidate.get("kind") != "module-boundary":
             continue
+        key = (str(candidate.get("path") or ""), "")
+        seen.add(key)
         boundaries.append(
             {
                 "path": candidate.get("path"),
@@ -871,6 +1007,26 @@ def module_boundaries(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "whyRelevant": candidate.get("whyRelevant", [])[:3],
             }
         )
+        if len(boundaries) >= 6:
+            return boundaries
+    for record in as_list(codebase_index.get("moduleBoundaries")):
+        if not isinstance(record, dict):
+            continue
+        path = str(record.get("path") or "")
+        kind = str(record.get("kind") or "")
+        key = (path, kind)
+        if not path or key in seen:
+            continue
+        seen.add(key)
+        entry = {
+            "path": path,
+            "language": record.get("language"),
+            "kind": kind,
+            "whyRelevant": [str(record.get("value") or kind)],
+        }
+        if "weak" in record:
+            entry["weak"] = record.get("weak")
+        boundaries.append(entry)
         if len(boundaries) >= 6:
             break
     return boundaries
@@ -956,7 +1112,7 @@ def build_outputs(
         "targetAreas": target_areas(task_intent, candidates),
         "nearbyModules": nearby_modules(candidates),
         "dominantConventions": dominant_conventions(style_profile),
-        "moduleBoundaries": module_boundaries(candidates),
+        "moduleBoundaries": module_boundaries(candidates, codebase_index),
         "candidateSummary": candidate_summary(candidates),
         "notes": notes,
     }

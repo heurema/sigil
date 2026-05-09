@@ -81,7 +81,7 @@ Hard stop if `openQuestions` is non-empty — the user must answer before procee
 ### Phase 2: EXECUTE
 
 1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes and saves `baseline.json` under the active contract artifact root.
-2. **Codebase Awareness context** — when enabled with `SIGNUM_CODEBASE_AWARENESS=hint|warn|gate`, orchestrator writes the derived project cache under `.signum/cache/` and run-scoped `implementation_context.json` / `reuse_candidates.json` under the active contract artifact root. The rebuildable project cache includes `codebase-index-v1.json`, `style-profile-v1.json`, and `file-digests-v1.json`; the digest cache supports bounded/incremental lexical scanning only and does not introduce AST, semantic, or adapter scanning.
+2. **Codebase Awareness context** — when enabled with `SIGNUM_CODEBASE_AWARENESS=hint|warn|gate`, orchestrator writes the derived project cache under `.signum/cache/` and run-scoped `implementation_context.json` / `reuse_candidates.json` under the active contract artifact root. The rebuildable project cache includes `codebase-index-v1.json`, `style-profile-v1.json`, and `file-digests-v1.json`; the digest cache supports bounded/incremental lexical scanning only and does not introduce AST or semantic scanning.
 3. **Engineer agent** (sonnet) implements the contract. When Codebase Awareness artifacts exist, the Engineer records `reuse_decision.json` before code changes; `warn` and `gate` modes require it by protocol.
 4. **Reuse decision validation** — after the Engineer returns, `warn` mode emits warnings for missing or invalid `reuse_decision.json` and continues; `gate` mode blocks EXECUTE on missing or invalid decisions. PACK summarizes this evidence later in `reuse_summary.json`.
 5. **Scope gate** — deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Pipeline stops on scope violation.
@@ -119,6 +119,8 @@ Canonical run artifacts live under the active contract artifact root `.signum/co
 `.signum/cache/file-digests-v1.json` is a rebuildable project-level Codebase Awareness cache. It is not active contract root evidence, not run-scoped evidence, and not a proofpack payload. The scanner may use it with `--previous-digests` as a bounded incremental foundation, but the current cache remains lexical and does not add AST or semantic scanning.
 
 The scanner defaults are bounded: `--max-files 10000`, `--max-bytes 50000000`, and `--max-file-size 1048576`. Files over the per-file cap are skipped, and repository-level caps mark the scan as truncated while still producing degraded cache/index artifacts.
+
+Codebase Awareness has shallow Go lexical/symbol support. It detects `go.mod`, `go.work`, `.go` files, Go package names/imports, exported symbols, `internal/`, `cmd/`, `pkg/`, `testdata/`, and `*_test.go` conventions. Go import resolution is local and module-path based when possible; it does not run `go list`, perform AST or type checking, or add Rust/C# adapters.
 
 | File | Phase | Contents |
 |------|-------|----------|
