@@ -26,3 +26,7 @@ set = { engineer_model = "sonnet" }
 [budget]
 max_iterations = 20             # max audit-fix iterations
 max_engineer_attempts = 3       # max repair loop attempts
+
+[codebase_awareness]
+mode = "off"                    # off|hint|warn|gate; warn/gate enforcement is future work
+max_candidates_in_prompt = 8
