@@ -45,6 +45,7 @@ SCANNED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 validate_policy_rule_catalog() {
   local catalog_path="${1:-}"
   local validation_errors=""
+  local regex_syntax_errors=""
 
   if [ -z "$catalog_path" ]; then
     echo "ERROR: policy rule catalog path is empty" >&2
@@ -136,6 +137,23 @@ validate_policy_rule_catalog() {
   if [ -n "$validation_errors" ]; then
     echo "ERROR: policy rule catalog validation failed: $catalog_path" >&2
     printf '%s\n' "$validation_errors" >&2
+    return 1
+  fi
+
+  regex_syntax_errors=$(jq -r '.rules[] | "\(.ruleId)\t\(.regex)"' "$catalog_path" | while IFS=$'\t' read -r rule_id regex; do
+    local grep_status=0
+    set +e
+    printf '' | grep -Eq -- "$regex" >/dev/null 2>&1
+    grep_status=$?
+    set -e
+    if [ "$grep_status" -eq 2 ]; then
+      printf 'rule %s has invalid regex syntax\n' "$rule_id"
+    fi
+  done)
+
+  if [ -n "$regex_syntax_errors" ]; then
+    echo "ERROR: policy rule catalog validation failed: $catalog_path" >&2
+    printf '%s\n' "$regex_syntax_errors" >&2
     return 1
   fi
 }

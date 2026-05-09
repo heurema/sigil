@@ -343,6 +343,21 @@ else
   fi
 fi
 
+INVALID_REGEX_CATALOG="$WORK/invalid-regex-policy-rules.json"
+jq '(.rules[0].regex) = "["' "$CATALOG" > "$INVALID_REGEX_CATALOG"
+INVALID_REGEX_DIR="$WORK/invalid-regex-catalog"
+mkdir -p "$INVALID_REGEX_DIR"
+cp "$FIXTURES/clean.patch" "$INVALID_REGEX_DIR/combined.patch"
+if SIGNUM_POLICY_RULE_CATALOG="$INVALID_REGEX_CATALOG" "$SCRIPT" "$INVALID_REGEX_DIR/combined.patch" >/dev/null 2>"$WORK/invalid-regex-catalog.err"; then
+  fail "scanner fails closed for invalid catalog regex" "scanner unexpectedly succeeded"
+else
+  if grep -q "invalid regex syntax" "$WORK/invalid-regex-catalog.err"; then
+    pass "scanner fails closed for invalid catalog regex"
+  else
+    fail "scanner fails closed for invalid catalog regex" "$(cat "$WORK/invalid-regex-catalog.err")"
+  fi
+fi
+
 CONFLICT_DIR="$WORK/conflicting-catalog"
 mkdir -p "$CONFLICT_DIR"
 cp "$FIXTURES/clean.patch" "$CONFLICT_DIR/combined.patch"
