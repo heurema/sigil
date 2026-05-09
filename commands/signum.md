@@ -1567,6 +1567,123 @@ else
 fi
 ```
 
+### Step 2.0.6: Codebase Awareness hint context
+
+Use the Bash tool to derive optional Codebase Awareness context before launching the Engineer. This PR1C wiring is non-blocking: it never changes the final verdict and does not require or enforce any reuse decision.
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+CONTRACT_ENGINEER_PATH="${ARTIFACT_ROOT}contract-engineer.json"
+
+CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"
+STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"
+IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
+REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+
+_POLICY_CODEBASE_MODE=""
+_POLICY_CODEBASE_MAX_CANDIDATES=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_VALUES=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+max_candidates = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        value = value.strip().strip('"').strip("'")
+        key = key.strip()
+        if key == "mode":
+            mode = value
+        elif key == "max_candidates_in_prompt":
+            max_candidates = value
+
+print(f"{mode}\t{max_candidates}")
+PY
+)
+  _POLICY_CODEBASE_MODE="${_POLICY_VALUES%%	*}"
+  _POLICY_CODEBASE_MAX_CANDIDATES="${_POLICY_VALUES#*	}"
+  [ "$_POLICY_CODEBASE_MAX_CANDIDATES" = "$_POLICY_VALUES" ] && _POLICY_CODEBASE_MAX_CANDIDATES=""
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+CODEBASE_MAX_CANDIDATES="${SIGNUM_CODEBASE_MAX_CANDIDATES:-${_POLICY_CODEBASE_MAX_CANDIDATES:-8}}"
+
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+
+case "$CODEBASE_MAX_CANDIDATES" in
+  ''|0|*[!0-9]*)
+    echo "WARNING: invalid SIGNUM_CODEBASE_MAX_CANDIDATES '$CODEBASE_MAX_CANDIDATES'; using 8"
+    CODEBASE_MAX_CANDIDATES="8"
+    ;;
+esac
+
+if [ "$CODEBASE_AWARENESS_MODE" = "off" ]; then
+  echo "Codebase Awareness: off (skipping CODEBASE_RECON and REUSE_MATCH)"
+else
+  if [ "$CODEBASE_AWARENESS_MODE" = "warn" ] || [ "$CODEBASE_AWARENESS_MODE" = "gate" ]; then
+    echo "NOTE: Codebase Awareness $CODEBASE_AWARENESS_MODE enforcement is not implemented in PR1C; running hint-only context generation."
+  fi
+
+  mkdir -p .signum/cache "$(dirname "$IMPLEMENTATION_CONTEXT_PATH")"
+
+  echo "CODEBASE_RECON: writing $CODEBASE_INDEX_PATH and $STYLE_PROFILE_PATH"
+  if python3 scripts/build_codebase_index.py \
+    --project-root . \
+    --output "$CODEBASE_INDEX_PATH" \
+    --style-output "$STYLE_PROFILE_PATH"; then
+    echo "CODEBASE_RECON: complete"
+    _CODEBASE_RECON_OK=1
+  else
+    _CODEBASE_RECON_EXIT=$?
+    echo "WARNING: CODEBASE_RECON failed with exit $_CODEBASE_RECON_EXIT; continuing EXECUTE without Codebase Awareness hints"
+    _CODEBASE_RECON_OK=0
+  fi
+
+  if [ "$_CODEBASE_RECON_OK" -eq 1 ]; then
+    _MATCHER_ARGS=(
+      --project-root .
+      --contract "$CONTRACT_PATH"
+      --codebase-index "$CODEBASE_INDEX_PATH"
+      --style-profile "$STYLE_PROFILE_PATH"
+      --output "$REUSE_CANDIDATES_PATH"
+      --implementation-context "$IMPLEMENTATION_CONTEXT_PATH"
+      --max-candidates "$CODEBASE_MAX_CANDIDATES"
+    )
+    if [ -f "$CONTRACT_ENGINEER_PATH" ]; then
+      _MATCHER_ARGS+=(--contract-engineer "$CONTRACT_ENGINEER_PATH")
+    fi
+
+    echo "REUSE_MATCH: writing $IMPLEMENTATION_CONTEXT_PATH and $REUSE_CANDIDATES_PATH"
+    if python3 scripts/build_reuse_candidates.py "${_MATCHER_ARGS[@]}"; then
+      echo "REUSE_MATCH: complete"
+    else
+      _REUSE_MATCH_EXIT=$?
+      echo "WARNING: REUSE_MATCH failed with exit $_REUSE_MATCH_EXIT; continuing EXECUTE without Codebase Awareness hints"
+    fi
+  fi
+fi
+```
+
 ### Step 2.1: Launch Engineer
 
 Use the Agent tool to launch the "engineer" agent with this prompt:
@@ -1812,7 +1929,6 @@ fi
 If transition verifier exits non-zero, **STOP**. Do not proceed to Phase 3.
 
 ---
-
 ## Phase 3: AUDIT
 
 **Goal:** Verify the change from multiple independent angles.

@@ -82,6 +82,7 @@ ALLOWED_CATEGORIES = {
     "legacy-resume-restart",
     "legacy-scan-fallback",
     "project-bootstrap-input",
+    "project-derived-cache",
     "project-metrics",
     "project-policy",
     "project-proofpack-index",
