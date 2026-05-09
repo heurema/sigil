@@ -4,11 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
 RUN_ID="test-run"
 EXTERNAL_RUN_ID="test-run-external-config"
+ZERO_RUN_ID="test-run-zero"
 RUN_DIR="$ROOT_DIR/experiments/signum_evolve/out/$RUN_ID"
 EXTERNAL_RUN_DIR="$ROOT_DIR/experiments/signum_evolve/out/$EXTERNAL_RUN_ID"
+ZERO_RUN_DIR="$ROOT_DIR/experiments/signum_evolve/out/$ZERO_RUN_ID"
 EXPORT_DIR="$(mktemp -d)"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$EXPORT_DIR" "$WORK"; rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR"' EXIT
+trap 'rm -rf "$EXPORT_DIR" "$WORK"; rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR" "$ZERO_RUN_DIR"' EXIT
 
 hash_file() {
   shasum -a 256 "$1" | awk '{print $1}'
@@ -19,7 +21,21 @@ CATALOG_HASH_BEFORE=$(hash_file "$ROOT_DIR/lib/policy-rules.json")
 OVERLAY_SCANNER_HASH_BEFORE=$(hash_file "$ROOT_DIR/platforms/claude-code/lib/policy-scanner.sh")
 OVERLAY_CATALOG_HASH_BEFORE=$(hash_file "$ROOT_DIR/platforms/claude-code/lib/policy-rules.json")
 
-rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR"
+rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR" "$ZERO_RUN_DIR"
+
+if python3 -m experiments.signum_evolve.cli generate \
+  --repo-root "$ROOT_DIR" \
+  --config experiments/signum_evolve/configs/evolve.v0.json \
+  --run-id "$ZERO_RUN_ID" \
+  --max-candidates 0 \
+  --seed 42 \
+  > "$WORK/generate-zero.json" 2> "$WORK/generate-zero.err"; then
+  echo "expected max-candidates=0 to fail without evaluating candidates" >&2
+  exit 1
+fi
+test ! -e "$ZERO_RUN_DIR"
+grep -Fq "no candidates generated" "$WORK/generate-zero.err"
+
 mkdir -p "$RUN_DIR/candidates/cand_999999"
 cat > "$RUN_DIR/candidates/cand_999999/candidate.json" <<'JSON'
 {"candidateId":"cand_999999","mutation":{}}

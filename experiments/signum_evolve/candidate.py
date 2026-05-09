@@ -98,6 +98,8 @@ def generate_candidates(
     allowed_prefixes: Sequence[str] = DEFAULT_ALLOWED_PREFIXES,
 ) -> List[Dict[str, Any]]:
     candidates: List[Dict[str, Any]] = []
+    if max_candidates <= 0:
+        return candidates
     next_index = 1
     for rule in noncritical_rules(catalog):
         rule_id = str(rule.get("ruleId"))
