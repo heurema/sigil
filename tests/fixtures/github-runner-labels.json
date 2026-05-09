@@ -9,6 +9,17 @@
   "mutableLatestAllowlist": [],
   "runners": [
     {
+      "file": ".github/workflows/codex-review-ready.yml",
+      "occurrence": 1,
+      "context": "jobs.codex-review-ready",
+      "runsOn": "ubuntu-24.04",
+      "classification": "fixed_github_hosted_runner",
+      "status": "pinned",
+      "originalLabel": "ubuntu-latest",
+      "pinnedLabel": "ubuntu-24.04",
+      "reason": "Codex Review Ready uses Python standard library only; pinned to fixed GitHub-hosted Ubuntu 24.04 image for reproducible status reconciliation."
+    },
+    {
       "file": ".github/workflows/ci.yml",
       "occurrence": 1,
       "context": "jobs.deterministic-tests",
