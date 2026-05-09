@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-regression-block/", "artifactRefs": [".signum/contracts/cp-regression-block/contract.json", ".signum/contracts/cp-regression-block/audit_summary.json", ".signum/contracts/cp-regression-block/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-regression-block", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-regression-block/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [{"check": "deterministic-tests"}], "verdict": "AUTO_BLOCK", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-regression-block/contract.json", ".signum/contracts/cp-regression-block/audit_summary.json", ".signum/contracts/cp-regression-block/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_BLOCK", "releaseVerdict": "AUTO_BLOCK"}
+  },
+  "caseId": "audit-mechanic-regression-auto-block",
+  "category": "audit_decision",
+  "description": "Mechanic regression blocks.",
+  "expected": {"allowedVerdicts": ["AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

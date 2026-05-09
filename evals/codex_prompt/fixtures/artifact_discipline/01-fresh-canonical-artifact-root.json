@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-artifact-fresh/", "artifactRefs": [".signum/contracts/cp-artifact-fresh/contract.json", ".signum/contracts/cp-artifact-fresh/audit_summary.json", ".signum/contracts/cp-artifact-fresh/mechanic_report.json", ".signum/contracts/cp-artifact-fresh/proofpack.json"], "completedRunOverwritten": false, "contractId": "cp-artifact-fresh", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-artifact-fresh/contract.json", ".signum/contracts/cp-artifact-fresh/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-artifact-fresh/contract.json", ".signum/contracts/cp-artifact-fresh/audit_summary.json", ".signum/contracts/cp-artifact-fresh/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "artifact-fresh-canonical-root-pass",
+  "category": "artifact_discipline",
+  "description": "Fresh run uses only the canonical active contract root.",
+  "expected": {"allowedVerdicts": ["AUTO_OK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "low"
+}

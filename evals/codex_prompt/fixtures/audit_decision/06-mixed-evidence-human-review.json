@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-mixed-evidence/", "artifactRefs": [".signum/contracts/cp-mixed-evidence/contract.json", ".signum/contracts/cp-mixed-evidence/audit_summary.json", ".signum/contracts/cp-mixed-evidence/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-mixed-evidence", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-mixed-evidence/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": true, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-mixed-evidence/contract.json", ".signum/contracts/cp-mixed-evidence/audit_summary.json", ".signum/contracts/cp-mixed-evidence/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "audit-mixed-evidence-human-review",
+  "category": "audit_decision",
+  "description": "Mixed evidence remains human review.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

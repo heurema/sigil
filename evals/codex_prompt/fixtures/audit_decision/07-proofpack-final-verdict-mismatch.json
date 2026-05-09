@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-proofpack-mismatch/", "artifactRefs": [".signum/contracts/cp-proofpack-mismatch/contract.json", ".signum/contracts/cp-proofpack-mismatch/audit_summary.json", ".signum/contracts/cp-proofpack-mismatch/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-proofpack-mismatch", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-proofpack-mismatch/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-proofpack-mismatch/contract.json", ".signum/contracts/cp-proofpack-mismatch/audit_summary.json", ".signum/contracts/cp-proofpack-mismatch/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "audit-proofpack-final-verdict-mismatch",
+  "category": "audit_decision",
+  "description": "Proofpack finalVerdict must match auditSummary verdict.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW"], "expectedViolations": ["proofpack.final_verdict_mismatch"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

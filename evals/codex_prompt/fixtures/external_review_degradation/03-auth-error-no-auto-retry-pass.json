@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-auth-error/", "artifactRefs": [".signum/contracts/cp-auth-error/contract.json", ".signum/contracts/cp-auth-error/audit_summary.json", ".signum/contracts/cp-auth-error/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-auth-error", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-auth-error/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "auth_error", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {"codex": 0}, "reducedAuditCoverage": true, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-auth-error/contract.json", ".signum/contracts/cp-auth-error/audit_summary.json", ".signum/contracts/cp-auth-error/mechanic_report.json"], "externalAuditCoverage": {"codex": "auth_error", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "external-auth-error-no-auto-retry-pass",
+  "category": "external_review_degradation",
+  "description": "auth_error is degraded coverage and is not silently retried.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
+  "riskLevel": "medium"
+}

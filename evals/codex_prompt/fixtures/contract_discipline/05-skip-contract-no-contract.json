@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-no-contract/", "artifactRefs": [".signum/contracts/cp-no-contract/audit_summary.json", ".signum/contracts/cp-no-contract/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-no-contract", "executionStarted": false, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-no-contract/audit_summary.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-no-contract/contract.json", ".signum/contracts/cp-no-contract/audit_summary.json", ".signum/contracts/cp-no-contract/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "contract-user-skips-contract-no-contract",
+  "category": "contract_discipline",
+  "description": "Artifacts with no contract must fail contract-first discipline.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["contract.missing"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

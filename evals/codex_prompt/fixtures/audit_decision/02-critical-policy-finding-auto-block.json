@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-critical-block/", "artifactRefs": [".signum/contracts/cp-critical-block/contract.json", ".signum/contracts/cp-critical-block/audit_summary.json", ".signum/contracts/cp-critical-block/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-critical-block", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-critical-block/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [{"ruleId": "POLICY_DYNAMIC_CODE_EXECUTION"}], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_BLOCK", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-critical-block/contract.json", ".signum/contracts/cp-critical-block/audit_summary.json", ".signum/contracts/cp-critical-block/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_BLOCK", "releaseVerdict": "AUTO_BLOCK"}
+  },
+  "caseId": "audit-critical-policy-finding-auto-block",
+  "category": "audit_decision",
+  "description": "Critical policy finding blocks.",
+  "expected": {"allowedVerdicts": ["AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

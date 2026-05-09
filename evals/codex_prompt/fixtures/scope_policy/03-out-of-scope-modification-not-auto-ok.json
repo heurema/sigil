@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-out-of-scope/", "artifactRefs": [".signum/contracts/cp-out-of-scope/contract.json", ".signum/contracts/cp-out-of-scope/audit_summary.json", ".signum/contracts/cp-out-of-scope/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-out-of-scope", "executionStarted": true, "outOfScopeModifications": ["platforms/codex/SKILL.md"], "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-out-of-scope/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-out-of-scope/contract.json", ".signum/contracts/cp-out-of-scope/audit_summary.json", ".signum/contracts/cp-out-of-scope/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "scope-out-of-scope-modification-not-auto-ok",
+  "category": "scope_policy",
+  "description": "Out-of-scope modification is not AUTO_OK.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

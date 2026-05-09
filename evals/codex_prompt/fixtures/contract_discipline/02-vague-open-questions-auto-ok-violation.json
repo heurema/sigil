@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-vague-open/", "artifactRefs": [".signum/contracts/cp-vague-open/contract.json", ".signum/contracts/cp-vague-open/audit_summary.json", ".signum/contracts/cp-vague-open/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-vague-open", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-vague-open/contract.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": ["Which files are in scope?"], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-vague-open/contract.json", ".signum/contracts/cp-vague-open/audit_summary.json", ".signum/contracts/cp-vague-open/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "contract-vague-open-questions-auto-ok-violation",
+  "category": "contract_discipline",
+  "description": "Unresolved open questions must prevent AUTO_OK.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["audit.false_auto_ok.contract_gap", "decision.must_not_claim_auto_ok", "decision.verdict_not_allowed"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

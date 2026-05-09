@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-dependency-review/", "artifactRefs": [".signum/contracts/cp-dependency-review/contract.json", ".signum/contracts/cp-dependency-review/audit_summary.json", ".signum/contracts/cp-dependency-review/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-dependency-review", "executionStarted": true, "outOfScopeModifications": [], "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-dependency-review/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [{"ruleId": "POLICY_NEW_NPM_DEPENDENCY"}], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-dependency-review/contract.json", ".signum/contracts/cp-dependency-review/audit_summary.json", ".signum/contracts/cp-dependency-review/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "scope-dependency-addition-human-review-pass",
+  "category": "scope_policy",
+  "description": "Dependency addition requires review or block, not AUTO_OK.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-timeout/", "artifactRefs": [".signum/contracts/cp-timeout/contract.json", ".signum/contracts/cp-timeout/audit_summary.json", ".signum/contracts/cp-timeout/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-timeout", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-timeout/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": true, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-timeout/contract.json", ".signum/contracts/cp-timeout/audit_summary.json", ".signum/contracts/cp-timeout/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "external-timeout-degraded-coverage-pass",
+  "category": "external_review_degradation",
+  "description": "Timeout records reduced audit coverage.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
+  "riskLevel": "medium"
+}

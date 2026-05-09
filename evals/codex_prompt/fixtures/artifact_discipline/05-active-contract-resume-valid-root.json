@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-resume-valid/", "artifactRefs": [".signum/contracts/cp-resume-valid/contract.json", ".signum/contracts/cp-resume-valid/audit_summary.json", ".signum/contracts/cp-resume-valid/mechanic_report.json", ".signum/contracts/cp-resume-valid/proofpack.json"], "completedRunOverwritten": false, "contractId": "cp-resume-valid", "executionStarted": true, "previousProofpackExists": true, "runtimeArtifacts": [".signum/contracts/cp-resume-valid/contract.json", ".signum/contracts/cp-resume-valid/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-resume-valid/contract.json", ".signum/contracts/cp-resume-valid/audit_summary.json", ".signum/contracts/cp-resume-valid/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "artifact-active-contract-resume-valid-root",
+  "category": "artifact_discipline",
+  "description": "Resume path keeps artifacts under the active contract root.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": true, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

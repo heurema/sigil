@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-network-error/", "artifactRefs": [".signum/contracts/cp-network-error/contract.json", ".signum/contracts/cp-network-error/audit_summary.json", ".signum/contracts/cp-network-error/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-network-error", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-network-error/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "network_error"}, "failedHoldouts": [], "fatalCrash": false, "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": true, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-network-error/contract.json", ".signum/contracts/cp-network-error/audit_summary.json", ".signum/contracts/cp-network-error/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "network_error"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "external-network-error-medium-risk-reduced-pass",
+  "category": "external_review_degradation",
+  "description": "Network error is graceful degradation, not a fatal crash.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
+  "riskLevel": "medium"
+}
