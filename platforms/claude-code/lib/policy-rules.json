@@ -8,7 +8,10 @@
       "pattern": "dynamic_code_execution",
       "autoBlock": true,
       "description": "Added line uses dynamic code execution sinks such as eval, Function, or Python __import__.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "eval\\s*\\(|new\\s+Function\\s*\\(|__import__\\s*\\(",
+      "suppressible": false
     },
     {
       "ruleId": "POLICY_XSS_SINK",
@@ -17,7 +20,10 @@
       "pattern": "xss_sink",
       "autoBlock": true,
       "description": "Added line writes HTML through browser XSS sinks such as innerHTML or document.write.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "innerHTML\\s*=|outerHTML\\s*=|document\\.write\\s*\\(|insertAdjacentHTML\\s*\\(",
+      "suppressible": false
     },
     {
       "ruleId": "POLICY_SQL_INJECTION",
@@ -26,7 +32,10 @@
       "pattern": "sql_injection",
       "autoBlock": true,
       "description": "Added line builds SQL with string concatenation or formatting around SQL keywords.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE).*[+%].*['\\\"]|['\\\"].*[+%].*(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)",
+      "suppressible": false
     },
     {
       "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
@@ -35,7 +44,10 @@
       "pattern": "subprocess_shell_injection",
       "autoBlock": true,
       "description": "Added line invokes subprocess, shell, or child process APIs matched by the current scanner regex.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "shell\\s*=\\s*True|subprocess\\.(call|run|Popen)\\s*\\(|os\\.system\\s*\\(|child_process\\.(exec|execSync|spawn)\\s*\\(",
+      "suppressible": false
     },
     {
       "ruleId": "POLICY_WEAK_CRYPTO",
@@ -44,7 +56,10 @@
       "pattern": "weak_crypto",
       "autoBlock": false,
       "description": "Added line uses weak crypto primitives such as md5, sha1, DES, or RC4.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "md5\\s*\\(|sha1\\s*\\(|DES\\.|RC4\\.|hashlib\\.md5|hashlib\\.sha1",
+      "suppressible": true
     },
     {
       "ruleId": "POLICY_UNCHECKED_ANY",
@@ -53,7 +68,10 @@
       "pattern": "unchecked_any",
       "autoBlock": false,
       "description": "Added TypeScript line uses unchecked any typing.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": ":\\s*any\\b|as\\s+any\\b",
+      "suppressible": true
     },
     {
       "ruleId": "POLICY_INCOMPLETE_MARKER",
@@ -62,7 +80,10 @@
       "pattern": "incomplete_implementation",
       "autoBlock": true,
       "description": "Added code line contains TODO, FIXME, HACK, or XXX marker outside ignored docs/tests/config paths.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "TODO:|FIXME:|HACK:|XXX:",
+      "suppressible": false
     },
     {
       "ruleId": "POLICY_INCOMPLETE_STUB",
@@ -71,7 +92,10 @@
       "pattern": "incomplete_implementation",
       "autoBlock": true,
       "description": "Added code line contains a not-implemented/todo stub pattern outside ignored docs/tests/config paths.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "panic\\(\\\"not implemented\\\"\\)|panic\\(\\\"todo\\\"\\)|raise\\s+NotImplementedError|throw\\s+new\\s+Error\\(\\\"TODO\\\"\\)",
+      "suppressible": false
     },
     {
       "ruleId": "POLICY_SUSPICIOUS_RETURN",
@@ -80,7 +104,10 @@
       "pattern": "suspicious_return",
       "autoBlock": false,
       "description": "Added line returns nil/null in patterns currently treated as suspicious.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "return nil\\s*//|return nil\\s*$|return null\\s*//\\s*TODO",
+      "suppressible": true
     },
     {
       "ruleId": "POLICY_DEBUG_PRINT",
@@ -89,7 +116,10 @@
       "pattern": "debug_print",
       "autoBlock": false,
       "description": "Added line contains debug output or debugger statements matched by the scanner.",
-      "fixture": "all-rules.patch"
+      "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "console\\.log\\s*\\(|debugger\\s*;|pprint\\s*\\(|console\\.debug\\s*\\(",
+      "suppressible": true
     },
     {
       "ruleId": "POLICY_NEW_NPM_DEPENDENCY",
@@ -99,6 +129,9 @@
       "autoBlock": false,
       "description": "Added manifest line in package.json looks like a new npm dependency version entry.",
       "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "\\\"[a-zA-Z0-9@/_-]+\\\"\\s*:\\s*\\\"[~^]?[0-9*]",
+      "suppressible": true,
       "fileScope": [
         "package.json",
         "package-lock.json",
@@ -122,6 +155,9 @@
       "autoBlock": false,
       "description": "Added manifest line in Cargo.toml looks like a new crate dependency entry.",
       "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "^[a-zA-Z0-9_-]+\\s*=\\s*[\\\"{]",
+      "suppressible": true,
       "fileScope": [
         "Cargo.toml",
         "Cargo.lock"
@@ -142,6 +178,9 @@
       "autoBlock": false,
       "description": "Added manifest line in pyproject.toml looks like a new Python dependency entry.",
       "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "\\\"[a-zA-Z0-9_.-]+[><=!~]|'[a-zA-Z0-9_.-]+[><=!~]|^\\s*[a-zA-Z0-9_.-]+[><=!~]",
+      "suppressible": true,
       "fileScope": [
         "requirements*.txt",
         "pyproject.toml",
@@ -167,6 +206,9 @@
       "autoBlock": false,
       "description": "Added manifest line in go.mod or go.sum looks like a new Go module dependency entry.",
       "fixture": "all-rules.patch",
+      "engine": "regex",
+      "regex": "[a-z][a-zA-Z0-9._/-]*/[a-zA-Z0-9_-]+\\s+v[0-9]+\\.[0-9]",
+      "suppressible": true,
       "fileScope": [
         "go.mod",
         "go.sum"
