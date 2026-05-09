@@ -11,6 +11,7 @@ from .candidate import DEFAULT_ALLOWED_PREFIXES, canonical_json, generate_candid
 from .export import export_bundle
 from .mutate import validate_scope_only_mutation
 from .report import baseline_summary_from_scorecard, write_leaderboard
+from .replay import run_historical_replay, write_historical_replay
 from .run_candidate import evaluate_candidate
 
 
@@ -43,6 +44,7 @@ def command_generate(args: argparse.Namespace) -> int:
         repo_root,
         config.get("baselineScorecard", "evals/policy_scanner/baselines/current.json"),
     ).resolve()
+    historical_root = repo_path(repo_root, args.historical_root).resolve() if args.historical_root else None
     allowed_prefixes = tuple(config.get("allowedPrefixes", DEFAULT_ALLOWED_PREFIXES))
 
     catalog = load_catalog(catalog_path)
@@ -63,6 +65,14 @@ def command_generate(args: argparse.Namespace) -> int:
             raise RuntimeError(f"{candidate['candidateId']} failed mutation validation: {errors}")
         candidate_dir = archive_candidate(run_dir, candidate)
         evaluate_candidate(repo_root, candidate_dir, baseline_path)
+        if historical_root is not None:
+            replay = run_historical_replay(
+                repo_root,
+                historical_root,
+                catalog_path,
+                candidate_dir / "policy-rules.json",
+            )
+            write_historical_replay(candidate_dir, replay)
 
     leaderboard = write_leaderboard(run_dir, args.run_id, baseline_scorecard)
     write_run_manifest(
@@ -101,6 +111,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     generate.add_argument("--run-id", required=True, help="Deterministic run ID.")
     generate.add_argument("--max-candidates", type=int, default=20, help="Maximum candidates to generate.")
     generate.add_argument("--seed", type=int, default=42, help="Recorded deterministic seed.")
+    generate.add_argument(
+        "--historical-root",
+        help="Optional historical contract root containing */combined.patch replay inputs.",
+    )
     generate.set_defaults(func=command_generate)
 
     leaderboard = subcommands.add_parser("leaderboard", help="Print a run leaderboard.")

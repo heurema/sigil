@@ -13,6 +13,14 @@ It does not change scanner behavior, mutate source catalogs, call LLMs, or apply
 - Archives candidate, eval, compare, and leaderboard artifacts under `out/<run_id>/`.
 - Exports a review bundle for one candidate.
 
+## What v0.1 Adds
+
+v0.1 adds optional historical replay drift reporting for reviewers.
+
+When `--historical-root` is provided, `generate` discovers historical contract directories containing `combined.patch`, scans each patch with the baseline catalog and with each candidate catalog, and writes deterministic drift data to each candidate archive.
+
+Historical replay is only a review signal. It is not treated as labeled ground truth and does not auto-apply or rewrite candidate catalogs. Missing historical roots are skipped gracefully.
+
 ## What v0 Does Not Do
 
 - No OpenEvolve.
@@ -24,6 +32,7 @@ It does not change scanner behavior, mutate source catalogs, call LLMs, or apply
 - No Codex prompt change.
 - No source catalog edits.
 - No auto-apply or PR creation.
+- No required `.signum/` artifacts for tests.
 
 ## Mutation Policy
 
@@ -69,6 +78,53 @@ experiments/signum_evolve/out/<run_id>/
 
 `out/` is ignored by git.
 
+To add optional historical replay:
+
+```bash
+python3 -m experiments.signum_evolve.cli generate \
+  --repo-root . \
+  --config experiments/signum_evolve/configs/evolve.v0.json \
+  --run-id replay-smoke \
+  --max-candidates 5 \
+  --seed 42 \
+  --historical-root .signum/contracts
+```
+
+If the historical root does not exist, the run still succeeds and records:
+
+```json
+{"historicalReplay": {"reason": "missing_root", "status": "skipped"}}
+```
+
+## Historical Replay Output
+
+Each candidate with replay enabled gets:
+
+```text
+experiments/signum_evolve/out/<run_id>/candidates/<candidate_id>/historical_replay.json
+```
+
+The report includes:
+
+- replay status
+- item count
+- new findings
+- removed findings
+- changed severity count
+- changed rule count
+- new or removed critical findings
+- per-contract drift items
+
+Finding identity is deterministic and compares:
+
+- `ruleId`
+- `file`
+- `line`
+- `severity`
+- `snippet`
+
+Changed severity and changed rule summaries use deterministic alternate identities to make drift easier to review. Paths are repo-relative when possible; external temporary roots are reported with `external:<root-name>/...` instead of absolute local paths.
+
 ## Read Leaderboard
 
 ```bash
@@ -77,6 +133,22 @@ python3 -m experiments.signum_evolve.cli leaderboard \
 ```
 
 The leaderboard reports candidate decision, status, hard gate result, improvements, regressions, and mutation metadata. A candidate does not need to beat the current baseline to be useful; the current baseline is intentionally strong.
+
+When replay is enabled, each leaderboard candidate also includes compact historical replay data:
+
+```json
+{
+  "historicalReplay": {
+    "itemCount": 12,
+    "newFindingsCount": 1,
+    "removedCriticalFindingsCount": 0,
+    "removedFindingsCount": 0,
+    "status": "ok"
+  }
+}
+```
+
+Replay does not penalize skipped candidates. If replay detects removed CRITICAL findings, the candidate decision is forced to `review` unless the comparison already rejected it.
 
 ## Export Adoption Bundle
 
@@ -93,7 +165,10 @@ The bundle contains:
 - `policy-rules.candidate.json`
 - `eval.json`
 - `compare.json`
+- `historical_replay.json`, when replay was enabled
 - `report.md`
 - `adoption-checklist.md`
 
 Candidate adoption requires a separate normal PR. The generated candidate catalog is never applied automatically.
+
+Adoption reports include a historical replay section when replay data is available. Any non-zero drift requires maintainer review before a candidate is adopted.
