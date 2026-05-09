@@ -44,8 +44,9 @@ setup_project() {
 setup_go_project() {
   local project="$1"
   cp -R "$GO_FIXTURE" "$project"
-  mkdir -p "$project/.signum/contracts/go-validation"
+  mkdir -p "$project/.signum/contracts/go-validation" "$project/.signum/contracts/go-token-validation"
   cp "$CONTRACTS/go-validation-contract.json" "$project/.signum/contracts/go-validation/contract.json"
+  cp "$CONTRACTS/go-token-validation-contract.json" "$project/.signum/contracts/go-token-validation/contract.json"
 }
 
 run_scanner() {
@@ -93,6 +94,22 @@ run_go_matcher() {
   )
 }
 
+run_go_token_matcher() {
+  local project="$1"
+  (
+    cd "$project"
+    python3 "$MATCHER" \
+      --project-root "." \
+      --contract ".signum/contracts/go-token-validation/contract.json" \
+      --codebase-index ".signum/cache/codebase-index-v1.json" \
+      --style-profile ".signum/cache/style-profile-v1.json" \
+      --output ".signum/contracts/go-token-validation/reuse_candidates.json" \
+      --implementation-context ".signum/contracts/go-token-validation/implementation_context.json" \
+      --max-candidates 8 \
+      --generated-at "2026-01-01T00:00:00Z"
+  )
+}
+
 PROJECT_A="$WORK/run-a/basic-mixed"
 PROJECT_B="$WORK/run-b/basic-mixed"
 mkdir -p "$(dirname "$PROJECT_A")" "$(dirname "$PROJECT_B")"
@@ -114,6 +131,7 @@ mkdir -p "$(dirname "$PROJECT_GO")"
 setup_go_project "$PROJECT_GO"
 GO_REUSE="$PROJECT_GO/.signum/contracts/go-validation/reuse_candidates.json"
 GO_CONTEXT="$PROJECT_GO/.signum/contracts/go-validation/implementation_context.json"
+GO_TOKEN_REUSE="$PROJECT_GO/.signum/contracts/go-token-validation/reuse_candidates.json"
 
 echo "=== Scanner prerequisite ==="
 if run_scanner "$PROJECT_A"; then
@@ -392,6 +410,10 @@ why = " ".join(top.get("whyRelevant", [])).lower()
 for term in ("validation", "shared candidate", "imported", "paired test"):
     if term not in why:
         errors.append(f"missing Go whyRelevant evidence: {term}")
+if "validation helper signal" not in why:
+    errors.append("generic validation helper signal missing")
+if "domain terms matched validation helper:" not in why:
+    errors.append("generic domain overlap explanation missing")
 if "pkg/" in why and not any(term in why for term in ("imported", "paired test", "symbol")):
     errors.append("pkg path used without stronger Go evidence")
 internal = [candidate for candidate in candidates if candidate.get("path") == "internal/auth"]
@@ -412,6 +434,48 @@ then
   pass "Go contract surfaces validation helper with non-path-only evidence"
 else
   fail "Go contract surfaces validation helper with non-path-only evidence" "Python assertion failed"
+fi
+
+echo ""
+echo "=== Generic validation scoring ==="
+if run_go_token_matcher "$PROJECT_GO"; then
+  pass "matcher supports non-email Go validation contract"
+else
+  fail "matcher supports non-email Go validation contract" "command failed"
+fi
+
+if python3 - "$GO_TOKEN_REUSE" "$MATCHER" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+reuse = json.loads(Path(sys.argv[1]).read_text())
+matcher_source = Path(sys.argv[2]).read_text()
+errors = []
+candidates = reuse.get("candidates", [])
+token_candidates = [
+    candidate for candidate in candidates
+    if candidate.get("path") in {"internal/auth", "internal/auth/token.go"}
+    and candidate.get("symbol") in {None, "ValidateToken"}
+]
+if not token_candidates:
+    errors.append("token validation helper candidate missing")
+if not any("validation helper signal" in " ".join(candidate.get("whyRelevant", [])).lower() for candidate in token_candidates):
+    errors.append("non-email validation helper did not get generic validation boost")
+if not any("domain terms matched validation helper: token" in " ".join(candidate.get("whyRelevant", [])).lower() for candidate in token_candidates):
+    errors.append("non-email validation helper did not explain token domain overlap")
+if re.search(r"""['"]email['"]""", matcher_source):
+    errors.append("matcher source contains hard-coded email literal")
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+  pass "generic validation scoring works without hard-coded domain literals"
+else
+  fail "generic validation scoring works without hard-coded domain literals" "Python assertion failed"
 fi
 
 echo ""

@@ -275,6 +275,10 @@ why = " ".join(top.get("whyRelevant", [])).lower()
 for term in ("validation", "shared candidate", "imported", "paired test"):
     if term not in why:
         errors.append(f"top Go candidate missing whyRelevant evidence: {term}")
+if "validation helper signal" not in why:
+    errors.append("top Go candidate missing generic validation helper signal")
+if "domain terms matched validation helper:" not in why:
+    errors.append("top Go candidate missing generic validation domain overlap")
 if "pkg/" in why and not any(term in why for term in ("imported", "paired test", "symbol")):
     errors.append("Go candidate relies only on pkg path")
 if not any(candidate.get("path") == "internal/auth" and candidate.get("risks") for candidate in candidates):

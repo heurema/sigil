@@ -72,6 +72,22 @@ SCOPE_KEYS = {"acceptancecriteria", "acceptance", "inscope", "scope"}
 RISK_KEYS = {"policy", "policyhints", "risk", "risklevel", "risks"}
 SHARED_DIR_HINTS = {"common", "lib", "shared", "utils"}
 VALIDATION_TOKENS = {"assert", "check", "parse", "schema", "valid", "validate", "validation", "validator"}
+GENERIC_DOMAIN_TOKENS = {
+    "add",
+    "code",
+    "existing",
+    "flow",
+    "go",
+    "golang",
+    "helper",
+    "helpers",
+    "javascript",
+    "python",
+    "rust",
+    "shell",
+    "task",
+    "typescript",
+}
 
 SUGGESTED_ACTION_BY_KIND = {
     "config-pattern": "follow-pattern",
@@ -468,6 +484,14 @@ def add_draft(
     draft["record"].append(record)
 
 
+def shared_symbol_record(record: dict[str, Any], name: str) -> dict[str, Any]:
+    symbol_record = dict(record)
+    symbol_record["name"] = name
+    symbol_record["tokens"] = split_identifier(name)
+    symbol_record["symbols"] = [name]
+    return symbol_record
+
+
 def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) -> dict[tuple[str, str, str], dict[str, Any]]:
     drafts: dict[tuple[str, str, str], dict[str, Any]] = {}
 
@@ -501,7 +525,7 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
                     language=language,
                     source_artifact="codebase-index-v1.json",
                     source_section="sharedCandidates",
-                    record=record,
+                    record=shared_symbol_record(record, name),
                     base_why=["symbol is exposed from a shared candidate module"],
                 )
 
@@ -707,6 +731,35 @@ def go_internal_allowed(candidate_path: str, target_paths: list[str]) -> bool | 
     return False
 
 
+def validation_domain_overlap(intent_tokens: set[str], candidate_tokens: set[str]) -> list[str]:
+    return sorted((intent_tokens & candidate_tokens) - VALIDATION_TOKENS - GENERIC_DOMAIN_TOKENS)
+
+
+def validation_symbol_tokens(draft: dict[str, Any], symbol_text: str, candidate_tokens: set[str]) -> set[str]:
+    tokens = tokenize_text(symbol_text)
+    if tokens:
+        if tokens & VALIDATION_TOKENS:
+            return tokens
+        if candidate_tokens & VALIDATION_TOKENS:
+            return tokens | (candidate_tokens & VALIDATION_TOKENS)
+        return set()
+
+    helper_tokens: set[str] = set()
+    for record in draft.get("record", []):
+        if not isinstance(record, dict):
+            continue
+        for symbol in as_list(record.get("symbols")):
+            name = symbol if isinstance(symbol, str) else record_symbol(symbol)
+            symbol_tokens = tokenize_text(name or "")
+            if symbol_tokens & VALIDATION_TOKENS:
+                helper_tokens.update(symbol_tokens)
+    if helper_tokens:
+        return helper_tokens
+    if candidate_tokens & VALIDATION_TOKENS:
+        return candidate_tokens
+    return set()
+
+
 def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: set[str]) -> dict[str, Any] | None:
     intent_tokens = set(task_intent.get("tokens", []))
     target_paths = [str(path) for path in task_intent.get("targetPaths", [])]
@@ -784,18 +837,17 @@ def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: s
         score += 0.03
         confidence += 0.015
 
-    if (
-        kind in {"existing-helper", "shared-module"}
-        and (intent_tokens & VALIDATION_TOKENS)
-        and (candidate_tokens & VALIDATION_TOKENS)
-        and ("email" not in intent_tokens or "email" in candidate_tokens)
-    ):
-        why.append("validation-specific helper signal")
-        score += 0.12
-        confidence += 0.06
-    if kind in {"existing-helper", "shared-module"} and "email" in intent_tokens and "email" in candidate_tokens:
-        score += 0.06
-        confidence += 0.03
+    validation_tokens = validation_symbol_tokens(draft, symbol_text, candidate_tokens)
+    if kind in {"existing-helper", "shared-module"} and (intent_tokens & VALIDATION_TOKENS) and validation_tokens:
+        why.append("validation helper signal")
+        domain_overlap = validation_domain_overlap(intent_tokens, validation_tokens)
+        if domain_overlap:
+            why.append(f"domain terms matched validation helper: {','.join(domain_overlap[:6])}")
+            score += 0.12 + min(0.12, 0.06 * len(domain_overlap))
+            confidence += 0.06 + min(0.06, 0.03 * len(domain_overlap))
+        else:
+            score += 0.08
+            confidence += 0.04
 
     internal_allowed = go_internal_allowed(path, target_paths)
     if internal_allowed is True:

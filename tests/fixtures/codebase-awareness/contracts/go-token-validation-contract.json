@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "go-token-validation-contract",
+  "goal": "Add token validation to Go authentication flow",
+  "riskLevel": "low",
+  "inScope": [
+    "internal/auth"
+  ],
+  "acceptanceCriteria": [
+    "Token values are rejected when malformed",
+    "Existing Go token validation helpers are reused when relevant"
+  ],
+  "openQuestions": [],
+  "requiredInputsProvided": true
+}
