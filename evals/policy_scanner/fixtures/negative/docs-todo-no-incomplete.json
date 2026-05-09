@@ -1,0 +1,12 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-docs-todo-no-incomplete",
+  "description": "TODO in docs/plan.md should not trigger incomplete implementation findings.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/docs/plan.md b/docs/plan.md\n@@ -0,0 +1,2 @@\n+# TODO: document rollout\n+This belongs in planning docs.\n",
+  "tags": [
+    "docs",
+    "negative"
+  ]
+}

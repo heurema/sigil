@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-subprocess-shell-whitespace",
+  "description": "subprocess shell=True with extra whitespace must still trigger the current subprocess shell injection rule.",
+  "expectedFindings": [
+    {
+      "file": "tools/run.py",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/tools/run.py b/tools/run.py\n@@ -0,0 +1,2 @@\n+import subprocess\n+subprocess.run(command, shell =   True)\n",
+  "tags": [
+    "python",
+    "security",
+    "critical",
+    "whitespace"
+  ]
+}

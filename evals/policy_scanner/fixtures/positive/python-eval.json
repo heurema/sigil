@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-python-eval",
+  "description": "Python eval() must trigger the current dynamic code execution rule.",
+  "expectedFindings": [
+    {
+      "file": "app.py",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/app.py b/app.py\n@@ -0,0 +1,2 @@\n+def run_expr(expr):\n+    return eval(expr)\n",
+  "tags": [
+    "python",
+    "security",
+    "critical"
+  ]
+}

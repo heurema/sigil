@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-python-notimplemented-production",
+  "description": "Production Python raise NotImplementedError must trigger the current incomplete stub rule.",
+  "expectedFindings": [
+    {
+      "file": "src/service.py",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_INCOMPLETE_STUB",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/service.py b/src/service.py\n@@ -0,0 +1,2 @@\n+def handle_request(request):\n+    raise NotImplementedError(\"wire adapter\")\n",
+  "tags": [
+    "python",
+    "unsafe",
+    "critical"
+  ]
+}

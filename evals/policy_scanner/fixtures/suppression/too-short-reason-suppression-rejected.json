@@ -1,0 +1,29 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-too-short-reason-rejected",
+  "description": "Suppression with too-short reason should be rejected and should not suppress the weak crypto finding.",
+  "expectedFindings": [
+    {
+      "file": "src/short_reason.py",
+      "line": 2,
+      "mustBlock": false,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "expectedRejectedSuppressions": [
+    {
+      "file": "src/short_reason.py",
+      "line": 1,
+      "rejectedReason": "reason_too_short",
+      "ruleId": "POLICY_WEAK_CRYPTO"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/short_reason.py b/src/short_reason.py\n@@ -0,0 +1,2 @@\n+# SIGNUM_POLICY_ALLOW:POLICY_WEAK_CRYPTO:short\n+digest = hashlib.md5(payload).hexdigest()\n",
+  "tags": [
+    "suppression",
+    "crypto",
+    "major"
+  ]
+}

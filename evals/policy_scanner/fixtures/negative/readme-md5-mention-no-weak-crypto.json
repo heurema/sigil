@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-readme-md5-mention-no-weak-crypto",
+  "description": "A README mention of md5 without a call expression should not trigger weak crypto.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/README.md b/README.md\n@@ -0,0 +1,2 @@\n+# Legacy hash notes\n+The md5 algorithm is mentioned here only as historical context.\n",
+  "tags": [
+    "docs",
+    "negative",
+    "crypto"
+  ]
+}
