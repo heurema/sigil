@@ -5,6 +5,7 @@ ROOT_DIR="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
 SCANNER="$ROOT_DIR/scripts/build_codebase_index.py"
 MATCHER="$ROOT_DIR/scripts/build_reuse_candidates.py"
 FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/basic-mixed"
+GO_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/go-basic"
 CONTRACTS="$ROOT_DIR/tests/fixtures/codebase-awareness/contracts"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -40,6 +41,13 @@ setup_project() {
   cp "$CONTRACTS/python-test-contract.json" "$project/.signum/contracts/python/contract.json"
 }
 
+setup_go_project() {
+  local project="$1"
+  cp -R "$GO_FIXTURE" "$project"
+  mkdir -p "$project/.signum/contracts/go-validation"
+  cp "$CONTRACTS/go-validation-contract.json" "$project/.signum/contracts/go-validation/contract.json"
+}
+
 run_scanner() {
   local project="$1"
   (
@@ -69,6 +77,22 @@ run_matcher() {
   )
 }
 
+run_go_matcher() {
+  local project="$1"
+  (
+    cd "$project"
+    python3 "$MATCHER" \
+      --project-root "." \
+      --contract ".signum/contracts/go-validation/contract.json" \
+      --codebase-index ".signum/cache/codebase-index-v1.json" \
+      --style-profile ".signum/cache/style-profile-v1.json" \
+      --output ".signum/contracts/go-validation/reuse_candidates.json" \
+      --implementation-context ".signum/contracts/go-validation/implementation_context.json" \
+      --max-candidates 8 \
+      --generated-at "2026-01-01T00:00:00Z"
+  )
+}
+
 PROJECT_A="$WORK/run-a/basic-mixed"
 PROJECT_B="$WORK/run-b/basic-mixed"
 mkdir -p "$(dirname "$PROJECT_A")" "$(dirname "$PROJECT_B")"
@@ -85,6 +109,11 @@ REUSE_B="$PROJECT_B/.signum/contracts/example/reuse_candidates.json"
 CONTEXT_B="$PROJECT_B/.signum/contracts/example/implementation_context.json"
 PY_REUSE="$PROJECT_A/.signum/contracts/python/reuse_candidates.json"
 PY_CONTEXT="$PROJECT_A/.signum/contracts/python/implementation_context.json"
+PROJECT_GO="$WORK/go/go-basic"
+mkdir -p "$(dirname "$PROJECT_GO")"
+setup_go_project "$PROJECT_GO"
+GO_REUSE="$PROJECT_GO/.signum/contracts/go-validation/reuse_candidates.json"
+GO_CONTEXT="$PROJECT_GO/.signum/contracts/go-validation/implementation_context.json"
 
 echo "=== Scanner prerequisite ==="
 if run_scanner "$PROJECT_A"; then
@@ -328,6 +357,61 @@ then
   pass "secondary python contract surfaces test pattern"
 else
   fail "secondary python contract surfaces test pattern" "Python assertion failed"
+fi
+
+echo ""
+echo "=== Go contract ==="
+if run_scanner "$PROJECT_GO"; then
+  pass "Go scanner prerequisite exits 0"
+else
+  fail "Go scanner prerequisite exits 0" "command failed"
+fi
+if run_go_matcher "$PROJECT_GO"; then
+  pass "matcher supports Go validation contract"
+else
+  fail "matcher supports Go validation contract" "command failed"
+fi
+
+if python3 - "$GO_REUSE" "$GO_CONTEXT" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+reuse = json.loads(Path(sys.argv[1]).read_text())
+context = json.loads(Path(sys.argv[2]).read_text())
+errors = []
+candidates = reuse.get("candidates", [])
+top = candidates[0] if candidates else {}
+if reuse.get("contractId") != "go-validation-contract":
+    errors.append("go contractId")
+if top.get("path") != "pkg/validation":
+    errors.append("top Go candidate should be pkg/validation")
+if top.get("kind") not in {"existing-helper", "shared-module"}:
+    errors.append("top Go candidate kind")
+why = " ".join(top.get("whyRelevant", [])).lower()
+for term in ("validation", "shared candidate", "imported", "paired test"):
+    if term not in why:
+        errors.append(f"missing Go whyRelevant evidence: {term}")
+if "pkg/" in why and not any(term in why for term in ("imported", "paired test", "symbol")):
+    errors.append("pkg path used without stronger Go evidence")
+internal = [candidate for candidate in candidates if candidate.get("path") == "internal/auth"]
+if not internal or not any(candidate.get("risks") for candidate in internal):
+    errors.append("internal boundary risk missing")
+if "go" not in context.get("primaryLanguages", []):
+    errors.append("Go primary language missing")
+if not context.get("dominantConventions", {}).get("go"):
+    errors.append("Go conventions missing")
+if not context.get("moduleBoundaries"):
+    errors.append("Go module boundaries missing")
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+  pass "Go contract surfaces validation helper with non-path-only evidence"
+else
+  fail "Go contract surfaces validation helper with non-path-only evidence" "Python assertion failed"
 fi
 
 echo ""

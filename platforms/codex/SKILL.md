@@ -128,7 +128,9 @@ Within that active contract root, create and use:
 
 Also ensure root `.signum/` is ignored by git when appropriate.
 
-Project-level Codebase Awareness caches under `.signum/cache/`, including `file-digests-v1.json`, are rebuildable scanner cache, not active contract root evidence and not proofpack payloads. The digest cache supports bounded/incremental lexical scanning only; it does not add AST, semantic, or adapter scanning. Scanner defaults are bounded at `--max-files 10000`, `--max-bytes 50000000`, and `--max-file-size 1048576`.
+Project-level Codebase Awareness caches under `.signum/cache/`, including `file-digests-v1.json`, are rebuildable scanner cache, not active contract root evidence and not proofpack payloads. The digest cache supports bounded/incremental lexical scanning only; it does not add AST or semantic scanning. Scanner defaults are bounded at `--max-files 10000`, `--max-bytes 50000000`, and `--max-file-size 1048576`.
+
+Codebase Awareness has shallow Go lexical/symbol support. It detects `go.mod`, `go.work`, `.go` files, Go package names/imports, exported symbols, `internal/`, `cmd/`, `pkg/`, `testdata/`, and `*_test.go` conventions. Go import resolution is local and module-path based when possible; it does not run `go list`, perform AST or type checking, or add Rust/C# adapters.
 
 ## Phase 1: CONTRACT
 
