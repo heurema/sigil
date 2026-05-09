@@ -30,6 +30,10 @@ assert_pass "per-contract PACK uses canonical verification helper" grep -Fq 'ver
 assert_pass "PACK emits releaseVerdict for validator compatibility" grep -Fq 'releaseVerdict: $releaseVerdict' "$COMMAND"
 assert_pass "PACK emits timing for validator compatibility" grep -Fq 'timing: { startedAt:' "$COMMAND"
 assert_pass "PACK emits reviewCoverage for validator compatibility" grep -Fq 'reviewCoverage: { availableReviews:' "$COMMAND"
+assert_pass "PACK builds Codebase Awareness reuse summary" grep -Fq 'PROOFPACK_REUSE_SUMMARY' "$COMMAND"
+assert_pass "PACK calls reuse summary wrapper" grep -Fq 'scripts/build_reuse_summary.py' "$COMMAND"
+assert_pass "PACK includes Codebase Awareness proofpack section" grep -Fq '.codebaseAwareness = $codebaseAwarenessJson' "$COMMAND"
+assert_pass "PACK references reuse_summary artifact" grep -Fq 'reuse_summary.json' "$COMMAND"
 assert_pass "final output shows anti-entropy summary" grep -Fq 'echo "Anti-entropy:' "$COMMAND"
 
 echo ""

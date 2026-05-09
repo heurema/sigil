@@ -81,36 +81,40 @@ Hard stop if `openQuestions` is non-empty — the user must answer before procee
 ### Phase 2: EXECUTE
 
 1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes and saves `baseline.json` under the active contract artifact root.
-2. **Codebase Awareness hint context** — when enabled with `SIGNUM_CODEBASE_AWARENESS=hint`, orchestrator writes the derived project cache under `.signum/cache/` and run-scoped `implementation_context.json` / `reuse_candidates.json` under the active contract artifact root. `warn` and `gate` currently run the same hint-only behavior; enforcement is future work.
-3. **Engineer agent** (sonnet) implements the contract. Repair loop: up to 3 attempts of implement → check acceptance criteria → fix failures.
-4. **Scope gate** — deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Pipeline stops on scope violation.
+2. **Codebase Awareness context** — when enabled with `SIGNUM_CODEBASE_AWARENESS=hint|warn|gate`, orchestrator writes the derived project cache under `.signum/cache/` and run-scoped `implementation_context.json` / `reuse_candidates.json` under the active contract artifact root.
+3. **Engineer agent** (sonnet) implements the contract. When Codebase Awareness artifacts exist, the Engineer records `reuse_decision.json` before code changes; `warn` and `gate` modes require it by protocol.
+4. **Reuse decision validation** — after the Engineer returns, `warn` mode emits warnings for missing or invalid `reuse_decision.json` and continues; `gate` mode blocks EXECUTE on missing or invalid decisions. PACK summarizes this evidence later in `reuse_summary.json`.
+5. **Scope gate** — deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Pipeline stops on scope violation.
 
-Outputs under the active contract artifact root: `baseline.json`, `combined.patch`, `execute_log.json`.
+Outputs under the active contract artifact root: `baseline.json`, `implementation_context.json`, `reuse_candidates.json`, `reuse_decision.json`, `combined.patch`, `execute_log.json`.
 
 ### Phase 3: AUDIT
 
-Five independent verification layers:
+Six independent verification layers:
 
 1. **Mechanic** (bash, zero LLM) — runs linter, typechecker, tests. Compares with baseline to detect regressions vs pre-existing failures.
-2. **Holdout validation** — runs hidden acceptance criteria the Engineer never saw (edge cases, negative tests from contract).
-3. **Claude reviewer** (opus agent) — semantic review of contract + diff + mechanic results.
-4. **Codex reviewer** (CLI, security-focused) — analyzes diff for security defects using `review-template-security.md`.
-5. **Gemini reviewer** (CLI, performance-focused) — analyzes diff for performance defects using `review-template-performance.md`.
+2. **Codebase Awareness duplicate scan** (bash/Python, zero LLM) — when enabled, writes `duplicate_scan.json` as audit evidence. In `warn`, unresolved major/critical duplicate findings cap the final outcome at `HUMAN_REVIEW`; in `gate`, critical and narrow high-confidence major duplicate findings can force `AUTO_BLOCK`.
+3. **Holdout validation** — runs hidden acceptance criteria the Engineer never saw (edge cases, negative tests from contract).
+4. **Claude reviewer** (opus agent) — semantic review of contract + diff + mechanic results.
+5. **Codex reviewer** (CLI, security-focused) — analyzes diff for security defects using `review-template-security.md`.
+6. **Gemini reviewer** (CLI, performance-focused) — analyzes diff for performance defects using `review-template-performance.md`.
 
 Synthesizer agent applies deterministic rules:
 - **AUTO_OK**: no regressions + all reviews APPROVE + 2+ reviews parsed + holdouts pass
 - **AUTO_BLOCK**: any regression (NEW failure vs baseline) OR any REJECT OR any CRITICAL finding
 - **HUMAN_REVIEW**: everything else (mixed signals, only 1 review, CONDITIONAL verdicts, holdout failures)
 
+Codebase Awareness verdict mapping is applied after synthesis and preserves stricter existing verdicts. `hint` remains informational. `warn` never produces `AUTO_BLOCK` from duplicate findings.
+
 Pre-existing failures (checks that failed in baseline AND still fail) no longer auto-block.
 
 ### Phase 4: PACK
 
-Assembles `proofpack.json` under the active contract artifact root — a self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score.
+Assembles `proofpack.json` under the active contract artifact root — a self-contained evidence bundle with embedded artifact contents, SHA-256 checksums, and confidence score. When Codebase Awareness is enabled, PACK also writes `reuse_summary.json` and includes/references compact Codebase Awareness evidence in the proofpack without embedding project-level cache files.
 
 ## Artifacts
 
-Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and is a registry/state/archive namespace, not a runtime workspace. Normal runs do not create root artifact files or root runtime dirs; root artifact paths are legacy migration inputs only. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `implementation_context.json`, `reuse_candidates.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory. Project-level Codebase Awareness cache files live under `.signum/cache/`.
+Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and is a registry/state/archive namespace, not a runtime workspace. Normal runs do not create root artifact files or root runtime dirs; root artifact paths are legacy migration inputs only. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `implementation_context.json`, `reuse_candidates.json`, `reuse_decision.json`, `duplicate_scan.json`, `reuse_summary.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory. Project-level Codebase Awareness cache files live under `.signum/cache/`.
 
 | File | Phase | Contents |
 |------|-------|----------|
@@ -118,6 +122,9 @@ Canonical run artifacts live under the active contract artifact root `.signum/co
 | `baseline.json` | Execute | Pre-change lint/typecheck/test exit codes |
 | `implementation_context.json` | Execute | Codebase Awareness hint context for the active contract |
 | `reuse_candidates.json` | Execute | Non-blocking reuse candidates for the active contract |
+| `reuse_decision.json` | Execute | Engineer reuse/adapt/reject decision evidence; required in `warn` and `gate` modes |
+| `duplicate_scan.json` | Audit | Deterministic Codebase Awareness post-diff reuse/duplicate scan evidence; affects AUDIT outcome in `warn`/`gate` |
+| `reuse_summary.json` | Pack | Compact Codebase Awareness PACK evidence summarizing candidates, reuse decision, duplicate scan, and verdict impact |
 | `combined.patch` | Execute | Full git diff of all changes |
 | `execute_log.json` | Execute | Attempt history, check results, status |
 | `mechanic_report.json` | Audit | Lint, typecheck, test results with baseline comparison and regression flags |

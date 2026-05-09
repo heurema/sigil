@@ -133,7 +133,7 @@ fi
 
 ### Step 2.0.6: Codebase Awareness hint context
 
-Use the Bash tool to derive optional Codebase Awareness context before launching the Engineer. This PR1C wiring is non-blocking: it never changes the final verdict and does not require or enforce any reuse decision.
+Use the Bash tool to derive optional Codebase Awareness context before launching the Engineer. Context generation stays non-blocking; reuse decision validation runs after the Engineer returns.
 
 ```bash
 source lib/contract-dir.sh 2>/dev/null || true
@@ -145,6 +145,7 @@ CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"
 STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"
 IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
 REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
 
 _POLICY_CODEBASE_MODE=""
 _POLICY_CODEBASE_MAX_CANDIDATES=""
@@ -205,7 +206,7 @@ if [ "$CODEBASE_AWARENESS_MODE" = "off" ]; then
   echo "Codebase Awareness: off (skipping CODEBASE_RECON and REUSE_MATCH)"
 else
   if [ "$CODEBASE_AWARENESS_MODE" = "warn" ] || [ "$CODEBASE_AWARENESS_MODE" = "gate" ]; then
-    echo "NOTE: Codebase Awareness $CODEBASE_AWARENESS_MODE enforcement is not implemented in PR1C; running hint-only context generation."
+    echo "NOTE: Codebase Awareness $CODEBASE_AWARENESS_MODE will validate $REUSE_DECISION_PATH after the Engineer returns."
   fi
 
   mkdir -p .signum/cache "$(dirname "$IMPLEMENTATION_CONTEXT_PATH")"
@@ -257,6 +258,106 @@ The canonical artifact root for this execute phase is `.signum/contracts/<active
 Read `contract-engineer.json` and `baseline.json` from that canonical artifact root.
 Implement, run the repair loop (max 3 attempts), save artifacts.
 Write `combined.patch` and `execute_log.json` to that same canonical artifact root.
+```
+
+### Step 2.1.5: Validate Codebase Awareness reuse decision
+
+Use the Bash tool to validate `reuse_decision.json` after the Engineer returns and before checking execute status. `warn` mode emits warnings only; `gate` mode blocks on missing or invalid reuse decisions.
+
+```bash
+source lib/contract-dir.sh 2>/dev/null || true
+ARTIFACT_ROOT="$(active_artifact_root 2>/dev/null || echo .signum/)"
+CONTRACT_PATH="${ARTIFACT_ROOT}contract.json"
+REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
+REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
+
+_POLICY_CODEBASE_MODE=""
+if [ -f ".signum/policy.toml" ]; then
+  _POLICY_CODEBASE_MODE=$(python3 - ".signum/policy.toml" <<'PY' 2>/dev/null || true
+import re
+import sys
+
+mode = ""
+try:
+    text = open(sys.argv[1], encoding="utf-8").read()
+except OSError:
+    text = ""
+
+match = re.search(r"^\[codebase_awareness\]\s*(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL)
+if match:
+    for raw in match.group(1).splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() == "mode":
+            mode = value.strip().strip('"').strip("'")
+
+print(mode)
+PY
+)
+fi
+
+CODEBASE_AWARENESS_MODE="${SIGNUM_CODEBASE_AWARENESS:-${_POLICY_CODEBASE_MODE:-off}}"
+
+case "$CODEBASE_AWARENESS_MODE" in
+  off|hint|warn|gate)
+    ;;
+  *)
+    echo "WARNING: invalid SIGNUM_CODEBASE_AWARENESS '$CODEBASE_AWARENESS_MODE'; using off"
+    CODEBASE_AWARENESS_MODE="off"
+    ;;
+esac
+
+case "$CODEBASE_AWARENESS_MODE" in
+  off)
+    echo "Codebase Awareness reuse decision validation: off"
+    ;;
+  hint)
+    if [ -f "$REUSE_DECISION_PATH" ]; then
+      echo "REUSE_DECISION: validating optional $REUSE_DECISION_PATH"
+      if python3 scripts/validate_reuse_decision.py \
+        --contract "$CONTRACT_PATH" \
+        --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+        --reuse-decision "$REUSE_DECISION_PATH" \
+        --mode "$CODEBASE_AWARENESS_MODE"; then
+        echo "REUSE_DECISION: valid"
+      else
+        _REUSE_DECISION_EXIT=$?
+        echo "WARNING: optional REUSE_DECISION validation failed with exit $_REUSE_DECISION_EXIT; continuing because mode is hint"
+      fi
+    else
+      echo "Codebase Awareness: hint mode and no reuse_decision.json found; skipping validation"
+    fi
+    ;;
+  warn)
+    echo "REUSE_DECISION: validating $REUSE_DECISION_PATH for warn mode"
+    if python3 scripts/validate_reuse_decision.py \
+      --contract "$CONTRACT_PATH" \
+      --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+      --reuse-decision "$REUSE_DECISION_PATH" \
+      --mode "$CODEBASE_AWARENESS_MODE"; then
+      echo "REUSE_DECISION: valid"
+    else
+      _REUSE_DECISION_EXIT=$?
+      echo "WARNING: REUSE_DECISION validation failed with exit $_REUSE_DECISION_EXIT; continuing because mode is warn"
+    fi
+    ;;
+  gate)
+    echo "REUSE_DECISION: validating $REUSE_DECISION_PATH for gate mode"
+    if python3 scripts/validate_reuse_decision.py \
+      --contract "$CONTRACT_PATH" \
+      --reuse-candidates "$REUSE_CANDIDATES_PATH" \
+      --reuse-decision "$REUSE_DECISION_PATH" \
+      --mode "$CODEBASE_AWARENESS_MODE"; then
+      echo "REUSE_DECISION: valid"
+    else
+      _REUSE_DECISION_EXIT=$?
+      echo "ERROR: REUSE_DECISION validation failed with exit $_REUSE_DECISION_EXIT; Codebase Awareness gate mode blocks EXECUTE"
+      exit "$_REUSE_DECISION_EXIT"
+    fi
+    ;;
+esac
 ```
 
 ### Step 2.2: Check result
