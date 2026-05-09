@@ -1,0 +1,6 @@
+[project]
+name = "basic-mixed"
+version = "0.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python_app"]

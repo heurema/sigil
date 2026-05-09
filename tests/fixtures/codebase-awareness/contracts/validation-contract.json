@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "validation-contract",
+  "goal": "Add signup email validation without duplicating existing validation helpers.",
+  "riskLevel": "medium",
+  "inScope": [
+    "src/features/signup.ts"
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "description": "Invalid email values are rejected before a signup payload is created."
+    },
+    {
+      "id": "AC-2",
+      "description": "Email normalization reuses the existing shared validation helper."
+    }
+  ],
+  "policyHints": [
+    "reuse existing validation helpers",
+    "avoid duplicate validators"
+  ]
+}
