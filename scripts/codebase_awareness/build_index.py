@@ -9,25 +9,41 @@ parse ASTs or call external tools.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import sys
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+DEFAULT_MAX_FILES = 10_000
+DEFAULT_MAX_BYTES = 50_000_000
+DEFAULT_MAX_FILE_SIZE = 1_048_576
+TEXT_EXTRACTION_LIMIT = 800_000
+INDEX_SCAN_MODE = "shallow-regex-v1"
+DIGEST_SCAN_MODE = "lexical-symbol"
 
 IGNORE_DIRS = {
     ".git",
     ".signum",
     ".venv",
+    ".mypy_cache",
+    ".pytest_cache",
     "__pycache__",
+    "bin",
     "build",
     "coverage",
     "dist",
     "node_modules",
+    "obj",
+    "target",
+    "venv",
 }
+GENERATED_MARKER_RE = re.compile(r"(@generated|auto-generated|do not edit|generated)", re.IGNORECASE)
 
 LANGUAGE_BY_SUFFIX = {
     ".cjs": "javascript",
@@ -65,8 +81,38 @@ SHARED_DIR_HINTS = {"common", "lib", "shared", "utils"}
 VALIDATION_TOKENS = {"assert", "check", "parse", "schema", "valid", "validate", "validation", "validator"}
 
 
+@dataclass(frozen=True)
+class ScanFile:
+    path: Path
+    rel: str
+    language: str | None
+    size_bytes: int
+    mtime_ns: int
+    sha256: str | None
+    indexed: bool
+    reason: str
+    text: str
+
+
+@dataclass(frozen=True)
+class ScanResult:
+    files: list[ScanFile]
+    scan_stats: dict[str, Any]
+    unsupported_files_summary: dict[str, int]
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"expected integer, got {value!r}") from exc
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be greater than or equal to 0")
+    return parsed
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -75,6 +121,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--output", default=".signum/cache/codebase-index-v1.json")
     parser.add_argument("--style-output", default=None)
     parser.add_argument("--style-profile", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--digests-output", default=None)
+    parser.add_argument("--previous-digests", default=None)
+    parser.add_argument("--max-files", type=non_negative_int, default=DEFAULT_MAX_FILES)
+    parser.add_argument("--max-bytes", type=non_negative_int, default=DEFAULT_MAX_BYTES)
+    parser.add_argument("--max-file-size", type=non_negative_int, default=DEFAULT_MAX_FILE_SIZE)
     parser.add_argument("--generated-at", default=None)
     args = parser.parse_args(argv)
     args.style_output = args.style_output or args.style_profile or ".signum/cache/style-profile-v1.json"
@@ -96,7 +147,7 @@ def should_ignore_dir(rel: str) -> bool:
     return any(part in IGNORE_DIRS for part in parts)
 
 
-def iter_files(root: Path) -> list[Path]:
+def iter_candidate_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(root):
         current = Path(dirpath)
@@ -128,17 +179,163 @@ def language_for_path(rel: str) -> str | None:
     return LANGUAGE_BY_SUFFIX.get(path.suffix)
 
 
-def read_text(path: Path, limit: int = 800_000) -> str:
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def is_binary_data(data: bytes) -> bool:
+    return b"\0" in data[:4096]
+
+
+def has_generated_marker(data: bytes) -> bool:
     try:
-        data = path.read_bytes()
+        prefix = data[:8192].decode("utf-8", errors="replace")
     except OSError:
-        return ""
-    if b"\0" in data[:4096]:
-        return ""
-    try:
-        return data[:limit].decode("utf-8", errors="replace")
-    except OSError:
-        return ""
+        return False
+    return bool(GENERATED_MARKER_RE.search(prefix))
+
+
+def decode_text_for_extraction(data: bytes) -> str:
+    return data[:TEXT_EXTRACTION_LIMIT].decode("utf-8", errors="replace")
+
+
+def skipped_scan_file(path: Path, rel: str, language: str | None, size_bytes: int, mtime_ns: int, reason: str) -> ScanFile:
+    return ScanFile(
+        path=path,
+        rel=rel,
+        language=language,
+        size_bytes=size_bytes,
+        mtime_ns=mtime_ns,
+        sha256=None,
+        indexed=False,
+        reason=reason,
+        text="",
+    )
+
+
+def build_scan(
+    root: Path,
+    *,
+    max_files: int,
+    max_bytes: int,
+    max_file_size: int,
+) -> ScanResult:
+    files: list[ScanFile] = []
+    unsupported: Counter[str] = Counter()
+    files_seen = 0
+    files_indexed = 0
+    bytes_indexed = 0
+    truncated = False
+    notes: list[str] = []
+
+    for path in iter_candidate_files(root):
+        rel = relpath(path, root)
+        language = language_for_path(rel)
+        try:
+            stat = path.stat()
+        except OSError:
+            files_seen += 1
+            unsupported["read-error"] += 1
+            files.append(skipped_scan_file(path, rel, language, 0, 0, "read-error"))
+            continue
+
+        size_bytes = int(stat.st_size)
+        mtime_ns = int(stat.st_mtime_ns)
+        files_seen += 1
+
+        if size_bytes > max_file_size:
+            unsupported["oversized"] += 1
+            files.append(skipped_scan_file(path, rel, language, size_bytes, mtime_ns, "oversized"))
+            continue
+
+        if files_indexed >= max_files:
+            unsupported["max-files"] += 1
+            truncated = True
+            notes.append(f"max-files cap reached at {max_files}")
+            files.append(skipped_scan_file(path, rel, language, size_bytes, mtime_ns, "max-files"))
+            break
+
+        if bytes_indexed + size_bytes > max_bytes:
+            unsupported["max-bytes"] += 1
+            truncated = True
+            notes.append(f"max-bytes cap reached at {max_bytes}")
+            files.append(skipped_scan_file(path, rel, language, size_bytes, mtime_ns, "max-bytes"))
+            break
+
+        try:
+            data = path.read_bytes()
+        except OSError:
+            unsupported["read-error"] += 1
+            files.append(skipped_scan_file(path, rel, language, size_bytes, mtime_ns, "read-error"))
+            continue
+
+        digest = sha256_bytes(data)
+        if is_binary_data(data):
+            unsupported["binary"] += 1
+            files.append(
+                ScanFile(
+                    path=path,
+                    rel=rel,
+                    language=language,
+                    size_bytes=size_bytes,
+                    mtime_ns=mtime_ns,
+                    sha256=digest,
+                    indexed=False,
+                    reason="binary",
+                    text="",
+                )
+            )
+            continue
+
+        if has_generated_marker(data):
+            unsupported["generated"] += 1
+            files.append(
+                ScanFile(
+                    path=path,
+                    rel=rel,
+                    language=language,
+                    size_bytes=size_bytes,
+                    mtime_ns=mtime_ns,
+                    sha256=digest,
+                    indexed=False,
+                    reason="generated",
+                    text="",
+                )
+            )
+            continue
+
+        files_indexed += 1
+        bytes_indexed += size_bytes
+        files.append(
+            ScanFile(
+                path=path,
+                rel=rel,
+                language=language,
+                size_bytes=size_bytes,
+                mtime_ns=mtime_ns,
+                sha256=digest,
+                indexed=True,
+                reason="indexed",
+                text=decode_text_for_extraction(data),
+            )
+        )
+
+    files_skipped = sum(1 for file in files if not file.indexed)
+    scan_stats = {
+        "filesSeen": files_seen,
+        "filesIndexed": files_indexed,
+        "filesReused": 0,
+        "filesSkipped": files_skipped,
+        "bytesIndexed": bytes_indexed,
+        "truncated": truncated,
+    }
+    if notes:
+        scan_stats["notes"] = sorted(set(notes))
+    return ScanResult(
+        files=files,
+        scan_stats=scan_stats,
+        unsupported_files_summary=dict(sorted(unsupported.items())),
+    )
 
 
 def split_identifier(value: str) -> list[str]:
@@ -459,9 +656,13 @@ def compact_conventions(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def build_index(root: Path, project_root_arg: str, generated_at: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    files = iter_files(root)
-    known_files = {relpath(path, root) for path in files}
+def build_index(
+    project_root_arg: str,
+    generated_at: str,
+    scan: ScanResult,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    indexed_files = [file for file in scan.files if file.indexed]
+    known_files = {file.rel for file in indexed_files}
     file_text: dict[str, str] = {}
     modules: list[dict[str, Any]] = []
     symbols: list[dict[str, Any]] = []
@@ -469,10 +670,10 @@ def build_index(root: Path, project_root_arg: str, generated_at: str) -> tuple[d
     tests: list[dict[str, Any]] = []
     manifests: list[dict[str, Any]] = []
 
-    for path in files:
-        rel = relpath(path, root)
-        language = language_for_path(rel)
-        text = read_text(path)
+    for scanned_file in indexed_files:
+        rel = scanned_file.rel
+        language = scanned_file.language
+        text = scanned_file.text
         if text:
             file_text[rel] = text
         kind = module_kind(rel)
@@ -616,20 +817,27 @@ def build_index(root: Path, project_root_arg: str, generated_at: str) -> tuple[d
         for language, count in sorted(language_counts.items(), key=lambda item: (-item[1], item[0]))
     ]
     scan_stats = {
-        "fileCount": len(files),
+        "fileCount": scan.scan_stats["filesSeen"],
         "sourceFileCount": sum(1 for module in modules if module.get("kind") == "source"),
         "testFileCount": len(tests),
         "symbolCount": len(symbols),
         "importCount": len(imports),
         "manifestCount": len(manifests),
         "sharedCandidateCount": len(shared_candidates),
+        "filesSeen": scan.scan_stats["filesSeen"],
+        "filesIndexed": scan.scan_stats["filesIndexed"],
+        "filesSkipped": scan.scan_stats["filesSkipped"],
+        "bytesIndexed": scan.scan_stats["bytesIndexed"],
+        "truncated": scan.scan_stats["truncated"],
     }
+    if scan.scan_stats.get("notes"):
+        scan_stats["notes"] = scan.scan_stats["notes"]
     portable_root = portable_project_root(project_root_arg)
 
     codebase_index = {
         "schemaVersion": "1.0",
         "generatedAt": generated_at,
-        "scanMode": "shallow-regex-v1",
+        "scanMode": INDEX_SCAN_MODE,
         "projectRoot": portable_root,
         "primaryLanguages": primary_languages,
         "languageDetections": language_detections,
@@ -642,14 +850,51 @@ def build_index(root: Path, project_root_arg: str, generated_at: str) -> tuple[d
         "duplicateFingerprints": duplicate_fingerprints,
         "manifests": sorted(manifests, key=lambda item: str(item.get("path"))),
         "scanStats": scan_stats,
+        "unsupportedFilesSummary": scan.unsupported_files_summary,
     }
     style_profile = build_style_profile(generated_at, portable_root, modules, symbols, manifests, file_text)
-    return codebase_index, style_profile
+    digest_cache = build_digest_cache(generated_at, portable_root, scan)
+    return codebase_index, style_profile, digest_cache
+
+
+def build_digest_cache(generated_at: str, project_root_arg: str, scan: ScanResult) -> dict[str, Any]:
+    files: dict[str, dict[str, Any]] = {}
+    for scanned_file in sorted(scan.files, key=lambda item: item.rel):
+        files[scanned_file.rel] = {
+            "sha256": scanned_file.sha256,
+            "sizeBytes": scanned_file.size_bytes,
+            "mtimeNs": scanned_file.mtime_ns,
+            "language": scanned_file.language,
+            "indexed": scanned_file.indexed,
+            "reason": scanned_file.reason,
+        }
+
+    cache: dict[str, Any] = {
+        "schemaVersion": "1.0",
+        "generatedAt": generated_at,
+        "projectRoot": project_root_arg,
+        "scanMode": DIGEST_SCAN_MODE,
+        "files": files,
+        "scanStats": scan.scan_stats,
+    }
+    if scan.unsupported_files_summary:
+        cache["unsupportedFilesSummary"] = scan.unsupported_files_summary
+    return cache
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_previous_digests(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def main(argv: list[str]) -> int:
@@ -659,9 +904,19 @@ def main(argv: list[str]) -> int:
         print(f"Project root not found: {args.project_root}", file=sys.stderr)
         return 1
     generated_at = args.generated_at or utc_now()
-    codebase_index, style_profile = build_index(project_root, args.project_root, generated_at)
+    previous_digests_path = project_root / args.previous_digests if args.previous_digests else None
+    load_previous_digests(previous_digests_path)
+    scan = build_scan(
+        project_root,
+        max_files=args.max_files,
+        max_bytes=args.max_bytes,
+        max_file_size=args.max_file_size,
+    )
+    codebase_index, style_profile, digest_cache = build_index(args.project_root, generated_at, scan)
     write_json(project_root / args.output, codebase_index)
     write_json(project_root / args.style_output, style_profile)
+    if args.digests_output:
+        write_json(project_root / args.digests_output, digest_cache)
     return 0
 
 

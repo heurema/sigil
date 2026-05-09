@@ -81,7 +81,7 @@ Hard stop if `openQuestions` is non-empty — the user must answer before procee
 ### Phase 2: EXECUTE
 
 1. **Baseline capture** — orchestrator runs lint/typecheck/tests BEFORE any changes and saves `baseline.json` under the active contract artifact root.
-2. **Codebase Awareness context** — when enabled with `SIGNUM_CODEBASE_AWARENESS=hint|warn|gate`, orchestrator writes the derived project cache under `.signum/cache/` and run-scoped `implementation_context.json` / `reuse_candidates.json` under the active contract artifact root.
+2. **Codebase Awareness context** — when enabled with `SIGNUM_CODEBASE_AWARENESS=hint|warn|gate`, orchestrator writes the derived project cache under `.signum/cache/` and run-scoped `implementation_context.json` / `reuse_candidates.json` under the active contract artifact root. The rebuildable project cache includes `codebase-index-v1.json`, `style-profile-v1.json`, and `file-digests-v1.json`; the digest cache supports bounded/incremental lexical scanning only and does not introduce AST, semantic, or adapter scanning.
 3. **Engineer agent** (sonnet) implements the contract. When Codebase Awareness artifacts exist, the Engineer records `reuse_decision.json` before code changes; `warn` and `gate` modes require it by protocol.
 4. **Reuse decision validation** — after the Engineer returns, `warn` mode emits warnings for missing or invalid `reuse_decision.json` and continues; `gate` mode blocks EXECUTE on missing or invalid decisions. PACK summarizes this evidence later in `reuse_summary.json`.
 5. **Scope gate** — deterministic check that all modified files are within `inScope` or `allowNewFilesUnder`. Pipeline stops on scope violation.
@@ -115,6 +115,10 @@ Assembles `proofpack.json` under the active contract artifact root — a self-co
 ## Artifacts
 
 Canonical run artifacts live under the active contract artifact root `.signum/contracts/<contractId>/`. Root `.signum/` stays auto-added to `.gitignore` and is a registry/state/archive namespace, not a runtime workspace. Normal runs do not create root artifact files or root runtime dirs; root artifact paths are legacy migration inputs only. The contract, pre-execute metadata, execute outputs, selected audit/pack file artifacts (`contract.json`, `spec_quality.json`, `spec_validation.json`, `clover_report.json`, `intent_check.json`, `approval.json`, `contract-hash.txt`, `contract-engineer.json`, `contract-policy.json`, `execution_context.json`, `baseline.json`, `implementation_context.json`, `reuse_candidates.json`, `reuse_decision.json`, `duplicate_scan.json`, `reuse_summary.json`, `combined.patch`, `execute_log.json`, `iteration_delta.patch`, `mechanic_report.json`, `holdout_report.json`, `policy_violations.json`, `policy_scan.json`, `audit_iteration_log.json`, `repair_brief.json`, `flaky_tests.json`, `audit_summary.json`, `proofpack.json`, `anti_entropy_report.json`), and active run directories (`reviews/`, `iterations/`, `receipts/`, `runs/`, `snapshots/`) are canonical under that contract directory. Project-level Codebase Awareness cache files live under `.signum/cache/`.
+
+`.signum/cache/file-digests-v1.json` is a rebuildable project-level Codebase Awareness cache. It is not active contract root evidence, not run-scoped evidence, and not a proofpack payload. The scanner may use it with `--previous-digests` as a bounded incremental foundation, but the current cache remains lexical and does not add AST or semantic scanning.
+
+The scanner defaults are bounded: `--max-files 10000`, `--max-bytes 50000000`, and `--max-file-size 1048576`. Files over the per-file cap are skipped, and repository-level caps mark the scan as truncated while still producing degraded cache/index artifacts.
 
 | File | Phase | Contents |
 |------|-------|----------|

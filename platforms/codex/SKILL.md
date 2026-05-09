@@ -128,6 +128,8 @@ Within that active contract root, create and use:
 
 Also ensure root `.signum/` is ignored by git when appropriate.
 
+Project-level Codebase Awareness caches under `.signum/cache/`, including `file-digests-v1.json`, are rebuildable scanner cache, not active contract root evidence and not proofpack payloads. The digest cache supports bounded/incremental lexical scanning only; it does not add AST, semantic, or adapter scanning. Scanner defaults are bounded at `--max-files 10000`, `--max-bytes 50000000`, and `--max-file-size 1048576`.
+
 ## Phase 1: CONTRACT
 
 Goal: turn the user request into a verifiable contract.

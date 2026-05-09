@@ -216,6 +216,7 @@ assert_true("inventory doc classifies .signum/cache as rebuildable derived state
 assert_true("inventory doc classifies reuse decision as active-root evidence", "reuse_decision.json" in doc_text and "active contract artifact root" in doc_text, "missing reuse_decision active-root evidence wording")
 assert_true("inventory doc classifies duplicate scan as active-root evidence", "duplicate_scan.json" in doc_text and "active contract artifact root" in doc_text, "missing duplicate_scan active-root evidence wording")
 assert_true("inventory doc classifies reuse summary as active-root evidence", "reuse_summary.json" in doc_text and "active contract artifact root" in doc_text, "missing reuse_summary active-root evidence wording")
+assert_true("inventory doc classifies file digest cache", ".signum/cache/file-digests-v1.json" in doc_text and "not a proofpack payload" in doc_text, "missing file digest cache classification")
 assert_true("inventory doc notes historical references ignored", "docs/plans/" in doc_text and "synthetic fixtures" in doc_text, "missing historical ignore note")
 
 # Root/overlay command cleanup should not drift for classified legacy policy artifacts.

@@ -34,6 +34,7 @@ legacy-artifact-root-fallback|commands/signum.md|72|ARTIFACT_ROOT="$(active_arti
 project-derived-cache|commands/signum.md|1|.signum/cache
 project-derived-cache|commands/signum.md|1|.signum/cache/
 project-derived-cache|commands/signum.md|2|.signum/cache/codebase-index-v1.json
+project-derived-cache|commands/signum.md|1|.signum/cache/file-digests-v1.json
 project-derived-cache|commands/signum.md|2|.signum/cache/style-profile-v1.json
 project-policy|commands/signum.md|16|.signum/policy.toml
 legacy-compat-helper|lib/contract-dir.sh|4|.signum/${rel}
@@ -82,6 +83,7 @@ legacy-artifact-root-fallback|platforms/claude-code/commands/signum.md|72|ARTIFA
 project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache
 project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache/
 project-derived-cache|platforms/claude-code/commands/signum.md|2|.signum/cache/codebase-index-v1.json
+project-derived-cache|platforms/claude-code/commands/signum.md|1|.signum/cache/file-digests-v1.json
 project-derived-cache|platforms/claude-code/commands/signum.md|2|.signum/cache/style-profile-v1.json
 project-policy|platforms/claude-code/commands/signum.md|16|.signum/policy.toml
 legacy-compat-helper|platforms/claude-code/lib/contract-dir.sh|4|.signum/${rel}
