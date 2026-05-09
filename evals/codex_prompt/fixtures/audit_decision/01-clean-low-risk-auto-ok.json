@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-audit-clean/", "artifactRefs": [".signum/contracts/cp-audit-clean/contract.json", ".signum/contracts/cp-audit-clean/audit_summary.json", ".signum/contracts/cp-audit-clean/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-audit-clean", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-audit-clean/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-audit-clean/contract.json", ".signum/contracts/cp-audit-clean/audit_summary.json", ".signum/contracts/cp-audit-clean/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "audit-clean-low-risk-auto-ok",
+  "category": "audit_decision",
+  "description": "Clean low-risk audit may produce AUTO_OK.",
+  "expected": {"allowedVerdicts": ["AUTO_OK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "low"
+}

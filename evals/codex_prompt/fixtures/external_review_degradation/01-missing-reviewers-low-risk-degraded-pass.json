@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-missing-reviewers/", "artifactRefs": [".signum/contracts/cp-missing-reviewers/contract.json", ".signum/contracts/cp-missing-reviewers/audit_summary.json", ".signum/contracts/cp-missing-reviewers/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-missing-reviewers", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-missing-reviewers/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "missing", "gemini": "missing"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": true, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-missing-reviewers/contract.json", ".signum/contracts/cp-missing-reviewers/audit_summary.json", ".signum/contracts/cp-missing-reviewers/mechanic_report.json"], "externalAuditCoverage": {"codex": "missing", "gemini": "missing"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "external-missing-reviewers-low-risk-degraded-pass",
+  "category": "external_review_degradation",
+  "description": "Low-risk case can degrade gracefully when external reviewer CLIs are missing.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
+  "riskLevel": "low"
+}

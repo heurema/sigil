@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-overwrite/", "artifactRefs": [".signum/contracts/cp-overwrite/contract.json", ".signum/contracts/cp-overwrite/audit_summary.json", ".signum/contracts/cp-overwrite/mechanic_report.json"], "completedRunOverwritten": true, "contractId": "cp-overwrite", "executionStarted": true, "previousProofpackExists": true, "runtimeArtifacts": [".signum/contracts/cp-overwrite/contract.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-overwrite/contract.json", ".signum/contracts/cp-overwrite/audit_summary.json", ".signum/contracts/cp-overwrite/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "artifact-completed-previous-run-overwritten",
+  "category": "artifact_discipline",
+  "description": "A completed previous proofpack must not be silently overwritten.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["artifact.completed_run_overwritten"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": true, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

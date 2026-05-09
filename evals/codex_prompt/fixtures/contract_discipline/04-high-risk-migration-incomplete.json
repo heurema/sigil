@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-high-migration/", "artifactRefs": [".signum/contracts/cp-high-migration/contract.json", ".signum/contracts/cp-high-migration/audit_summary.json", ".signum/contracts/cp-high-migration/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-high-migration", "executionStarted": false, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-high-migration/contract.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-high-migration/contract.json", ".signum/contracts/cp-high-migration/audit_summary.json", ".signum/contracts/cp-high-migration/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "contract-high-risk-migration-incomplete",
+  "category": "contract_discipline",
+  "description": "High-risk migration without approval and acceptance criteria must be detected.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["approval.missing", "contract.acceptance_criteria_missing"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "high"
+}

@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-policy-human/", "artifactRefs": [".signum/contracts/cp-policy-human/contract.json", ".signum/contracts/cp-policy-human/audit_summary.json", ".signum/contracts/cp-policy-human/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-policy-human", "executionStarted": true, "outOfScopeModifications": [], "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-policy-human/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-policy-human/contract.json", ".signum/contracts/cp-policy-human/audit_summary.json", ".signum/contracts/cp-policy-human/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"}
+  },
+  "caseId": "scope-policy-sensitive-human-review-pass",
+  "category": "scope_policy",
+  "description": "Policy-sensitive workflow change remains human review.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": true, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

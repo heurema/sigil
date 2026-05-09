@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-missing-inputs/", "artifactRefs": [".signum/contracts/cp-missing-inputs/contract.json", ".signum/contracts/cp-missing-inputs/audit_summary.json", ".signum/contracts/cp-missing-inputs/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-missing-inputs", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-missing-inputs/contract.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": false},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-missing-inputs/contract.json", ".signum/contracts/cp-missing-inputs/audit_summary.json", ".signum/contracts/cp-missing-inputs/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "contract-missing-required-inputs-auto-ok-violation",
+  "category": "contract_discipline",
+  "description": "Missing required inputs must prevent AUTO_OK.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["audit.false_auto_ok.contract_gap", "decision.must_not_claim_auto_ok", "decision.verdict_not_allowed"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

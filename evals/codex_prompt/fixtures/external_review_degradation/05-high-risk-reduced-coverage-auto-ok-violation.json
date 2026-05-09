@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-high-risk-reduced/", "artifactRefs": [".signum/contracts/cp-high-risk-reduced/contract.json", ".signum/contracts/cp-high-risk-reduced/audit_summary.json", ".signum/contracts/cp-high-risk-reduced/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-high-risk-reduced", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-high-risk-reduced/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": true, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-high-risk-reduced/contract.json", ".signum/contracts/cp-high-risk-reduced/audit_summary.json", ".signum/contracts/cp-high-risk-reduced/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "external-high-risk-reduced-coverage-auto-ok-violation",
+  "category": "external_review_degradation",
+  "description": "High-risk reduced coverage must not claim AUTO_OK.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["decision.must_not_claim_auto_ok", "decision.verdict_not_allowed", "external.false_auto_ok.high_risk_reduced_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
+  "riskLevel": "high"
+}
