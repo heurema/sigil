@@ -20,6 +20,13 @@ OVERLAY_SCANNER_HASH_BEFORE=$(hash_file "$ROOT_DIR/platforms/claude-code/lib/pol
 OVERLAY_CATALOG_HASH_BEFORE=$(hash_file "$ROOT_DIR/platforms/claude-code/lib/policy-rules.json")
 
 rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR"
+mkdir -p "$RUN_DIR/candidates/cand_999999"
+cat > "$RUN_DIR/candidates/cand_999999/candidate.json" <<'JSON'
+{"candidateId":"cand_999999","mutation":{}}
+JSON
+cat > "$RUN_DIR/candidates/cand_999999/compare.json" <<'JSON'
+{"decision":"review","hardGatePassed":true,"improvements":[],"regressions":[],"status":"equivalent"}
+JSON
 
 python3 -m experiments.signum_evolve.cli generate \
   --repo-root "$ROOT_DIR" \
@@ -31,12 +38,14 @@ python3 -m experiments.signum_evolve.cli generate \
 
 test -f "$RUN_DIR/run_manifest.json"
 test -f "$RUN_DIR/leaderboard.json"
+test ! -e "$RUN_DIR/candidates/cand_999999"
 python3 -m json.tool "$RUN_DIR/run_manifest.json" >/dev/null
 python3 -m json.tool "$RUN_DIR/leaderboard.json" >/dev/null
+jq -e '.candidateCount == 1' "$RUN_DIR/run_manifest.json" >/dev/null
 
 CANDIDATE_COUNT=$(jq '.candidates | length' "$RUN_DIR/leaderboard.json")
-if [ "$CANDIDATE_COUNT" -lt 1 ]; then
-  echo "expected at least one generated candidate" >&2
+if [ "$CANDIDATE_COUNT" -ne 1 ]; then
+  echo "expected exactly one generated candidate after run reset" >&2
   exit 1
 fi
 

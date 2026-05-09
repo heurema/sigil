@@ -1,14 +1,24 @@
 """Run archive helpers for signum-evolve v0."""
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from .candidate import write_json
 
 
 def prepare_run_dir(repo_root: Path, run_id: str) -> Path:
-    run_dir = repo_root / "experiments" / "signum_evolve" / "out" / run_id
+    out_root = (repo_root / "experiments" / "signum_evolve" / "out").resolve()
+    run_dir = (out_root / run_id).resolve()
+    if run_dir == out_root:
+        raise ValueError("run_id must name a child directory under experiments/signum_evolve/out")
+    try:
+        run_dir.relative_to(out_root)
+    except ValueError as exc:
+        raise ValueError("run_id must stay under experiments/signum_evolve/out") from exc
+    if run_dir.exists():
+        shutil.rmtree(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "candidates").mkdir(exist_ok=True)
     return run_dir
