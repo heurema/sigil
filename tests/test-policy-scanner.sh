@@ -101,7 +101,6 @@ import sys
 from pathlib import Path
 
 repo = Path(os.environ["REPO_ROOT"])
-scanner = repo / "lib" / "policy-scanner.sh"
 catalog_path = repo / "lib" / "policy-rules.json"
 fixtures = repo / "tests" / "fixtures" / "policy-scanner"
 
@@ -116,6 +115,92 @@ if not isinstance(rules, list) or not rules:
     rules = []
 
 catalog_by_id = {}
+expected_rules = {
+    "POLICY_DYNAMIC_CODE_EXECUTION": {
+        "type": "security",
+        "severity": "CRITICAL",
+        "pattern": "dynamic_code_execution",
+        "regex": r"eval\s*\(|new\s+Function\s*\(|__import__\s*\(",
+    },
+    "POLICY_XSS_SINK": {
+        "type": "security",
+        "severity": "CRITICAL",
+        "pattern": "xss_sink",
+        "regex": r"innerHTML\s*=|outerHTML\s*=|document\.write\s*\(|insertAdjacentHTML\s*\(",
+    },
+    "POLICY_SQL_INJECTION": {
+        "type": "security",
+        "severity": "CRITICAL",
+        "pattern": "sql_injection",
+        "regex": "(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE).*[+%].*['\\\"]|['\\\"].*[+%].*(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)",
+    },
+    "POLICY_SUBPROCESS_SHELL_INJECTION": {
+        "type": "security",
+        "severity": "CRITICAL",
+        "pattern": "subprocess_shell_injection",
+        "regex": r"shell\s*=\s*True|subprocess\.(call|run|Popen)\s*\(|os\.system\s*\(|child_process\.(exec|execSync|spawn)\s*\(",
+    },
+    "POLICY_WEAK_CRYPTO": {
+        "type": "security",
+        "severity": "MAJOR",
+        "pattern": "weak_crypto",
+        "regex": r"md5\s*\(|sha1\s*\(|DES\.|RC4\.|hashlib\.md5|hashlib\.sha1",
+    },
+    "POLICY_UNCHECKED_ANY": {
+        "type": "unsafe",
+        "severity": "MINOR",
+        "pattern": "unchecked_any",
+        "regex": r":\s*any\b|as\s+any\b",
+    },
+    "POLICY_INCOMPLETE_MARKER": {
+        "type": "unsafe",
+        "severity": "CRITICAL",
+        "pattern": "incomplete_implementation",
+        "regex": "TODO:|FIXME:|HACK:|XXX:",
+    },
+    "POLICY_INCOMPLETE_STUB": {
+        "type": "unsafe",
+        "severity": "CRITICAL",
+        "pattern": "incomplete_implementation",
+        "regex": "panic\\(\\\"not implemented\\\"\\)|panic\\(\\\"todo\\\"\\)|raise\\s+NotImplementedError|throw\\s+new\\s+Error\\(\\\"TODO\\\"\\)",
+    },
+    "POLICY_SUSPICIOUS_RETURN": {
+        "type": "unsafe",
+        "severity": "MINOR",
+        "pattern": "suspicious_return",
+        "regex": r"return nil\s*//|return nil\s*$|return null\s*//\s*TODO",
+    },
+    "POLICY_DEBUG_PRINT": {
+        "type": "unsafe",
+        "severity": "MINOR",
+        "pattern": "debug_print",
+        "regex": r"console\.log\s*\(|debugger\s*;|pprint\s*\(|console\.debug\s*\(",
+    },
+    "POLICY_NEW_NPM_DEPENDENCY": {
+        "type": "dependency",
+        "severity": "MAJOR",
+        "pattern": "new_npm_dependency",
+        "regex": "\\\"[a-zA-Z0-9@/_-]+\\\"\\s*:\\s*\\\"[~^]?[0-9*]",
+    },
+    "POLICY_NEW_CARGO_DEPENDENCY": {
+        "type": "dependency",
+        "severity": "MAJOR",
+        "pattern": "new_cargo_dependency",
+        "regex": "^[a-zA-Z0-9_-]+\\s*=\\s*[\\\"{]",
+    },
+    "POLICY_NEW_PYTHON_DEPENDENCY": {
+        "type": "dependency",
+        "severity": "MAJOR",
+        "pattern": "new_python_dependency",
+        "regex": "\\\"[a-zA-Z0-9_.-]+[><=!~]|'[a-zA-Z0-9_.-]+[><=!~]|^\\s*[a-zA-Z0-9_.-]+[><=!~]",
+    },
+    "POLICY_NEW_GO_DEPENDENCY": {
+        "type": "dependency",
+        "severity": "MAJOR",
+        "pattern": "new_go_dependency",
+        "regex": r"[a-z][a-zA-Z0-9._/-]*/[a-zA-Z0-9_-]+\s+v[0-9]+\.[0-9]",
+    },
+}
 expected_dependency_scopes = {
     "POLICY_NEW_NPM_DEPENDENCY": {
         "package.json",
@@ -136,7 +221,13 @@ expected_dependency_scopes = {
     },
     "POLICY_NEW_GO_DEPENDENCY": {"go.mod", "go.sum"},
 }
-expected_dependency_exclusions = {"docs/", "examples/", "fixtures/", "tests/", "test/"}
+expected_nonproduction_exclusions = {"docs/", "examples/", "fixtures/", "tests/", "test/"}
+expected_rule_exclusions = {
+    "POLICY_NEW_NPM_DEPENDENCY": expected_nonproduction_exclusions,
+    "POLICY_NEW_CARGO_DEPENDENCY": expected_nonproduction_exclusions,
+    "POLICY_NEW_PYTHON_DEPENDENCY": expected_nonproduction_exclusions,
+    "POLICY_NEW_GO_DEPENDENCY": expected_nonproduction_exclusions,
+}
 for index, rule in enumerate(rules):
     rid = rule.get("ruleId")
     if not isinstance(rid, str) or not rid.startswith("POLICY_"):
@@ -145,63 +236,55 @@ for index, rule in enumerate(rules):
     if rid in catalog_by_id:
         errors.append(f"duplicate catalog ruleId: {rid}")
     catalog_by_id[rid] = rule
-    for field in ("type", "severity", "pattern", "description", "fixture"):
+    for field in ("type", "severity", "pattern", "description", "fixture", "engine", "regex"):
         if not isinstance(rule.get(field), str) or not rule[field]:
             errors.append(f"{rid} missing non-empty {field}")
+    if rule.get("engine") != "regex":
+        errors.append(f"{rid} engine must be regex")
+    if "\t" in str(rule.get("regex", "")):
+        errors.append(f"{rid} regex must not contain a literal tab")
     if not isinstance(rule.get("autoBlock"), bool):
         errors.append(f"{rid} missing boolean autoBlock")
     elif rule["autoBlock"] != (rule.get("severity") == "CRITICAL"):
         errors.append(f"{rid} autoBlock must match CRITICAL severity")
+    if not isinstance(rule.get("suppressible"), bool):
+        errors.append(f"{rid} missing boolean suppressible")
+    elif rule.get("severity") == "CRITICAL" and rule["suppressible"] is not False:
+        errors.append(f"{rid} CRITICAL rule must not be suppressible")
+    elif rule.get("severity") != "CRITICAL" and rule["suppressible"] is not True:
+        errors.append(f"{rid} non-critical rule must remain suppressible")
+    excluded_prefixes = rule.get("excludedPathPrefixes")
+    if excluded_prefixes is not None:
+        if not isinstance(excluded_prefixes, list) or not excluded_prefixes or not all(isinstance(item, str) and item and "\t" not in item for item in excluded_prefixes):
+            errors.append(f"{rid} invalid excludedPathPrefixes")
+    if rid in expected_rule_exclusions:
+        if set(excluded_prefixes or []) != expected_rule_exclusions[rid]:
+            errors.append(f"{rid} unexpected excludedPathPrefixes: {excluded_prefixes}")
+    elif excluded_prefixes is not None:
+        errors.append(f"{rid} has unexpected excludedPathPrefixes: {excluded_prefixes}")
     if rule.get("type") == "dependency":
         file_scope = rule.get("fileScope")
-        excluded_prefixes = rule.get("excludedPathPrefixes")
         if not isinstance(file_scope, list) or not file_scope or not all(isinstance(item, str) and item for item in file_scope):
             errors.append(f"{rid} missing non-empty dependency fileScope")
-        if not isinstance(excluded_prefixes, list) or not excluded_prefixes or not all(isinstance(item, str) and item for item in excluded_prefixes):
-            errors.append(f"{rid} missing non-empty dependency excludedPathPrefixes")
         if rid in expected_dependency_scopes and set(file_scope or []) != expected_dependency_scopes[rid]:
             errors.append(f"{rid} unexpected fileScope: {file_scope}")
-        if set(excluded_prefixes or []) != expected_dependency_exclusions:
-            errors.append(f"{rid} unexpected excludedPathPrefixes: {excluded_prefixes}")
     fixture = rule.get("fixture")
     if isinstance(fixture, str) and not (fixtures / fixture).is_file():
         errors.append(f"{rid} fixture not found: {fixture}")
 
-pattern_defs = []
-in_patterns = False
-for raw in scanner.read_text().splitlines():
-    line = raw.strip()
-    if line == "declare -a PATTERNS=(":
-        in_patterns = True
-        continue
-    if in_patterns and line == ")":
-        in_patterns = False
-        continue
-    if not in_patterns or not line.startswith('"') or not line.endswith('"'):
-        continue
-    value = line[1:-1]
-    parts = value.split("|", 4)
-    if len(parts) != 5:
-        errors.append(f"malformed pattern definition: {line}")
-        continue
-    rule_id, rule_type, severity, pattern, _regex = parts
-    pattern_defs.append((rule_id, rule_type, severity, pattern))
-
-scanner_ids = [item[0] for item in pattern_defs]
-if len(scanner_ids) != len(set(scanner_ids)):
-    errors.append("scanner pattern rule IDs must be unique")
-if set(scanner_ids) != set(catalog_by_id):
+if set(expected_rules) != set(catalog_by_id):
     errors.append(
-        "scanner/catalog rule IDs differ: "
-        f"scanner_only={sorted(set(scanner_ids)-set(catalog_by_id))} "
-        f"catalog_only={sorted(set(catalog_by_id)-set(scanner_ids))}"
+        "catalog rule IDs differ from externalized scanner baseline: "
+        f"missing={sorted(set(expected_rules)-set(catalog_by_id))} "
+        f"extra={sorted(set(catalog_by_id)-set(expected_rules))}"
     )
-for rule_id, rule_type, severity, pattern in pattern_defs:
+for rule_id, expected in expected_rules.items():
     rule = catalog_by_id.get(rule_id)
     if not rule:
         continue
-    if rule.get("type") != rule_type or rule.get("severity") != severity or rule.get("pattern") != pattern:
-        errors.append(f"catalog metadata mismatch for {rule_id}")
+    for field, expected_value in expected.items():
+        if rule.get(field) != expected_value:
+            errors.append(f"{rule_id} {field} changed: expected {expected_value!r}, got {rule.get(field)!r}")
 
 if errors:
     for error in errors:
@@ -212,6 +295,61 @@ then
   pass "catalog matches scanner rule definitions"
 else
   fail "catalog matches scanner rule definitions" "Python contract check failed"
+fi
+
+echo ""
+echo "=== Catalog loading behavior ==="
+EXPLICIT_DIR="$WORK/explicit-catalog"
+mkdir -p "$EXPLICIT_DIR"
+cp "$FIXTURES/clean.patch" "$EXPLICIT_DIR/combined.patch"
+SIGNUM_POLICY_RULE_CATALOG="$CATALOG" "$SCRIPT" "$EXPLICIT_DIR/combined.patch" >/dev/null
+assert_jq "scanner runs with explicit SIGNUM_POLICY_RULE_CATALOG" '.summaryCounts.total == 0' "$EXPLICIT_DIR/policy_scan.json"
+
+ALIAS_DIR="$WORK/alias-catalog"
+mkdir -p "$ALIAS_DIR"
+cp "$FIXTURES/clean.patch" "$ALIAS_DIR/combined.patch"
+SIGNUM_POLICY_PATTERN_CATALOG="$CATALOG" "$SCRIPT" "$ALIAS_DIR/combined.patch" >/dev/null
+assert_jq "scanner runs with legacy SIGNUM_POLICY_PATTERN_CATALOG alias" '.summaryCounts.total == 0' "$ALIAS_DIR/policy_scan.json"
+
+MISSING_DIR="$WORK/missing-catalog"
+mkdir -p "$MISSING_DIR"
+cp "$FIXTURES/clean.patch" "$MISSING_DIR/combined.patch"
+if SIGNUM_POLICY_RULE_CATALOG="$WORK/missing-policy-rules.json" "$SCRIPT" "$MISSING_DIR/combined.patch" >/dev/null 2>"$WORK/missing-catalog.err"; then
+  fail "scanner fails closed for missing catalog" "scanner unexpectedly succeeded"
+else
+  if grep -q "policy rule catalog not found" "$WORK/missing-catalog.err"; then
+    pass "scanner fails closed for missing catalog"
+  else
+    fail "scanner fails closed for missing catalog" "$(cat "$WORK/missing-catalog.err")"
+  fi
+fi
+
+MALFORMED_CATALOG="$WORK/malformed-policy-rules.json"
+printf '%s\n' '{"schemaVersion":"1.0","rules":[{"ruleId":"POLICY_BAD"}]}' > "$MALFORMED_CATALOG"
+MALFORMED_DIR="$WORK/malformed-catalog"
+mkdir -p "$MALFORMED_DIR"
+cp "$FIXTURES/clean.patch" "$MALFORMED_DIR/combined.patch"
+if SIGNUM_POLICY_RULE_CATALOG="$MALFORMED_CATALOG" "$SCRIPT" "$MALFORMED_DIR/combined.patch" >/dev/null 2>"$WORK/malformed-catalog.err"; then
+  fail "scanner fails closed for malformed catalog" "scanner unexpectedly succeeded"
+else
+  if grep -q "policy rule catalog validation failed" "$WORK/malformed-catalog.err"; then
+    pass "scanner fails closed for malformed catalog"
+  else
+    fail "scanner fails closed for malformed catalog" "$(cat "$WORK/malformed-catalog.err")"
+  fi
+fi
+
+CONFLICT_DIR="$WORK/conflicting-catalog"
+mkdir -p "$CONFLICT_DIR"
+cp "$FIXTURES/clean.patch" "$CONFLICT_DIR/combined.patch"
+if SIGNUM_POLICY_RULE_CATALOG="$CATALOG" SIGNUM_POLICY_PATTERN_CATALOG="$CATALOG" "$SCRIPT" "$CONFLICT_DIR/combined.patch" >/dev/null 2>"$WORK/conflicting-catalog.err"; then
+  fail "scanner fails closed for conflicting catalog env vars" "scanner unexpectedly succeeded"
+else
+  if grep -q "set only one of SIGNUM_POLICY_RULE_CATALOG or SIGNUM_POLICY_PATTERN_CATALOG" "$WORK/conflicting-catalog.err"; then
+    pass "scanner fails closed for conflicting catalog env vars"
+  else
+    fail "scanner fails closed for conflicting catalog env vars" "$(cat "$WORK/conflicting-catalog.err")"
+  fi
 fi
 
 echo ""

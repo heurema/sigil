@@ -13,6 +13,8 @@ OUTPUT_DIR=""
 OUTPUT_PATH=""
 SCRIPT_DIR=""
 RULE_CATALOG_PATH=""
+RULE_CATALOG_OVERRIDE=""
+PATTERN_CATALOG_OVERRIDE=""
 KNOWN_RULE_IDS=""
 
 if [ -z "$PATCH_FILE" ]; then
@@ -38,15 +40,122 @@ if [ ! -f "$PATCH_FILE" ]; then
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RULE_CATALOG_PATH="${SCRIPT_DIR}/policy-rules.json"
-if [ ! -f "$RULE_CATALOG_PATH" ]; then
-  echo "ERROR: policy rule catalog not found: $RULE_CATALOG_PATH" >&2
-  exit 1
-fi
-KNOWN_RULE_IDS=$(jq -r '.rules[].ruleId' "$RULE_CATALOG_PATH")
-
 SCANNED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+validate_policy_rule_catalog() {
+  local catalog_path="${1:-}"
+  local validation_errors=""
+
+  if [ -z "$catalog_path" ]; then
+    echo "ERROR: policy rule catalog path is empty" >&2
+    return 1
+  fi
+  if [ ! -f "$catalog_path" ]; then
+    echo "ERROR: policy rule catalog not found: $catalog_path" >&2
+    return 1
+  fi
+  if ! jq empty "$catalog_path" >/dev/null 2>&1; then
+    echo "ERROR: policy rule catalog is not valid JSON: $catalog_path" >&2
+    return 1
+  fi
+
+  if ! validation_errors=$(jq -r '
+    def nonempty_string: type == "string" and length > 0;
+    def string_array:
+      type == "array" and length > 0 and all(.[]; type == "string" and length > 0);
+    def string_array_without_tabs:
+      type == "array" and length > 0 and all(.[]; type == "string" and length > 0 and (contains("\t") | not));
+    [
+      (if type != "object" then "top-level object required" else empty end),
+      (if type == "object" and (has("schemaVersion") | not) then "schemaVersion missing" else empty end),
+      (if type == "object" and ((.rules | type) != "array" or (.rules | length) == 0) then "rules must be a non-empty array" else empty end),
+      (if type == "object" and (.rules | type) == "array" then
+        (
+          .rules
+          | to_entries[]
+          | .key as $i
+          | .value as $r
+          | (
+              if ($r | type) != "object" then
+                "rules[\($i)] must be object"
+              else empty end
+            ),
+            (
+              [
+                "ruleId",
+                "type",
+                "severity",
+                "pattern",
+                "autoBlock",
+                "description",
+                "fixture",
+                "engine",
+                "regex",
+                "suppressible"
+              ][]
+              | . as $field
+              | if (($r | type) != "object" or ($r | has($field) | not)) then
+                  "rules[\($i)] missing \($field)"
+                else empty end
+            ),
+            (if (($r.ruleId? | nonempty_string) and ($r.ruleId | test("^POLICY_[A-Z0-9_]+$"))) then empty else "rules[\($i)] invalid ruleId" end),
+            (if ($r.type? | nonempty_string) then empty else "rules[\($i)] invalid type" end),
+            (if (($r.severity? | type) == "string" and (["CRITICAL", "MAJOR", "MINOR"] | index($r.severity))) then empty else "rules[\($i)] invalid severity" end),
+            (if ($r.pattern? | nonempty_string) then empty else "rules[\($i)] invalid pattern" end),
+            (if ($r.description? | nonempty_string) then empty else "rules[\($i)] invalid description" end),
+            (if ($r.fixture? | nonempty_string) then empty else "rules[\($i)] invalid fixture" end),
+            (if $r.engine? == "regex" then empty else "rules[\($i)] engine must be regex" end),
+            (if ($r.regex? | nonempty_string) then empty else "rules[\($i)] invalid regex" end),
+            (if (($r.regex? | type) == "string" and ($r.regex | contains("\t"))) then "rules[\($i)] regex contains literal tab" else empty end),
+            (if ($r.autoBlock? | type) == "boolean" then empty else "rules[\($i)] invalid autoBlock" end),
+            (if ($r.suppressible? | type) == "boolean" then empty else "rules[\($i)] invalid suppressible" end),
+            (if (($r.autoBlock? | type) == "boolean" and ($r.severity? | type) == "string" and ($r.autoBlock == ($r.severity == "CRITICAL"))) then empty else "rules[\($i)] autoBlock must match CRITICAL severity" end),
+            (if ($r.severity? == "CRITICAL" and $r.suppressible? != false) then "rules[\($i)] CRITICAL rule must not be suppressible" else empty end),
+            (if ($r.severity? != "CRITICAL" and ($r.suppressible? | type) == "boolean" and $r.suppressible != true) then "rules[\($i)] non-critical rule must be suppressible" else empty end),
+            (if ($r | has("fileScope")) and (($r.fileScope | string_array_without_tabs) | not) then "rules[\($i)] invalid fileScope" else empty end),
+            (if ($r | has("excludedPathPrefixes")) and (($r.excludedPathPrefixes | string_array_without_tabs) | not) then "rules[\($i)] invalid excludedPathPrefixes" else empty end),
+            (if $r.type? == "dependency" and (($r.fileScope? | string_array_without_tabs) | not) then "rules[\($i)] dependency rule requires fileScope" else empty end),
+            (if $r.type? == "dependency" and (($r.excludedPathPrefixes? | string_array_without_tabs) | not) then "rules[\($i)] dependency rule requires excludedPathPrefixes" else empty end)
+        ),
+        (
+          .rules
+          | map(select(type == "object" and (.ruleId? | type) == "string") | .ruleId)
+          | group_by(.)
+          | map(select(length > 1) | .[0])
+          | .[]
+          | "duplicate ruleId: \(.)"
+        )
+      else empty end)
+    ]
+    | .[]
+  ' "$catalog_path"); then
+    echo "ERROR: policy rule catalog validation failed: $catalog_path" >&2
+    return 1
+  fi
+
+  if [ -n "$validation_errors" ]; then
+    echo "ERROR: policy rule catalog validation failed: $catalog_path" >&2
+    printf '%s\n' "$validation_errors" >&2
+    return 1
+  fi
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RULE_CATALOG_OVERRIDE="${SIGNUM_POLICY_RULE_CATALOG:-}"
+PATTERN_CATALOG_OVERRIDE="${SIGNUM_POLICY_PATTERN_CATALOG:-}"
+if [ -n "$RULE_CATALOG_OVERRIDE" ] && [ -n "$PATTERN_CATALOG_OVERRIDE" ]; then
+  echo "ERROR: set only one of SIGNUM_POLICY_RULE_CATALOG or SIGNUM_POLICY_PATTERN_CATALOG" >&2
+  exit 1
+elif [ -n "$RULE_CATALOG_OVERRIDE" ]; then
+  RULE_CATALOG_PATH="$RULE_CATALOG_OVERRIDE"
+elif [ -n "$PATTERN_CATALOG_OVERRIDE" ]; then
+  RULE_CATALOG_PATH="$PATTERN_CATALOG_OVERRIDE"
+else
+  RULE_CATALOG_PATH="${SCRIPT_DIR}/policy-rules.json"
+fi
+
+validate_policy_rule_catalog "$RULE_CATALOG_PATH"
+KNOWN_RULE_IDS=$(jq -r '.rules[].ruleId' "$RULE_CATALOG_PATH")
 
 # ---------------------------------------------------------------------------
 # Parse patch: extract (file, line_number, addition_line) tuples
@@ -110,39 +219,19 @@ while IFS= read -r raw_line; do
 done < "$PATCH_FILE"
 
 # ---------------------------------------------------------------------------
-# Pattern definitions
-# Format: RULE_ID|TYPE|SEVERITY|PATTERN_NAME|GREP_REGEX
+# Pattern definitions are loaded from the policy rule catalog.
+# Runtime format:
+# RULE_ID<TAB>TYPE<TAB>SEVERITY<TAB>PATTERN<TAB>GREP_REGEX<TAB>SUPPRESSIBLE<TAB>EXCLUDED_PATH_PREFIXES<TAB>FILE_SCOPE
 # ---------------------------------------------------------------------------
-declare -a PATTERNS=(
-  # security: dynamic code execution (curated sinks, language-aware)
-  "POLICY_DYNAMIC_CODE_EXECUTION|security|CRITICAL|dynamic_code_execution|eval\s*\(|new\s+Function\s*\(|__import__\s*\("
-  # security: XSS sinks
-  "POLICY_XSS_SINK|security|CRITICAL|xss_sink|innerHTML\s*=|outerHTML\s*=|document\.write\s*\(|insertAdjacentHTML\s*\("
-  # security: SQL injection (SQL keywords + string concatenation)
-  "POLICY_SQL_INJECTION|security|CRITICAL|sql_injection|(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE).*[+%].*['\"]|['\"].*[+%].*(SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)"
-  # security: subprocess shell injection (Python + JS + shell)
-  "POLICY_SUBPROCESS_SHELL_INJECTION|security|CRITICAL|subprocess_shell_injection|shell\s*=\s*True|subprocess\.(call|run|Popen)\s*\(|os\.system\s*\(|child_process\.(exec|execSync|spawn)\s*\("
-  # security: weak crypto
-  "POLICY_WEAK_CRYPTO|security|MAJOR|weak_crypto|md5\s*\(|sha1\s*\(|DES\.|RC4\.|hashlib\.md5|hashlib\.sha1"
-  # unsafe: unchecked any-type (TypeScript)
-  "POLICY_UNCHECKED_ANY|unsafe|MINOR|unchecked_any|:\s*any\b|as\s+any\b"
-  # unsafe: incomplete implementation markers (CRITICAL — direct incident class)
-  "POLICY_INCOMPLETE_MARKER|unsafe|CRITICAL|incomplete_implementation|TODO:|FIXME:|HACK:|XXX:"
-  # unsafe: incomplete implementation via code patterns
-  "POLICY_INCOMPLETE_STUB|unsafe|CRITICAL|incomplete_implementation|panic\(\"not implemented\"\)|panic\(\"todo\"\)|raise\s+NotImplementedError|throw\s+new\s+Error\(\"TODO\"\)"
-  # unsafe: suspicious nil/null returns
-  "POLICY_SUSPICIOUS_RETURN|unsafe|MINOR|suspicious_return|return nil\s*//|return nil\s*$|return null\s*//\s*TODO"
-  # unsafe: debug statements (no generic print — too noisy)
-  "POLICY_DEBUG_PRINT|unsafe|MINOR|debug_print|console\.log\s*\(|debugger\s*;|pprint\s*\(|console\.debug\s*\("
-  # dependency: new package entry in package.json (quoted name followed by quoted version)
-  "POLICY_NEW_NPM_DEPENDENCY|dependency|MAJOR|new_npm_dependency|\"[a-zA-Z0-9@/_-]+\"\s*:\s*\"[~^]?[0-9*]"
-  # dependency: new crate entry in Cargo.toml (bare crate-name = version line)
-  "POLICY_NEW_CARGO_DEPENDENCY|dependency|MAJOR|new_cargo_dependency|^[a-zA-Z0-9_-]+\s*=\s*[\"{]"
-  # dependency: new package entry in pyproject.toml (quoted or bare package with optional version specifier)
-  "POLICY_NEW_PYTHON_DEPENDENCY|dependency|MAJOR|new_python_dependency|\"[a-zA-Z0-9_.-]+[><=!~]|'[a-zA-Z0-9_.-]+[><=!~]|^\s*[a-zA-Z0-9_.-]+[><=!~]"
-  # dependency: new require entry in go.mod (module path with vN.N.N version)
-  "POLICY_NEW_GO_DEPENDENCY|dependency|MAJOR|new_go_dependency|[a-z][a-zA-Z0-9._/-]*/[a-zA-Z0-9_-]+\s+v[0-9]+\.[0-9]"
-)
+declare -a PATTERNS=()
+while IFS= read -r pattern_def; do
+  PATTERNS+=("$pattern_def")
+done < <(jq -r '.rules[] | "\(.ruleId)\t\(.type)\t\(.severity)\t\(.pattern)\t\(.regex)\t\(.suppressible)\t\((.excludedPathPrefixes // []) | join("\u001c"))\t\((.fileScope // []) | join("\u001c"))"' "$RULE_CATALOG_PATH")
+
+if [ "${#PATTERNS[@]}" -eq 0 ]; then
+  echo "ERROR: policy rule catalog has no runtime patterns: $RULE_CATALOG_PATH" >&2
+  exit 1
+fi
 
 rule_id_known() {
   local rule_id="${1:-}"
@@ -159,40 +248,50 @@ json_string_length() {
   jq -nr --arg value "$value" '$value | length'
 }
 
-dependency_rule_in_scope() {
-  local rule_id="${1:-}"
-  local file="${2:-}"
-  local basename=""
+path_has_excluded_prefix() {
+  local file="${1:-}"
+  local excluded_prefixes="${2:-}"
+  local prefix=""
+  local old_ifs="$IFS"
 
+  [ -n "$excluded_prefixes" ] || return 1
+
+  IFS=$'\034'
+  for prefix in $excluded_prefixes; do
+    [ -n "$prefix" ] || continue
+    case "$file" in
+      "$prefix"*)
+        IFS="$old_ifs"
+        return 0
+        ;;
+    esac
+  done
+  IFS="$old_ifs"
+  return 1
+}
+
+rule_file_scope_allows() {
+  local file="${1:-}"
+  local file_scope="${2:-}"
+  local basename=""
+  local scope_pattern=""
+  local old_ifs="$IFS"
+
+  [ -n "$file_scope" ] || return 0
   basename=$(basename "$file")
 
-  case "$file" in
-    docs/*|examples/*|fixtures/*|tests/*|test/*) return 1 ;;
-  esac
+  IFS=$'\034'
+  for scope_pattern in $file_scope; do
+    [ -n "$scope_pattern" ] || continue
+    case "$basename" in
+      $scope_pattern)
+        IFS="$old_ifs"
+        return 0
+        ;;
+    esac
+  done
 
-  case "$rule_id" in
-    POLICY_NEW_NPM_DEPENDENCY)
-      case "$basename" in
-        package.json|package-lock.json|npm-shrinkwrap.json|pnpm-lock.yaml|yarn.lock) return 0 ;;
-      esac
-      ;;
-    POLICY_NEW_CARGO_DEPENDENCY)
-      case "$basename" in
-        Cargo.toml|Cargo.lock) return 0 ;;
-      esac
-      ;;
-    POLICY_NEW_PYTHON_DEPENDENCY)
-      case "$basename" in
-        requirements*.txt|pyproject.toml|poetry.lock|Pipfile|Pipfile.lock|setup.py|setup.cfg) return 0 ;;
-      esac
-      ;;
-    POLICY_NEW_GO_DEPENDENCY)
-      case "$basename" in
-        go.mod|go.sum) return 0 ;;
-      esac
-      ;;
-  esac
-
+  IFS="$old_ifs"
   return 1
 }
 
@@ -292,11 +391,15 @@ if [ -f "$ADDITIONS_FILE" ]; then
   while IFS=$'\t' read -r f_file f_line f_content; do
     f_basename=$(basename "$f_file")
     for pattern_def in "${PATTERNS[@]}"; do
-      IFS='|' read -r p_rule_id p_type p_severity p_name p_regex <<< "$pattern_def"
+      IFS=$'\t' read -r p_rule_id p_type p_severity p_name p_regex p_suppressible p_excluded_prefixes p_file_scope <<< "$pattern_def"
+
+      if path_has_excluded_prefix "$f_file" "$p_excluded_prefixes"; then
+        continue
+      fi
 
       # Dependency patterns: only match in manifest files
       if [ "$p_type" = "dependency" ]; then
-        dependency_rule_in_scope "$p_rule_id" "$f_file" || continue
+        rule_file_scope_allows "$f_file" "$p_file_scope" || continue
       fi
 
       # incomplete_implementation patterns: skip non-code files (docs, tests, configs, examples)
@@ -320,7 +423,7 @@ if [ -f "$ADDITIONS_FILE" ]; then
           '[.[] | select(.file == $file and .ruleId == $ruleId and .targetLine == $line)][0] // empty' \
           "$SUPPRESSIONS_FILE")
         if [ -n "$matched_suppression" ] && [ "$matched_suppression" != "null" ]; then
-          if [ "$p_severity" = "CRITICAL" ]; then
+          if [ "$p_suppressible" != "true" ]; then
             echo "$matched_suppression" | jq -c \
               --arg rejectedReason "critical_not_suppressible" \
               --arg severity "$p_severity" \
