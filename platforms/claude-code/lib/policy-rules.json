@@ -119,7 +119,14 @@
       "fixture": "all-rules.patch",
       "engine": "regex",
       "regex": "console\\.log\\s*\\(|debugger\\s*;|pprint\\s*\\(|console\\.debug\\s*\\(",
-      "suppressible": true
+      "suppressible": true,
+      "excludedPathPrefixes": [
+        "docs/",
+        "examples/",
+        "fixtures/",
+        "tests/",
+        "test/"
+      ]
     },
     {
       "ruleId": "POLICY_NEW_NPM_DEPENDENCY",

@@ -88,7 +88,10 @@ for fixture in \
   dependency-cargo-manifest.patch \
   dependency-go-manifest.patch \
   dependency-suppression-manifest.patch \
-  dependency-suppression-docs-no-finding.patch; do
+  dependency-suppression-docs-no-finding.patch \
+  debug-print-production.patch \
+  debug-print-examples-no-trigger.patch \
+  debug-print-nonproduction-prefixes.patch; do
   assert_file "fixture exists: $fixture" "$FIXTURES/$fixture"
 done
 
@@ -223,6 +226,7 @@ expected_dependency_scopes = {
 }
 expected_nonproduction_exclusions = {"docs/", "examples/", "fixtures/", "tests/", "test/"}
 expected_rule_exclusions = {
+    "POLICY_DEBUG_PRINT": expected_nonproduction_exclusions,
     "POLICY_NEW_NPM_DEPENDENCY": expected_nonproduction_exclusions,
     "POLICY_NEW_CARGO_DEPENDENCY": expected_nonproduction_exclusions,
     "POLICY_NEW_PYTHON_DEPENDENCY": expected_nonproduction_exclusions,
@@ -400,6 +404,17 @@ then
 else
   fail "all catalog rules are covered by fixtures" "Python coverage check failed"
 fi
+
+echo ""
+echo "=== Rule-level path scope ==="
+DEBUG_PROD_JSON=$(run_fixture debug-print-production.patch)
+assert_jq "debug print triggers in production src path" '.summaryCounts.minor == 1 and .summaryCounts.total == 1 and .findings[0].ruleId == "POLICY_DEBUG_PRINT"' "$DEBUG_PROD_JSON"
+
+DEBUG_EXAMPLES_JSON=$(run_fixture debug-print-examples-no-trigger.patch)
+assert_jq "debug print does not trigger in examples path" '.summaryCounts.total == 0 and .summaryCounts.suppressed == 0 and .summaryCounts.rejectedSuppressions == 0' "$DEBUG_EXAMPLES_JSON"
+
+DEBUG_NONPROD_JSON=$(run_fixture debug-print-nonproduction-prefixes.patch)
+assert_jq "debug print does not trigger in docs fixtures tests or test paths" '.summaryCounts.total == 0 and .summaryCounts.suppressed == 0 and .summaryCounts.rejectedSuppressions == 0' "$DEBUG_NONPROD_JSON"
 
 echo ""
 echo "=== Dependency file scope ==="
