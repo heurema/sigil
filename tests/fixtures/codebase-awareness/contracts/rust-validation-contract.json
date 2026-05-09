@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "rust-validation-contract",
+  "goal": "Add email validation to Rust signup flow",
+  "riskLevel": "low",
+  "inScope": ["crates/api/src/signup.rs"],
+  "outOfScope": ["crates/shared/src/validation.rs"],
+  "assumptions": ["Existing Rust validation helpers should be considered before adding new signup validation code."],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "description": "Signup flow validates email input before accepting the request."
+    },
+    {
+      "id": "AC-2",
+      "description": "Reuse an existing Rust validation helper when scanner evidence shows one is already available."
+    }
+  ],
+  "openQuestions": [],
+  "requiredInputsProvided": true
+}

@@ -1,0 +1,11 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "signum-rust-basic"
+path = "src/main.rs"
+
+[dependencies]
+shared = { path = "../shared" }

@@ -20,6 +20,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
+    tomllib = None
+
 DEFAULT_MAX_FILES = 10_000
 DEFAULT_MAX_BYTES = 50_000_000
 DEFAULT_MAX_FILE_SIZE = 1_048_576
@@ -87,6 +92,7 @@ LANGUAGE_BY_SUFFIX = {
 
 SOURCE_LANGUAGES = {"go", "javascript", "python", "rust", "shell", "typescript"}
 MANIFEST_NAMES = {
+    "Cargo.lock": "cargo-lock",
     "Cargo.toml": "cargo",
     "go.mod": "go",
     "go.work": "go-work",
@@ -204,6 +210,7 @@ def language_for_path(rel: str) -> str | None:
     if path.name in MANIFEST_NAMES:
         return {
             "cargo": "toml",
+            "cargo-lock": "toml",
             "go": "go",
             "go-work": "go",
             "npm": "json" if path.suffix == ".json" else "yaml",
@@ -392,6 +399,7 @@ def is_test_path(rel: str) -> bool:
         or name.startswith("test_")
         or name.endswith("_test.go")
         or name.endswith("_test.py")
+        or name.endswith("_test.rs")
         or ".test." in name
         or ".spec." in name
     )
@@ -524,9 +532,253 @@ def extract_go_symbols(rel: str, text: str) -> list[dict[str, Any]]:
     return symbols
 
 
+def parse_toml_document(text: str) -> dict[str, Any]:
+    if tomllib is not None:
+        try:
+            data = tomllib.loads(text)
+        except tomllib.TOMLDecodeError:
+            data = {}
+        if isinstance(data, dict):
+            return data
+    return parse_toml_fallback(text)
+
+
+def parse_toml_fallback(text: str) -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    section: list[str] = []
+    array_section: tuple[list[str], dict[str, Any]] | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[[") and line.endswith("]]"):
+            section = [part.strip() for part in line[2:-2].split(".") if part.strip()]
+            container = data
+            for part in section[:-1]:
+                child = container.setdefault(part, {})
+                if not isinstance(child, dict):
+                    child = {}
+                    container[part] = child
+                container = child
+            entries = container.setdefault(section[-1], [])
+            if not isinstance(entries, list):
+                entries = []
+                container[section[-1]] = entries
+            item: dict[str, Any] = {}
+            entries.append(item)
+            array_section = (section, item)
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section = [part.strip() for part in line[1:-1].split(".") if part.strip()]
+            array_section = None
+            continue
+        if "=" not in line:
+            continue
+        key, value = [part.strip() for part in line.split("=", 1)]
+        parsed: Any
+        if value.startswith('"') and value.endswith('"'):
+            parsed = value[1:-1]
+        elif value.startswith("[") and value.endswith("]"):
+            parsed = [
+                item.strip().strip('"').strip("'")
+                for item in value[1:-1].split(",")
+                if item.strip()
+            ]
+        else:
+            parsed = value.strip('"').strip("'")
+
+        if array_section is not None and array_section[0] == section:
+            array_section[1][key] = parsed
+            continue
+        container = data
+        for part in section:
+            child = container.setdefault(part, {})
+            if not isinstance(child, dict):
+                child = {}
+                container[part] = child
+            container = child
+        container[key] = parsed
+    return data
+
+
+def normalize_rust_visibility(raw: str | None) -> str:
+    if not raw:
+        return "private"
+    compact = re.sub(r"\s+", " ", raw.strip())
+    compact = compact.replace("pub (", "pub(")
+    compact = re.sub(r"\(\s+", "(", compact)
+    compact = re.sub(r"\s+\)", ")", compact)
+    return compact
+
+
+def rust_visibility_exported(visibility: str) -> bool:
+    return visibility == "pub"
+
+
+def rust_line_without_comment(line: str) -> str:
+    return line.split("//", 1)[0]
+
+
+def rust_brace_delta(line: str) -> int:
+    stripped = rust_line_without_comment(line)
+    return stripped.count("{") - stripped.count("}")
+
+
+def rust_impl_type(line: str) -> str | None:
+    pattern = re.compile(
+        r"""
+        ^\s*impl
+        (?:\s*<[^>{}]*>)?
+        \s+
+        (?:
+          [A-Za-z_][\w:<>]*
+          \s+for\s+
+        )?
+        (?P<type>[A-Za-z_][\w:]*)
+        (?:\s*<[^>{}]*>)?
+        (?:\s+where\b.*)?
+        \s*\{
+        """,
+        re.VERBOSE,
+    )
+    match = pattern.search(line)
+    if not match:
+        return None
+    return match.group("type").split("::")[-1]
+
+
+def rust_symbol_record(
+    *,
+    rel: str,
+    line_number: int,
+    kind: str,
+    name: str,
+    visibility: str,
+    impl_type: str | None = None,
+    test_only: bool = False,
+) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "name": name,
+        "kind": kind,
+        "language": "rust",
+        "path": rel,
+        "line": line_number,
+        "exported": rust_visibility_exported(visibility),
+        "visibility": visibility,
+        "tokens": sorted(set(split_identifier(name))),
+    }
+    if impl_type:
+        record["implType"] = impl_type
+        record["tokens"] = sorted(set(record["tokens"]) | set(split_identifier(impl_type)))
+    if test_only:
+        record["testOnly"] = True
+    return record
+
+
+def extract_rust_symbols(rel: str, text: str) -> list[dict[str, Any]]:
+    vis = r"(?P<vis>pub(?:\s*\([^)]*\))?)?"
+    fn_pattern = re.compile(
+        rf"^\s*{vis}\s*(?:(?:async|unsafe|const)\s+)*fn\s+(?P<name>[A-Za-z_][\w]*)\b"
+    )
+    type_pattern = re.compile(
+        rf"^\s*{vis}\s*(?P<kind>struct|enum|trait|type)\s+(?P<name>[A-Za-z_][\w]*)\b"
+    )
+    const_pattern = re.compile(
+        rf"^\s*{vis}\s*(?P<kind>const|static)\s+(?P<name>[A-Za-z_][\w]*)\b"
+    )
+    mod_pattern = re.compile(
+        rf"^\s*{vis}\s*mod\s+(?P<name>[A-Za-z_][\w]*)\s*(?:;|\{{)"
+    )
+    cfg_test_re = re.compile(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]")
+    test_attr_re = re.compile(r"#\s*\[\s*(?:(?:tokio|async_std)::)?test\s*\]")
+    symbols: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    brace_depth = 0
+    impl_stack: list[tuple[int, str]] = []
+    test_module_stack: list[int] = []
+    pending_cfg_test = False
+    pending_test_attr = False
+
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        while impl_stack and brace_depth < impl_stack[-1][0]:
+            impl_stack.pop()
+        while test_module_stack and brace_depth < test_module_stack[-1]:
+            test_module_stack.pop()
+
+        if cfg_test_re.search(line):
+            pending_cfg_test = True
+            brace_depth += rust_brace_delta(line)
+            continue
+
+        if test_attr_re.search(line):
+            pending_test_attr = True
+            brace_depth += rust_brace_delta(line)
+            continue
+
+        cfg_test_item = pending_cfg_test
+        pending_cfg_test = False
+        test_mod_line = bool(cfg_test_item and re.search(r"^\s*(?:pub\s+)?mod\s+[A-Za-z_][\w]*\s*\{", line))
+        if test_mod_line:
+            test_module_stack.append(brace_depth + 1)
+        test_attr_item = pending_test_attr
+        pending_test_attr = False
+        in_test_module = bool(test_module_stack) or cfg_test_item or test_attr_item
+
+        impl_type = rust_impl_type(line)
+        if impl_type and not in_test_module:
+            impl_stack.append((brace_depth + 1, impl_type))
+        active_impl = impl_stack[-1][1] if impl_stack and brace_depth >= impl_stack[-1][0] else None
+
+        if not in_test_module:
+            for pattern, default_kind in (
+                (fn_pattern, "function"),
+                (type_pattern, None),
+                (const_pattern, None),
+                (mod_pattern, "module"),
+            ):
+                match = pattern.search(line)
+                if not match:
+                    continue
+                name = match.group("name")
+                visibility = normalize_rust_visibility(match.groupdict().get("vis"))
+                kind = default_kind or match.group("kind")
+                if kind == "fn":
+                    kind = "function"
+                if kind == "const":
+                    kind = "constant"
+                if kind == "static":
+                    kind = "static"
+                if kind == "function" and active_impl:
+                    kind = "method"
+                key = (kind, name, active_impl or "")
+                if key in seen:
+                    continue
+                seen.add(key)
+                symbols.append(
+                    rust_symbol_record(
+                        rel=rel,
+                        line_number=line_number,
+                        kind=kind,
+                        name=name,
+                        visibility=visibility,
+                        impl_type=active_impl if kind == "method" else None,
+                    )
+                )
+                break
+
+        brace_depth += rust_brace_delta(line)
+        while impl_stack and brace_depth < impl_stack[-1][0]:
+            impl_stack.pop()
+        while test_module_stack and brace_depth < test_module_stack[-1]:
+            test_module_stack.pop()
+    return symbols
+
+
 def extract_symbols(rel: str, language: str | None, text: str) -> list[dict[str, Any]]:
     if language == "go":
         return extract_go_symbols(rel, text)
+    if language == "rust":
+        return extract_rust_symbols(rel, text)
 
     patterns: list[tuple[str, str, str]] = []
     if language in {"javascript", "typescript"}:
@@ -680,9 +932,130 @@ def extract_go_import_records(text: str) -> list[dict[str, Any]]:
     return [unique[key] for key in sorted(unique)]
 
 
+def split_top_level_commas(value: str) -> list[str]:
+    items: list[str] = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(value):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth = max(0, depth - 1)
+        elif char == "," and depth == 0:
+            item = value[start:index].strip()
+            if item:
+                items.append(item)
+            start = index + 1
+    item = value[start:].strip()
+    if item:
+        items.append(item)
+    return items
+
+
+def find_matching_brace(value: str, start: int) -> int | None:
+    depth = 0
+    for index in range(start, len(value)):
+        char = value[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
+
+
+def clean_rust_use_spec(spec: str) -> str:
+    spec = re.sub(r"\s+as\s+[A-Za-z_][\w]*$", "", spec.strip())
+    spec = spec.strip(":")
+    spec = re.sub(r"\s+", "", spec)
+    return spec
+
+
+def expand_rust_use_tree(value: str) -> list[str]:
+    value = value.strip()
+    brace_index = value.find("{")
+    if brace_index == -1:
+        cleaned = clean_rust_use_spec(value)
+        return [cleaned] if cleaned else []
+    end = find_matching_brace(value, brace_index)
+    if end is None:
+        cleaned = clean_rust_use_spec(value)
+        return [cleaned] if cleaned else []
+
+    prefix = value[:brace_index]
+    suffix = value[end + 1 :]
+    inner = value[brace_index + 1 : end]
+    expanded: list[str] = []
+    for item in split_top_level_commas(inner):
+        for child in expand_rust_use_tree(item):
+            if child == "self":
+                combined = prefix.rstrip(":")
+            elif prefix.endswith("::"):
+                combined = f"{prefix}{child}"
+            elif prefix:
+                combined = f"{prefix}::{child}"
+            else:
+                combined = child
+            combined = clean_rust_use_spec(f"{combined}{suffix}")
+            if combined:
+                expanded.append(combined)
+    return sorted(set(expanded))
+
+
+def extract_rust_import_records(text: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    use_pattern = re.compile(r"^\s*(?P<vis>pub(?:\s*\([^)]*\))?)?\s*use\s+(?P<body>[^;]+);")
+    mod_pattern = re.compile(r"^\s*(?P<vis>pub(?:\s*\([^)]*\))?)?\s*mod\s+(?P<name>[A-Za-z_][\w]*)\s*(?:;|\{)")
+    seen: set[tuple[str, str, int]] = set()
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        use_match = use_pattern.search(line)
+        if use_match:
+            visibility = normalize_rust_visibility(use_match.group("vis"))
+            kind = "pub use" if visibility == "pub" else "use"
+            for spec in expand_rust_use_tree(use_match.group("body")):
+                key = (kind, spec, line_number)
+                if key in seen:
+                    continue
+                seen.add(key)
+                records.append(
+                    {
+                        "imported": spec,
+                        "kind": kind,
+                        "visibility": visibility,
+                        "exported": visibility == "pub",
+                        "tokens": sorted(set(split_identifier(spec))),
+                        "line": line_number,
+                    }
+                )
+            continue
+
+        mod_match = mod_pattern.search(line)
+        if mod_match:
+            visibility = normalize_rust_visibility(mod_match.group("vis"))
+            name = mod_match.group("name")
+            key = ("mod", name, line_number)
+            if key in seen:
+                continue
+            seen.add(key)
+            records.append(
+                {
+                    "imported": name,
+                    "kind": "mod",
+                    "visibility": visibility,
+                    "exported": visibility == "pub",
+                    "tokens": sorted(set(split_identifier(name))),
+                    "line": line_number,
+                }
+            )
+    return sorted(records, key=lambda item: (int(item.get("line", 0)), str(item.get("imported"))))
+
+
 def extract_import_records(language: str | None, text: str) -> list[dict[str, Any]]:
     if language == "go":
         return extract_go_import_records(text)
+    if language == "rust":
+        return extract_rust_import_records(text)
     return [
         {
             "imported": spec,
@@ -770,6 +1143,96 @@ def resolve_go_import(
     return None
 
 
+def rust_src_root(crate: dict[str, Any] | None) -> str:
+    if not crate:
+        return "src"
+    root = str(crate.get("root") or "")
+    return f"{root}/src" if root else "src"
+
+
+def rust_crate_for_path(rel: str, rust_context: dict[str, Any]) -> dict[str, Any] | None:
+    crates = rust_context.get("crates")
+    if not isinstance(crates, list):
+        return None
+    matches = []
+    for crate in crates:
+        if not isinstance(crate, dict):
+            continue
+        root = str(crate.get("root") or "")
+        if not root or rel == root or rel.startswith(f"{root}/"):
+            matches.append(crate)
+    if not matches:
+        return None
+    return sorted(matches, key=lambda item: len(str(item.get("root") or "")), reverse=True)[0]
+
+
+def rust_module_path_candidates(base_dir: str, module_parts: list[str]) -> list[str]:
+    candidates: list[str] = []
+    for count in range(len(module_parts), -1, -1):
+        parts = module_parts[:count]
+        if not parts:
+            candidates.extend(
+                [
+                    f"{base_dir}/lib.rs",
+                    f"{base_dir}/main.rs",
+                    f"{base_dir}/mod.rs",
+                ]
+            )
+            continue
+        module_path = "/".join(parts)
+        candidates.extend(
+            [
+                f"{base_dir}/{module_path}.rs",
+                f"{base_dir}/{module_path}/mod.rs",
+                f"{base_dir}/{module_path}/lib.rs",
+            ]
+        )
+    return [normalize_rel_parts(candidate) for candidate in candidates]
+
+
+def resolve_rust_import(
+    source_rel: str,
+    imported: str,
+    known_files: set[str],
+    rust_context: dict[str, Any],
+) -> str | None:
+    if not imported:
+        return None
+    parts = [part for part in imported.split("::") if part and part not in {"*"}]
+    if not parts:
+        return None
+    crate = rust_crate_for_path(source_rel, rust_context)
+    crate_by_name = rust_context.get("crateByName")
+    if not isinstance(crate_by_name, dict):
+        crate_by_name = {}
+
+    first = parts[0]
+    rest = parts[1:]
+    if first == "crate":
+        base = rust_src_root(crate)
+        module_parts = rest
+    elif first == "self":
+        base = Path(source_rel).parent.as_posix()
+        module_parts = rest
+    elif first == "super":
+        base = Path(source_rel).parent.parent.as_posix()
+        module_parts = rest
+    elif first in crate_by_name:
+        target = crate_by_name[first]
+        base = rust_src_root(target if isinstance(target, dict) else None)
+        module_parts = rest
+    elif crate:
+        base = rust_src_root(crate)
+        module_parts = parts
+    else:
+        return None
+
+    for candidate in rust_module_path_candidates(base, module_parts):
+        if candidate in known_files:
+            return candidate
+    return None
+
+
 def resolve_import(
     source_rel: str,
     spec: str,
@@ -778,9 +1241,14 @@ def resolve_import(
     language: str | None,
     go_modules: list[tuple[str, str]],
     go_package_dirs: set[str],
+    rust_context: dict[str, Any] | None = None,
 ) -> str | None:
     if language == "go":
         return resolve_go_import(spec, go_modules, go_package_dirs)
+    if language == "rust":
+        if isinstance(rust_context, dict):
+            return resolve_rust_import(source_rel, spec, known_files, rust_context)
+        return None
     if not spec.startswith("."):
         return None
     base = (Path(source_rel).parent / spec).as_posix()
@@ -824,7 +1292,39 @@ def test_framework_for_path(rel: str, text: str, language: str | None) -> str | 
         return "python-test"
     if language == "shell":
         return "shell"
+    if language == "rust":
+        if "#[tokio::test]" in text:
+            return "tokio-test"
+        if "#[async_std::test]" in text:
+            return "async-std-test"
+        return "rust-test"
     return None
+
+
+def rust_test_info(rel: str, text: str, language: str | None) -> dict[str, Any]:
+    if language != "rust":
+        return {"hasTests": False, "testFunctions": [], "hasCfgTest": False}
+    has_cfg_test = bool(re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text))
+    test_functions: list[str] = []
+    pending_test = False
+    for line in text.splitlines():
+        if re.search(r"#\s*\[\s*(?:test|tokio::test|async_std::test)\s*\]", line):
+            pending_test = True
+            continue
+        if pending_test:
+            match = re.search(r"^\s*(?:async\s+)?fn\s+([A-Za-z_][\w]*)\b", line)
+            if match:
+                test_functions.append(match.group(1))
+                pending_test = False
+                continue
+            if line.strip() and not line.strip().startswith("#"):
+                pending_test = False
+    has_tests = has_cfg_test or bool(test_functions) or is_test_path(rel)
+    return {
+        "hasTests": has_tests,
+        "testFunctions": sorted(set(test_functions)),
+        "hasCfgTest": has_cfg_test,
+    }
 
 
 def paired_tests_for(rel: str, tests: list[dict[str, Any]]) -> list[str]:
@@ -920,6 +1420,56 @@ def extract_manifest(rel: str, text: str) -> dict[str, Any] | None:
             manifest["workspaceUses"] = workspace_uses
             use_tokens = {token for use in workspace_uses for token in split_identifier(use)}
             manifest["tokens"] = sorted(set(manifest["tokens"]) | use_tokens)
+    if path.name == "Cargo.toml":
+        data = parse_toml_document(text)
+        package = data.get("package") if isinstance(data, dict) else None
+        workspace = data.get("workspace") if isinstance(data, dict) else None
+        if isinstance(package, dict):
+            name = package.get("name")
+            if isinstance(name, str) and name:
+                manifest["packageName"] = name
+        if isinstance(workspace, dict):
+            members = workspace.get("members")
+            if isinstance(members, list):
+                manifest["workspaceMembers"] = sorted(str(member) for member in members if isinstance(member, str))
+        dependency_sections = {
+            "dependencies": "dependencies",
+            "dev-dependencies": "devDependencies",
+            "build-dependencies": "buildDependencies",
+        }
+        for source_key, output_key in dependency_sections.items():
+            section = data.get(source_key) if isinstance(data, dict) else None
+            if isinstance(section, dict):
+                manifest[output_key] = sorted(str(key) for key in section)
+        lib = data.get("lib") if isinstance(data, dict) else None
+        if isinstance(lib, dict):
+            hint = {str(key): str(value) for key, value in sorted(lib.items()) if isinstance(value, (str, int, bool))}
+            manifest["lib"] = hint or True
+        bins = data.get("bin") if isinstance(data, dict) else None
+        if isinstance(bins, list):
+            bin_targets = []
+            for item in bins:
+                if isinstance(item, dict):
+                    name = item.get("name")
+                    path_value = item.get("path")
+                    target = {}
+                    if isinstance(name, str):
+                        target["name"] = name
+                    if isinstance(path_value, str):
+                        target["path"] = path_value
+                    if target:
+                        bin_targets.append(target)
+            if bin_targets:
+                manifest["bin"] = sorted(bin_targets, key=lambda item: (str(item.get("name", "")), str(item.get("path", ""))))
+        token_values = [str(manifest.get("packageName", ""))]
+        token_values.extend(str(item) for item in manifest.get("workspaceMembers", []))
+        token_values.extend(str(item) for item in manifest.get("dependencies", []))
+        manifest["tokens"] = sorted(set(manifest["tokens"]) | set(split_identifier(" ".join(token_values))))
+    if path.name == "Cargo.lock":
+        packages = sorted(set(re.findall(r'^\s*name\s*=\s*"([^"]+)"', text, flags=re.MULTILINE)))
+        if packages:
+            manifest["packages"] = packages[:50]
+            manifest["tokens"] = sorted(set(manifest["tokens"]) | set(split_identifier(" ".join(packages[:50]))))
     if path.name == "package.json":
         try:
             data = json.loads(text)
@@ -936,6 +1486,120 @@ def extract_manifest(rel: str, text: str) -> dict[str, Any] | None:
             if isinstance(dev_deps, dict):
                 manifest["devDependencies"] = sorted(str(key) for key in dev_deps)
     return manifest
+
+
+def rust_crate_name_for_package(package_name: str) -> str:
+    return package_name.replace("-", "_")
+
+
+def build_rust_context(manifests: list[dict[str, Any]], known_files: set[str]) -> dict[str, Any]:
+    workspace_members: set[str] = set()
+    for manifest in manifests:
+        if manifest.get("kind") != "cargo":
+            continue
+        base = Path(str(manifest.get("path") or "")).parent
+        base_rel = "" if base.as_posix() == "." else base.as_posix()
+        for member in manifest.get("workspaceMembers", []):
+            if not isinstance(member, str) or not member:
+                continue
+            member_path = normalize_rel_parts(f"{base_rel}/{member}" if base_rel else member)
+            workspace_members.add(member_path)
+
+    crates: list[dict[str, Any]] = []
+    for manifest in manifests:
+        if manifest.get("kind") != "cargo":
+            continue
+        path = str(manifest.get("path") or "")
+        root = Path(path).parent.as_posix()
+        if root == ".":
+            root = ""
+        package_name = manifest.get("packageName")
+        if not isinstance(package_name, str):
+            package_name = Path(root).name if root else ""
+        if not package_name and root not in workspace_members:
+            continue
+        crate = {
+            "root": root,
+            "manifestPath": path,
+            "packageName": package_name,
+            "crateName": rust_crate_name_for_package(package_name) if package_name else "",
+            "workspaceMember": root in workspace_members,
+        }
+        crates.append(crate)
+
+    crate_by_name: dict[str, dict[str, Any]] = {}
+    for crate in crates:
+        for key in (crate.get("crateName"), crate.get("packageName")):
+            if isinstance(key, str) and key:
+                crate_by_name[key] = crate
+
+    return {
+        "crates": sorted(crates, key=lambda item: str(item.get("root") or "")),
+        "crateByName": crate_by_name,
+        "workspaceMembers": sorted(workspace_members),
+        "knownFiles": sorted(known_files),
+    }
+
+
+def rust_module_role(rel: str, crate: dict[str, Any] | None) -> str | None:
+    if not crate:
+        if rel.startswith("crates/"):
+            return "crates-directory"
+        if Path(rel).parts and "tests" in Path(rel).parts:
+            return "integration-test"
+        return None
+    src_root = rust_src_root(crate)
+    if rel == f"{src_root}/lib.rs":
+        return "library-crate-root"
+    if rel == f"{src_root}/main.rs":
+        return "binary-crate-root"
+    if Path(rel).parts and "tests" in Path(rel).parts:
+        return "integration-test"
+    if Path(rel).name == "mod.rs":
+        return "module-root"
+    return None
+
+
+def rust_module_fields(rel: str, text: str, rust_context: dict[str, Any]) -> dict[str, Any]:
+    crate = rust_crate_for_path(rel, rust_context)
+    fields: dict[str, Any] = {}
+    if crate:
+        if crate.get("root"):
+            fields["crateRoot"] = crate.get("root")
+        if crate.get("crateName"):
+            fields["crateName"] = crate.get("crateName")
+        if crate.get("packageName"):
+            fields["packageName"] = crate.get("packageName")
+        if crate.get("workspaceMember"):
+            fields["workspaceMember"] = True
+    role = rust_module_role(rel, crate)
+    hints: list[dict[str, Any]] = []
+    if role == "library-crate-root":
+        hints.append({"kind": "rust-library-crate-root", "value": "Rust library crate root", "weak": False})
+    elif role == "binary-crate-root":
+        hints.append({"kind": "rust-binary-crate-root", "value": "Rust binary crate root", "weak": False})
+    elif role == "integration-test":
+        hints.append({"kind": "rust-integration-test", "value": "Rust integration test", "weak": False})
+    elif role == "crates-directory":
+        hints.append({"kind": "rust-crates-directory", "value": "crates/ directory convention", "weak": True})
+    if crate and crate.get("workspaceMember") and crate.get("root"):
+        hints.append(
+            {
+                "kind": "rust-workspace-member",
+                "value": "Cargo workspace member",
+                "weak": False,
+                "path": crate.get("root"),
+            }
+        )
+    if re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text):
+        fields["hasInlineCfgTest"] = True
+        hints.append({"kind": "rust-inline-cfg-test", "value": "inline #[cfg(test)] tests", "weak": False})
+    if hints:
+        fields["boundaryHints"] = hints
+        fields["boundaryKinds"] = sorted(str(hint.get("kind")) for hint in hints)
+    if role:
+        fields["rustRole"] = role
+    return fields
 
 
 def convention_entry(name: str, value: str, language: str | None, evidence: list[str]) -> dict[str, Any]:
@@ -983,6 +1647,10 @@ def build_style_profile(
             by_pattern[(language, "*_test.py")].append(path)
         elif "tests" in Path(path).parts:
             by_pattern[(language, "tests/ directory")].append(path)
+    for rel, text in sorted(file_text.items()):
+        language = language_for_path(rel)
+        if language == "rust" and re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text):
+            by_pattern[(language, "inline #[cfg(test)]")].append(rel)
     for (language, pattern), evidence in sorted(by_pattern.items()):
         test_conventions.append(convention_entry("test-file-pattern", pattern, language or None, evidence))
 
@@ -991,6 +1659,7 @@ def build_style_profile(
     validation: list[dict[str, Any]] = []
     config: list[dict[str, Any]] = []
     go_conventions: list[dict[str, Any]] = []
+    rust_boundaries: list[dict[str, Any]] = []
     for rel, text in sorted(file_text.items()):
         language = language_for_path(rel)
         if re.search(r"\bthrow\s+new\s+Error\b|\btry\s*\{|\bcatch\s*\(", text):
@@ -1006,9 +1675,25 @@ def build_style_profile(
             package_name = extract_go_package_name(text)
             if package_name and not package_name.endswith("_test"):
                 go_conventions.append(convention_entry("go-test-scope", "package-local tests", "go", [rel]))
+        if language == "rust":
+            if rel.endswith("/src/lib.rs") or rel == "src/lib.rs":
+                rust_boundaries.append(convention_entry("boundary", "Rust library crate root", "rust", [rel]))
+            if rel.endswith("/src/main.rs") or rel == "src/main.rs":
+                rust_boundaries.append(convention_entry("boundary", "Rust binary crate root", "rust", [rel]))
+            if "tests" in Path(rel).parts:
+                rust_boundaries.append(convention_entry("boundary", "Rust integration tests directory", "rust", [rel]))
 
     for manifest in manifests:
         config.append(convention_entry("config", f"{manifest.get('kind')} manifest", manifest.get("language"), [str(manifest.get("path"))]))
+        if manifest.get("kind") == "cargo" and manifest.get("workspaceMembers"):
+            rust_boundaries.append(
+                convention_entry(
+                    "boundary",
+                    "Cargo workspace members",
+                    "rust",
+                    [str(manifest.get("path"))] + [str(item) for item in manifest.get("workspaceMembers", [])],
+                )
+            )
 
     validation_paths: set[str] = set()
     for symbol in symbols:
@@ -1031,14 +1716,25 @@ def build_style_profile(
                     )
     for path in sorted(validation_paths):
         validation.append(convention_entry("validation", "validation naming or helper", language_for_path(path), [path]))
+    crate_local_paths = sorted(
+        {
+            str(symbol.get("path"))
+            for symbol in symbols
+            if str(symbol.get("language")) == "rust"
+            and str(symbol.get("visibility") or "").startswith("pub(")
+        }
+    )
+    for path in crate_local_paths:
+        rust_boundaries.append(convention_entry("boundary", "Rust crate-local visibility", "rust", [path]))
 
     compact_error_handling = compact_conventions(error_handling)
     compact_logging = compact_conventions(logging)
     compact_config = compact_conventions(config)
     compact_validation = compact_conventions(validation)
     compact_go_conventions = compact_conventions(go_conventions)
+    compact_rust_boundaries = compact_conventions(rust_boundaries)
     confidence = 0.45
-    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions):
+    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_rust_boundaries):
         if section:
             confidence += 0.08
     if primary_languages:
@@ -1056,6 +1752,7 @@ def build_style_profile(
         "config": compact_config,
         "validation": compact_validation,
         "goConventions": compact_go_conventions,
+        "boundaries": compact_rust_boundaries,
     }
 
 
@@ -1176,7 +1873,7 @@ def collect_module_boundaries(modules: list[dict[str, Any]]) -> list[dict[str, A
             if not isinstance(hint, dict):
                 continue
             entry = {
-                "path": module.get("path"),
+                "path": hint.get("path") or module.get("path"),
                 "language": module.get("language"),
                 "kind": hint.get("kind"),
                 "value": hint.get("value"),
@@ -1184,6 +1881,8 @@ def collect_module_boundaries(modules: list[dict[str, Any]]) -> list[dict[str, A
             }
             if hint.get("allowedRoot"):
                 entry["allowedRoot"] = hint.get("allowedRoot")
+            if hint.get("risk"):
+                entry["risk"] = hint.get("risk")
             boundaries.append(entry)
     return sorted(
         boundaries,
@@ -1209,7 +1908,13 @@ def build_index(
     symbols: list[dict[str, Any]] = []
     imports: list[dict[str, Any]] = []
     tests: list[dict[str, Any]] = []
-    manifests: list[dict[str, Any]] = []
+    manifest_by_path: dict[str, dict[str, Any]] = {}
+    for scanned_file in indexed_files:
+        manifest = extract_manifest(scanned_file.rel, scanned_file.text)
+        if manifest:
+            manifest_by_path[scanned_file.rel] = manifest
+    manifests: list[dict[str, Any]] = list(manifest_by_path.values())
+    rust_context = build_rust_context(manifests, known_files)
 
     for scanned_file in indexed_files:
         rel = scanned_file.rel
@@ -1236,6 +1941,8 @@ def build_index(
         if language == "go" and boundary_hints:
             module["boundaryHints"] = boundary_hints
             module["boundaryKinds"] = sorted(str(hint.get("kind")) for hint in boundary_hints)
+        if language == "rust":
+            module.update(rust_module_fields(rel, text, rust_context))
         if is_test_fixture_path(rel):
             module["testFixture"] = True
         modules.append(module)
@@ -1252,6 +1959,7 @@ def build_index(
                 language=language,
                 go_modules=go_modules,
                 go_package_dirs=go_package_dirs,
+                rust_context=rust_context,
             )
             item = {
                 "path": rel,
@@ -1260,16 +1968,17 @@ def build_index(
                 "resolvedPath": resolved_path,
                 "tokens": import_record.get("tokens", sorted(set(split_identifier(spec)))),
             }
-            for key in ("alias", "importKind"):
+            for key in ("alias", "importKind", "kind", "visibility", "exported", "line"):
                 if key in import_record:
                     item[key] = import_record.get(key)
             imports.append(item)
-        if kind == "test":
+        rust_tests = rust_test_info(rel, text, language)
+        if kind == "test" or rust_tests.get("hasTests"):
             test_entry = {
                 "path": rel,
                 "language": language,
                 "framework": test_framework_for_path(rel, text, language),
-                "tokens": tokens_for_path(rel),
+                "tokens": sorted(set(tokens_for_path(rel)) | ({"test"} if language == "rust" else set())),
             }
             if language == "go":
                 if package_name:
@@ -1278,10 +1987,11 @@ def build_index(
                 test_functions = sorted(set(GO_TEST_FUNCTION_RE.findall(text)))
                 if test_functions:
                     test_entry["testFunctions"] = test_functions
+            if rust_tests.get("testFunctions"):
+                test_entry["testFunctions"] = rust_tests["testFunctions"]
+            if rust_tests.get("hasCfgTest"):
+                test_entry["inlineCfgTest"] = True
             tests.append(test_entry)
-        manifest = extract_manifest(rel, text)
-        if manifest:
-            manifests.append(manifest)
 
     importers_by_target: dict[str, list[str]] = defaultdict(list)
     for item in imports:
@@ -1297,7 +2007,7 @@ def build_index(
             module["importedBy"] = imported_by
             module["importCount"] = len(imported_by)
         paired_tests = paired_tests_for(path, tests)
-        if paired_tests and path not in tests_by_path:
+        if paired_tests and (path not in tests_by_path or tests_by_path.get(path, {}).get("inlineCfgTest")):
             module["pairedTests"] = paired_tests
 
     modules.extend(build_go_package_modules(modules, symbols, tests, importers_by_target))
@@ -1305,6 +2015,39 @@ def build_index(
     symbols_by_path: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for symbol in symbols:
         symbols_by_path[str(symbol.get("path"))].append(symbol)
+
+    for module in modules:
+        if module.get("language") != "rust":
+            continue
+        path = str(module.get("path") or "")
+        if not path:
+            continue
+        hints = list(module.get("boundaryHints", []))
+        exported = sorted(
+            str(symbol.get("name"))
+            for symbol in symbols_by_path.get(path, [])
+            if symbol.get("exported") and isinstance(symbol.get("name"), str)
+        )
+        if exported:
+            hints.append({"kind": "rust-public-api", "value": "Rust public API candidate", "weak": False})
+        crate_local = sorted(
+            str(symbol.get("name"))
+            for symbol in symbols_by_path.get(path, [])
+            if str(symbol.get("visibility") or "").startswith("pub(") and isinstance(symbol.get("name"), str)
+        )
+        if crate_local:
+            hints.append(
+                {
+                    "kind": "rust-crate-local-visibility",
+                    "value": "Rust crate-local visibility",
+                    "weak": False,
+                    "risk": "pub(crate)/pub(super) visibility may not be reusable outside the crate",
+                }
+            )
+            module["crateLocalSymbols"] = crate_local
+        if hints:
+            module["boundaryHints"] = hints
+            module["boundaryKinds"] = sorted(str(hint.get("kind")) for hint in hints if isinstance(hint, dict))
 
     shared_candidates: list[dict[str, Any]] = []
     for module in modules:
@@ -1345,6 +2088,14 @@ def build_index(
                 or module.get("pairedTests")
                 or exported_symbols
             )
+        elif module.get("language") == "rust":
+            if module.get("workspaceMember"):
+                reasons.append("workspace-member")
+            has_primary_shared_signal = bool(
+                exported_symbols
+                or module.get("importCount", 0)
+                or module.get("pairedTests")
+            )
         else:
             has_primary_shared_signal = bool((parts & SHARED_DIR_HINTS) or module.get("importCount", 0) or module.get("pairedTests"))
         if not has_primary_shared_signal:
@@ -1365,6 +2116,12 @@ def build_index(
             for key in ("package", "boundaryHints", "boundaryKinds", "internalBoundary", "weakReusablePackageConvention", "publicAPICandidate"):
                 if key in module:
                     candidate[key] = module.get(key)
+        if module.get("language") == "rust":
+            for key in ("crateName", "crateRoot", "packageName", "boundaryHints", "boundaryKinds", "workspaceMember", "crateLocalSymbols"):
+                if key in module:
+                    candidate[key] = module.get(key)
+            if module.get("crateLocalSymbols"):
+                candidate["visibilityRisks"] = ["pub(crate)/pub(super) symbols are crate-local"]
         shared_candidates.append(candidate)
 
     symbol_name_counts = Counter(str(symbol.get("name")) for symbol in symbols if symbol.get("name"))
@@ -1424,6 +2181,11 @@ def build_index(
             str(module.get("path"))
             for module in modules
             if module.get("language") == "go" and module.get("publicAPICandidate")
+        ),
+        "rustBoundaryPaths": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "rust" and module.get("boundaryHints")
         ),
     }
     module_boundaries = collect_module_boundaries(modules)
