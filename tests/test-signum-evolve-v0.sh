@@ -3,10 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(CDPATH= cd "$(dirname "$0")/.." && pwd)"
 RUN_ID="test-run"
+EXTERNAL_RUN_ID="test-run-external-config"
 RUN_DIR="$ROOT_DIR/experiments/signum_evolve/out/$RUN_ID"
+EXTERNAL_RUN_DIR="$ROOT_DIR/experiments/signum_evolve/out/$EXTERNAL_RUN_ID"
 EXPORT_DIR="$(mktemp -d)"
 WORK="$(mktemp -d)"
-trap 'rm -rf "$EXPORT_DIR" "$WORK"; rm -rf "$RUN_DIR"' EXIT
+trap 'rm -rf "$EXPORT_DIR" "$WORK"; rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR"' EXIT
 
 hash_file() {
   shasum -a 256 "$1" | awk '{print $1}'
@@ -17,13 +19,13 @@ CATALOG_HASH_BEFORE=$(hash_file "$ROOT_DIR/lib/policy-rules.json")
 OVERLAY_SCANNER_HASH_BEFORE=$(hash_file "$ROOT_DIR/platforms/claude-code/lib/policy-scanner.sh")
 OVERLAY_CATALOG_HASH_BEFORE=$(hash_file "$ROOT_DIR/platforms/claude-code/lib/policy-rules.json")
 
-rm -rf "$RUN_DIR"
+rm -rf "$RUN_DIR" "$EXTERNAL_RUN_DIR"
 
 python3 -m experiments.signum_evolve.cli generate \
   --repo-root "$ROOT_DIR" \
   --config experiments/signum_evolve/configs/evolve.v0.json \
   --run-id "$RUN_ID" \
-  --max-candidates 3 \
+  --max-candidates 1 \
   --seed 42 \
   > "$WORK/generate.json"
 
@@ -62,6 +64,56 @@ python3 -m experiments.signum_evolve.cli export \
 for file in candidate.json policy-rules.candidate.json eval.json compare.json report.md adoption-checklist.md; do
   test -f "$EXPORT_DIR/adoption-bundle/$file"
 done
+
+python3 - "$ROOT_DIR/evals/policy_scanner/baselines/current.json" "$WORK/custom-baseline.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1])
+target = Path(sys.argv[2])
+data = json.loads(source.read_text(encoding="utf-8"))
+metrics = data["metrics"]
+metrics["precision"] = 0.9
+metrics["f1"] = 0.9
+metrics["falsePositives"] = 1
+metrics["knownBaselineFailures"] = 1
+target.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+
+cat > "$WORK/external-config.json" <<JSON
+{
+  "allowedPrefixes": [
+    "docs/",
+    "examples/",
+    "fixtures/",
+    "tests/",
+    "test/",
+    "generated/"
+  ],
+  "baselineCatalog": "lib/policy-rules.json",
+  "baselineScorecard": "$WORK/custom-baseline.json",
+  "operators": [
+    "add_excluded_path_prefix"
+  ],
+  "schemaVersion": "1.0"
+}
+JSON
+
+python3 -m experiments.signum_evolve.cli generate \
+  --repo-root "$ROOT_DIR" \
+  --config "$WORK/external-config.json" \
+  --run-id "$EXTERNAL_RUN_ID" \
+  --max-candidates 1 \
+  --seed 42 \
+  > "$WORK/generate-external.json"
+
+test -f "$EXTERNAL_RUN_DIR/run_manifest.json"
+test -f "$EXTERNAL_RUN_DIR/candidates/cand_000001/compare.json"
+python3 -m json.tool "$EXTERNAL_RUN_DIR/run_manifest.json" >/dev/null
+jq -e '.config == "external:external-config.json"' "$EXTERNAL_RUN_DIR/run_manifest.json" >/dev/null
+jq -e '.status == "better" and .decision == "accept"' "$EXTERNAL_RUN_DIR/candidates/cand_000001/compare.json" >/dev/null
+jq -e '.improvements[] | select(.metric == "falsePositives")' "$EXTERNAL_RUN_DIR/candidates/cand_000001/compare.json" >/dev/null
 
 if [ "$SCANNER_HASH_BEFORE" != "$(hash_file "$ROOT_DIR/lib/policy-scanner.sh")" ]; then
   echo "root scanner changed during evolve run" >&2

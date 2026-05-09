@@ -37,7 +37,7 @@ def run_command(command: list[str], *, cwd: Path, env: dict[str, str] | None = N
     return proc.returncode
 
 
-def evaluate_candidate(repo_root: Path, candidate_dir: Path) -> Dict[str, Any]:
+def evaluate_candidate(repo_root: Path, candidate_dir: Path, baseline_path: Path) -> Dict[str, Any]:
     catalog_path = candidate_dir / "policy-rules.json"
     eval_path = candidate_dir / "eval.json"
     compare_path = candidate_dir / "compare.json"
@@ -64,7 +64,7 @@ def evaluate_candidate(repo_root: Path, candidate_dir: Path) -> Dict[str, Any]:
             sys.executable,
             "evals/policy_scanner/compare_policy_scanner_eval.py",
             "--baseline",
-            "evals/policy_scanner/baselines/current.json",
+            str(baseline_path),
             "--candidate",
             str(eval_path),
         ],

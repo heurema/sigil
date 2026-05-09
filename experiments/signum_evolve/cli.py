@@ -19,6 +19,14 @@ def repo_path(repo_root: Path, value: str) -> Path:
     return path if path.is_absolute() else repo_root / path
 
 
+def manifest_path_ref(repo_root: Path, path: Path) -> Path:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(repo_root)
+    except ValueError:
+        return Path(f"external:{resolved.name}")
+
+
 def load_config(path: Path) -> Dict[str, Any]:
     config = load_json(path)
     if config.get("schemaVersion") != "1.0":
@@ -28,10 +36,13 @@ def load_config(path: Path) -> Dict[str, Any]:
 
 def command_generate(args: argparse.Namespace) -> int:
     repo_root = Path(args.repo_root).resolve()
-    config_path = repo_path(repo_root, args.config)
+    config_path = repo_path(repo_root, args.config).resolve()
     config = load_config(config_path)
-    catalog_path = repo_path(repo_root, config.get("baselineCatalog", "lib/policy-rules.json"))
-    baseline_path = repo_path(repo_root, config.get("baselineScorecard", "evals/policy_scanner/baselines/current.json"))
+    catalog_path = repo_path(repo_root, config.get("baselineCatalog", "lib/policy-rules.json")).resolve()
+    baseline_path = repo_path(
+        repo_root,
+        config.get("baselineScorecard", "evals/policy_scanner/baselines/current.json"),
+    ).resolve()
     allowed_prefixes = tuple(config.get("allowedPrefixes", DEFAULT_ALLOWED_PREFIXES))
 
     catalog = load_catalog(catalog_path)
@@ -51,13 +62,13 @@ def command_generate(args: argparse.Namespace) -> int:
         if errors:
             raise RuntimeError(f"{candidate['candidateId']} failed mutation validation: {errors}")
         candidate_dir = archive_candidate(run_dir, candidate)
-        evaluate_candidate(repo_root, candidate_dir)
+        evaluate_candidate(repo_root, candidate_dir, baseline_path)
 
     leaderboard = write_leaderboard(run_dir, args.run_id, baseline_scorecard)
     write_run_manifest(
         run_dir,
         run_id=args.run_id,
-        config_path=config_path.relative_to(repo_root),
+        config_path=manifest_path_ref(repo_root, config_path),
         seed=args.seed,
         max_candidates=args.max_candidates,
         candidate_count=len(candidates),
