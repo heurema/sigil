@@ -265,6 +265,28 @@ else
 fi
 
 echo ""
+echo "=== Missing input handling ==="
+if (
+  cd "$PROJECT_A"
+  python3 "$MATCHER" \
+    --project-root "." \
+    --contract ".signum/contracts/example/contract.json" \
+    --codebase-index ".signum/cache/codebase-index-v1.json" \
+    --style-profile ".signum/cache/missing-style-profile-v1.json" \
+    --output ".signum/contracts/example/missing/reuse_candidates.json" \
+    --implementation-context ".signum/contracts/example/missing/implementation_context.json" \
+    --generated-at "2026-01-01T00:00:00Z"
+) >/dev/null 2>"$WORK/missing-style.stderr"; then
+  fail "matcher fails on missing required style profile" "expected non-zero exit"
+else
+  if grep -q "Required style-profile JSON not found" "$WORK/missing-style.stderr"; then
+    pass "matcher fails on missing required style profile"
+  else
+    fail "matcher fails on missing required style profile" "$(cat "$WORK/missing-style.stderr")"
+  fi
+fi
+
+echo ""
 echo "=== Secondary contract ==="
 if (
   cd "$PROJECT_A"

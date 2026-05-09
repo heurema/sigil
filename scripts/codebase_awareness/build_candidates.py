@@ -118,13 +118,15 @@ def portable_cli_path(value: str, project_root: Path) -> str:
         return path.name
 
 
-def load_json(path: Path) -> dict[str, Any]:
+def load_json(path: Path, label: str, required: bool = True) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
+        if required:
+            raise SystemExit(f"Required {label} JSON not found: {path}")
         return {}
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"Invalid JSON in {path}: {exc}") from exc
+        raise SystemExit(f"Invalid {label} JSON in {path}: {exc}") from exc
     if not isinstance(data, dict):
         return {}
     return data
@@ -975,10 +977,10 @@ def main(argv: list[str]) -> int:
     codebase_index_path = project_root / args.codebase_index
     style_profile_path = project_root / args.style_profile
 
-    contract = load_json(contract_path)
-    engineer_contract = load_json(engineer_path) if engineer_path else {}
-    codebase_index = load_json(codebase_index_path)
-    style_profile = load_json(style_profile_path)
+    contract = load_json(contract_path, "contract")
+    engineer_contract = load_json(engineer_path, "contract-engineer") if engineer_path else {}
+    codebase_index = load_json(codebase_index_path, "codebase-index")
+    style_profile = load_json(style_profile_path, "style-profile")
     task_intent = extract_task_intent(contract, engineer_contract, contract_path)
     reuse_candidates, implementation_context = build_outputs(
         args=args,

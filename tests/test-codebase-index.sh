@@ -119,6 +119,8 @@ if not any(item.get("name") == "validateEmail" and item.get("path") == "src/shar
     errors.append("validateEmail symbol")
 if not any(item.get("resolvedPath") == "src/shared/validation.ts" for item in index.get("imports", [])):
     errors.append("resolved local import")
+if not any(item.get("resolvedPath") == "src/shared/esm-helper.mjs" for item in index.get("imports", [])):
+    errors.append("resolved extensionless mjs import")
 if not any(item.get("path") == "tests/shared/validation.test.ts" for item in index.get("tests", [])):
     errors.append("validation test entry")
 if not any(item.get("language") == "typescript" for item in index.get("languageDetections", [])):
