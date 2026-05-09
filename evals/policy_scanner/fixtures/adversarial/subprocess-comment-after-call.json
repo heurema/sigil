@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-subprocess-comment-after-call",
+  "description": "Dangerous os.system call with trailing comment must still trigger subprocess shell injection.",
+  "expectedFindings": [
+    {
+      "file": "src/run.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/run.py b/src/run.py\n@@ -0,0 +1,1 @@\n+os.system(user_cmd)  # user-selected command\n",
+  "tags": [
+    "python",
+    "security",
+    "critical",
+    "comment"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-minor-debug-next-line",
+  "description": "Valid next-line MINOR suppression should suppress a debug print finding.",
+  "expectedFindings": [],
+  "expectedSuppressedFindings": [
+    {
+      "file": "src/debug-next.js",
+      "line": 2,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/debug-next.js b/src/debug-next.js\n@@ -0,0 +1,2 @@\n+// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary local debugging\n+console.log(\"debug\");\n",
+  "tags": [
+    "suppression",
+    "minor",
+    "debug-print"
+  ]
+}

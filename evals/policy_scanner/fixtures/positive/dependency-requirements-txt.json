@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-dependency-requirements-txt",
+  "description": "requirements.txt dependency line must trigger new Python dependency.",
+  "expectedFindings": [
+    {
+      "file": "requirements.txt",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_NEW_PYTHON_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/requirements.txt b/requirements.txt\n@@ -0,0 +1,1 @@\n+requests>=2.0\n",
+  "tags": [
+    "python",
+    "dependency",
+    "major"
+  ]
+}

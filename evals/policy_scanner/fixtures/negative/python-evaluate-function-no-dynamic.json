@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-python-evaluate-function-no-dynamic",
+  "description": "A function named evaluate should not trigger dynamic code execution.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/src/evaluate.py b/src/evaluate.py\n@@ -0,0 +1,1 @@\n+result = evaluate(user_input)\n",
+  "tags": [
+    "python",
+    "negative",
+    "security"
+  ]
+}

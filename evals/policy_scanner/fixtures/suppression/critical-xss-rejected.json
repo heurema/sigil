@@ -1,0 +1,30 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-critical-xss-rejected",
+  "description": "Critical XSS suppression attempt should be rejected and still produce an active critical finding.",
+  "expectedFindings": [
+    {
+      "file": "src/render.js",
+      "line": 2,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "expectedRejectedSuppressions": [
+    {
+      "file": "src/render.js",
+      "line": 2,
+      "rejectedReason": "critical_not_suppressible",
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/render.js b/src/render.js\n@@ -0,0 +1,2 @@\n+// SIGNUM_POLICY_ALLOW:POLICY_XSS_SINK:legacy rendering compatibility\n+element.innerHTML = userHtml;\n",
+  "tags": [
+    "suppression",
+    "critical",
+    "xss"
+  ]
+}

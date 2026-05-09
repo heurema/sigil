@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-major-weak-crypto-same-line",
+  "description": "Valid same-line MAJOR suppression should suppress a weak crypto finding.",
+  "expectedFindings": [],
+  "expectedSuppressedFindings": [
+    {
+      "file": "src/hash.py",
+      "line": 1,
+      "ruleId": "POLICY_WEAK_CRYPTO",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/hash.py b/src/hash.py\n@@ -0,0 +1,1 @@\n+digest = hashlib.md5(data).hexdigest()  # SIGNUM_POLICY_ALLOW:POLICY_WEAK_CRYPTO:legacy fixture compatibility\n",
+  "tags": [
+    "suppression",
+    "major",
+    "crypto"
+  ]
+}

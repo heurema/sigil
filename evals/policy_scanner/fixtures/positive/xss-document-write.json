@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-xss-document-write",
+  "description": "document.write must trigger the current XSS sink rule.",
+  "expectedFindings": [
+    {
+      "file": "src/render.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/render.js b/src/render.js\n@@ -0,0 +1,1 @@\n+document.write(userHtml);\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical"
+  ]
+}

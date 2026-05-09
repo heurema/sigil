@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-cross-file-no-suppression",
+  "description": "Suppression marker must not cross file boundaries.",
+  "expectedFindings": [
+    {
+      "file": "src/target.js",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/marker.js b/src/marker.js\n@@ -0,0 +1,1 @@\n+// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary local debugging\ndiff --git a/src/target.js b/src/target.js\n@@ -0,0 +1,1 @@\n+console.log(\"debug\");\n",
+  "tags": [
+    "suppression",
+    "scope",
+    "minor"
+  ]
+}

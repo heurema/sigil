@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-major-dependency-next-line",
+  "description": "Valid next-line MAJOR suppression should suppress a dependency finding in package.json.",
+  "expectedFindings": [],
+  "expectedSuppressedFindings": [
+    {
+      "file": "package.json",
+      "line": 2,
+      "ruleId": "POLICY_NEW_NPM_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/package.json b/package.json\n@@ -0,0 +1,2 @@\n+// SIGNUM_POLICY_ALLOW:POLICY_NEW_NPM_DEPENDENCY:approved dependency for compatibility\n+\"left-pad\": \"^1.3.0\"\n",
+  "tags": [
+    "suppression",
+    "dependency",
+    "major"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-sql-python-select-concat",
+  "description": "Python SQL SELECT string concatenation must trigger the current SQL injection rule.",
+  "expectedFindings": [
+    {
+      "file": "src/query.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_SQL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/query.py b/src/query.py\n@@ -0,0 +1,1 @@\n+query = \"SELECT * FROM users WHERE id = '\" + user_id + \"'\"\n",
+  "tags": [
+    "python",
+    "security",
+    "critical",
+    "sql"
+  ]
+}

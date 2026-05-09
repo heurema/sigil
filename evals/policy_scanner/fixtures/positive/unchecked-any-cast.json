@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-unchecked-any-cast",
+  "description": "TypeScript as any cast must trigger unchecked any.",
+  "expectedFindings": [
+    {
+      "file": "src/cast.ts",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_UNCHECKED_ANY",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/cast.ts b/src/cast.ts\n@@ -0,0 +1,1 @@\n+const value = input as any;\n",
+  "tags": [
+    "typescript",
+    "unsafe",
+    "minor"
+  ]
+}

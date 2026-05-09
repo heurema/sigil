@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-dynamic-python-import",
+  "description": "Python __import__ usage in production code must trigger dynamic code execution.",
+  "expectedFindings": [
+    {
+      "file": "src/loader.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/loader.py b/src/loader.py\n@@ -0,0 +1,1 @@\n+module = __import__(module_name)\n",
+  "tags": [
+    "python",
+    "security",
+    "critical"
+  ]
+}

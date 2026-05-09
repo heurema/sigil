@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-docs-dependency-version-no-trigger",
+  "description": "Dependency-looking version line in docs should not trigger dependency findings.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/docs/dependencies.md b/docs/dependencies.md\n@@ -0,0 +1,1 @@\n+Example: \"left-pad\": \"^1.3.0\"\n",
+  "tags": [
+    "docs",
+    "negative",
+    "dependency"
+  ]
+}

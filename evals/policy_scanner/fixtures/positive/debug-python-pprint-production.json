@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-debug-python-pprint-production",
+  "description": "Production pprint call must trigger debug print.",
+  "expectedFindings": [
+    {
+      "file": "app.py",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/app.py b/app.py\n@@ -0,0 +1,1 @@\n+pprint(payload)\n",
+  "tags": [
+    "python",
+    "unsafe",
+    "minor"
+  ]
+}

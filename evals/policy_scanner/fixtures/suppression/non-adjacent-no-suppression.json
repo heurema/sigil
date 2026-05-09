@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-non-adjacent-no-suppression",
+  "description": "Suppression marker must not apply to a later non-adjacent added line.",
+  "expectedFindings": [
+    {
+      "file": "src/debug-gap.js",
+      "line": 3,
+      "mustBlock": false,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/debug-gap.js b/src/debug-gap.js\n@@ -0,0 +1,3 @@\n+// SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary local debugging\n+const ok = true;\n+console.log(\"debug\");\n",
+  "tags": [
+    "suppression",
+    "scope",
+    "minor"
+  ]
+}

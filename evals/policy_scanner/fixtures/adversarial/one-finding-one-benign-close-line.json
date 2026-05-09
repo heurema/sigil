@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-one-finding-one-benign-close-line",
+  "description": "Patch with one real eval finding and one benign evaluate call should report only the real finding.",
+  "expectedFindings": [
+    {
+      "file": "src/eval_close.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/src/eval_close.py b/src/eval_close.py\n@@ -0,0 +1,2 @@\n+result = eval(user_input)\n+score = evaluate(user_input)\n",
+  "tags": [
+    "python",
+    "security",
+    "critical",
+    "close-call"
+  ]
+}

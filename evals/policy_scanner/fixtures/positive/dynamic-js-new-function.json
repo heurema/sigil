@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-dynamic-js-new-function",
+  "description": "JavaScript new Function usage in production code must trigger dynamic code execution.",
+  "expectedFindings": [
+    {
+      "file": "src/app.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_DYNAMIC_CODE_EXECUTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/app.js b/src/app.js\n@@ -0,0 +1,1 @@\n+const runner = new Function(userInput);\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical"
+  ]
+}

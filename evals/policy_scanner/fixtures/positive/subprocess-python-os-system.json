@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-subprocess-python-os-system",
+  "description": "Python os.system usage must trigger the current subprocess shell injection rule.",
+  "expectedFindings": [
+    {
+      "file": "src/run.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/run.py b/src/run.py\n@@ -0,0 +1,1 @@\n+os.system(user_cmd)\n",
+  "tags": [
+    "python",
+    "security",
+    "critical"
+  ]
+}

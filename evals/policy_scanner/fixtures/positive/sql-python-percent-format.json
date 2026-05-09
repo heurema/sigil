@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-sql-python-percent-format",
+  "description": "Python SQL percent formatting must trigger the current SQL injection rule.",
+  "expectedFindings": [
+    {
+      "file": "src/search.py",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_SQL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/search.py b/src/search.py\n@@ -0,0 +1,1 @@\n+query = \"SELECT * FROM users WHERE name = '%s'\" % name\n",
+  "tags": [
+    "python",
+    "security",
+    "critical",
+    "sql"
+  ]
+}

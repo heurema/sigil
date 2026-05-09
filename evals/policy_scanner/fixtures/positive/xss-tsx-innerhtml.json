@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-xss-tsx-innerhtml",
+  "description": "innerHTML assignment in a TSX-like production path must trigger the current XSS sink rule.",
+  "expectedFindings": [
+    {
+      "file": "src/components/view.tsx",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_XSS_SINK",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/components/view.tsx b/src/components/view.tsx\n@@ -0,0 +1,1 @@\n+element.innerHTML = userHtml;\n",
+  "tags": [
+    "typescript",
+    "security",
+    "critical"
+  ]
+}

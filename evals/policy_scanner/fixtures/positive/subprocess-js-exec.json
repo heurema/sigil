@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "positive-subprocess-js-exec",
+  "description": "Node child_process.exec usage must trigger the current subprocess shell injection rule.",
+  "expectedFindings": [
+    {
+      "file": "src/runner.js",
+      "line": 1,
+      "mustBlock": true,
+      "ruleId": "POLICY_SUBPROCESS_SHELL_INJECTION",
+      "severity": "CRITICAL"
+    }
+  ],
+  "kind": "positive",
+  "patch": "diff --git a/src/runner.js b/src/runner.js\n@@ -0,0 +1,1 @@\n+child_process.exec(userCmd);\n",
+  "tags": [
+    "javascript",
+    "security",
+    "critical"
+  ]
+}

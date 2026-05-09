@@ -1,0 +1,20 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-invalid-rule-id-format-rejected",
+  "description": "Invalid rule ID format should be rejected.",
+  "expectedFindings": [],
+  "expectedRejectedSuppressions": [
+    {
+      "file": "src/invalid.py",
+      "line": 1,
+      "rejectedReason": "invalid_rule_id",
+      "ruleId": "bad-rule"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/invalid.py b/src/invalid.py\n@@ -0,0 +1,1 @@\n+# SIGNUM_POLICY_ALLOW:bad-rule:invalid marker format test\n",
+  "tags": [
+    "suppression",
+    "negative"
+  ]
+}

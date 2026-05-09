@@ -1,0 +1,21 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-minor-debug-same-line",
+  "description": "Valid same-line MINOR suppression should suppress a debug print finding.",
+  "expectedFindings": [],
+  "expectedSuppressedFindings": [
+    {
+      "file": "src/debug.js",
+      "line": 1,
+      "ruleId": "POLICY_DEBUG_PRINT",
+      "severity": "MINOR"
+    }
+  ],
+  "kind": "suppression",
+  "patch": "diff --git a/src/debug.js b/src/debug.js\n@@ -0,0 +1,1 @@\n+console.log(\"debug\"); // SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:temporary local debugging\n",
+  "tags": [
+    "suppression",
+    "minor",
+    "debug-print"
+  ]
+}

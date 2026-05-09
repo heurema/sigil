@@ -1,0 +1,13 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "suppression-docs-no-finding",
+  "description": "A valid suppression marker in docs with no actual finding should not create a suppressed finding.",
+  "expectedFindings": [],
+  "kind": "suppression",
+  "patch": "diff --git a/docs/debug.md b/docs/debug.md\n@@ -0,0 +1,2 @@\n+<!-- SIGNUM_POLICY_ALLOW:POLICY_DEBUG_PRINT:documentation example only -->\n+console.log(\"debug\");\n",
+  "tags": [
+    "suppression",
+    "docs",
+    "negative"
+  ]
+}
