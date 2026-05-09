@@ -10,12 +10,12 @@
     {
       "file": ".github/workflows/codex-review-ready.yml",
       "occurrence": 1,
-      "uses": "heurema/repo-governance/actions/codex-review-ready@a1f0c72edbbbe0513471b973e5afc799e7c51da1",
+      "uses": "heurema/repo-governance/actions/codex-review-ready@77d33ea9dd48672ba093dc0bfac37aebadf72f74",
       "kind": "external_action",
       "action": "heurema/repo-governance/actions/codex-review-ready",
       "status": "pinned",
       "originalRef": "main",
-      "pinnedSha": "a1f0c72edbbbe0513471b973e5afc799e7c51da1",
+      "pinnedSha": "77d33ea9dd48672ba093dc0bfac37aebadf72f74",
       "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
       "resolution": "git rev-parse heurema/repo-governance main",
       "peeledTagUsed": false
@@ -23,12 +23,12 @@
     {
       "file": ".github/workflows/codex-review-ready.yml",
       "occurrence": 2,
-      "uses": "heurema/repo-governance/actions/codex-review-ready@a1f0c72edbbbe0513471b973e5afc799e7c51da1",
+      "uses": "heurema/repo-governance/actions/codex-review-ready@77d33ea9dd48672ba093dc0bfac37aebadf72f74",
       "kind": "external_action",
       "action": "heurema/repo-governance/actions/codex-review-ready",
       "status": "pinned",
       "originalRef": "main",
-      "pinnedSha": "a1f0c72edbbbe0513471b973e5afc799e7c51da1",
+      "pinnedSha": "77d33ea9dd48672ba093dc0bfac37aebadf72f74",
       "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
       "resolution": "git rev-parse heurema/repo-governance main",
       "peeledTagUsed": false
@@ -75,12 +75,12 @@
     {
       "file": ".github/workflows/pr-intake-gate.yml",
       "occurrence": 2,
-      "uses": "heurema/repo-governance/actions/pr-intake-gate@a1f0c72edbbbe0513471b973e5afc799e7c51da1",
+      "uses": "heurema/repo-governance/actions/pr-intake-gate@77d33ea9dd48672ba093dc0bfac37aebadf72f74",
       "kind": "external_action",
       "action": "heurema/repo-governance/actions/pr-intake-gate",
       "status": "pinned",
       "originalRef": "main",
-      "pinnedSha": "a1f0c72edbbbe0513471b973e5afc799e7c51da1",
+      "pinnedSha": "77d33ea9dd48672ba093dc0bfac37aebadf72f74",
       "note": "pinned to full-length GitHub commit SHA; original ref preserved in adjacent YAML comment",
       "resolution": "git rev-parse heurema/repo-governance main",
       "peeledTagUsed": false

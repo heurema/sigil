@@ -37,7 +37,7 @@ jobs:
       - name: Reconcile Codex Review ready status
         if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         # pinned from heurema/repo-governance/actions/codex-review-ready@main
-        uses: heurema/repo-governance/actions/codex-review-ready@a1f0c72edbbbe0513471b973e5afc799e7c51da1
+        uses: heurema/repo-governance/actions/codex-review-ready@77d33ea9dd48672ba093dc0bfac37aebadf72f74
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector
@@ -50,7 +50,7 @@ jobs:
       - name: Reconcile open PRs on schedule or dispatch
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         # pinned from heurema/repo-governance/actions/codex-review-ready@main
-        uses: heurema/repo-governance/actions/codex-review-ready@a1f0c72edbbbe0513471b973e5afc799e7c51da1
+        uses: heurema/repo-governance/actions/codex-review-ready@77d33ea9dd48672ba093dc0bfac37aebadf72f74
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           review-author-logins: chatgpt-codex-connector
