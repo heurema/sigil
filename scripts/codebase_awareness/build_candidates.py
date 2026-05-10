@@ -571,10 +571,15 @@ def shared_symbol_record(record: dict[str, Any], name: str) -> dict[str, Any]:
     symbol_record["symbols"] = [name]
     symbol_record.pop("visibilityRisks", None)
     symbol_record.pop("crateLocalSymbols", None)
+    symbol_record.pop("internalSymbols", None)
+    symbol_record.pop("internalAssemblyLocal", None)
     symbol_record["boundaryHints"] = [
         hint
         for hint in as_list(record.get("boundaryHints"))
-        if not (isinstance(hint, dict) and hint.get("kind") == "rust-crate-local-visibility")
+        if not (
+            isinstance(hint, dict)
+            and hint.get("kind") in {"dotnet-internal-api", "rust-crate-local-visibility"}
+        )
     ]
     return symbol_record
 

@@ -340,6 +340,17 @@ helper_candidates = [
 ]
 if not helper_candidates:
     errors.append("C# validation helper candidate missing")
+validate_helpers = [
+    candidate for candidate in candidates
+    if candidate.get("path") in {"src/Common", "src/Common/EmailValidator.cs"}
+    and candidate.get("symbol") == "ValidateEmail"
+]
+if not validate_helpers:
+    errors.append("public ValidateEmail helper candidate missing")
+for candidate in validate_helpers:
+    risk_text = " ".join(candidate.get("risks", [])).lower()
+    if "internal" in risk_text or "assembly-local" in risk_text:
+        errors.append("public ValidateEmail candidate inherited internal/assembly-local risk")
 internal_candidates = [
     candidate for candidate in candidates
     if candidate.get("symbol") == "NormalizeEmail"
@@ -349,6 +360,14 @@ if internal_candidates:
         errors.append("internal C# helper risk missing")
 elif not any(candidate.get("path") == "src/Common" and "internal" in " ".join(candidate.get("risks", [])).lower() for candidate in candidates):
     errors.append("internal C# boundary risk missing from shared candidate")
+shared_common = [
+    candidate for candidate in candidates
+    if candidate.get("kind") == "shared-module" and candidate.get("path") == "src/Common"
+]
+if not shared_common:
+    errors.append("shared-module src/Common candidate missing")
+elif not any("internal" in " ".join(candidate.get("risks", [])).lower() for candidate in shared_common):
+    errors.append("shared-module src/Common lost internal/assembly-local risk")
 test_project_candidates = [candidate for candidate in candidates if candidate.get("path") == "tests/App.Tests"]
 if any(candidate.get("kind") == "shared-module" for candidate in test_project_candidates):
     errors.append("test project surfaced as shared module")
