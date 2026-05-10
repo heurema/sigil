@@ -120,7 +120,7 @@ Canonical run artifacts live under the active contract artifact root `.signum/co
 
 The scanner defaults are bounded: `--max-files 10000`, `--max-bytes 50000000`, and `--max-file-size 1048576`. Files over the per-file cap are skipped, and repository-level caps mark the scan as truncated while still producing degraded cache/index artifacts.
 
-Codebase Awareness has shallow Go lexical/symbol support. It detects `go.mod`, `go.work`, `.go` files, Go package names/imports, exported symbols, `internal/`, `cmd/`, `pkg/`, `testdata/`, and `*_test.go` conventions. Go import resolution is local and module-path based when possible; it does not run `go list`, perform AST or type checking, or add Rust/C# adapters.
+Codebase Awareness has shallow Go and Rust lexical/symbol support. For Go, it detects `go.mod`, `go.work`, `.go` files, Go package names/imports, exported symbols, `internal/`, `cmd/`, `pkg/`, `testdata/`, and `*_test.go` conventions. Go import resolution is local and module-path based when possible. For Rust, it detects `Cargo.toml` manifests and workspaces, Cargo package/dependency hints, Rust modules/imports, `pub` symbols, crate and module boundary hints, integration tests under `tests/`, and inline `#[cfg(test)]` tests. It does not run `go list`, Cargo, `rustc`, or `cargo metadata`; it does not perform AST parsing, type checking, semantic resolution, or add C# support.
 
 | File | Phase | Contents |
 |------|-------|----------|

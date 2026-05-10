@@ -393,6 +393,7 @@ def is_test_path(path: str | None) -> bool:
         or name.startswith("test_")
         or name.endswith("_test.go")
         or name.endswith("_test.py")
+        or name.endswith("_test.rs")
         or ".test." in name
         or ".spec." in name
     )
@@ -477,6 +478,37 @@ def add_draft(
                 risk = "Go cmd/ package is an executable entrypoint boundary, not a generic helper."
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
+            elif kind_value == "rust-binary-crate-root":
+                risk = "Rust binary src/main.rs is not a generic helper."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "rust-crate-local-visibility" and kind != "existing-helper":
+                risk = "Rust module contains crate-local visibility; inspect symbol visibility before cross-crate reuse."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+        boundary_risk = record.get("risk")
+        if isinstance(boundary_risk, str) and boundary_risk and boundary_risk not in draft["risks"]:
+            draft["risks"].append(boundary_risk)
+        visibility = str(record.get("visibility") or "")
+        record_language = str(record.get("language") or language or "")
+        if record_language == "rust":
+            if visibility.startswith("pub("):
+                risk = "Rust crate-local visibility may not be reusable outside its crate"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif visibility == "private" and kind == "existing-helper":
+                risk = "Rust private symbol is not reusable outside its module without changing visibility"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+        for risk in as_list(record.get("visibilityRisks")):
+            if kind == "existing-helper":
+                continue
+            if isinstance(risk, str) and risk and risk not in draft["risks"]:
+                draft["risks"].append(risk)
+    if (language == "rust" or stable_path.endswith(".rs")) and stable_path.endswith("/src/main.rs"):
+        risk = "Rust binary src/main.rs is not a generic helper"
+        if risk not in draft["risks"]:
+            draft["risks"].append(risk)
     if kind == "duplicate-risk":
         reason = "similar or repeated code fingerprint reported by scanner"
         if reason not in draft["risks"]:
@@ -489,6 +521,13 @@ def shared_symbol_record(record: dict[str, Any], name: str) -> dict[str, Any]:
     symbol_record["name"] = name
     symbol_record["tokens"] = split_identifier(name)
     symbol_record["symbols"] = [name]
+    symbol_record.pop("visibilityRisks", None)
+    symbol_record.pop("crateLocalSymbols", None)
+    symbol_record["boundaryHints"] = [
+        hint
+        for hint in as_list(record.get("boundaryHints"))
+        if not (isinstance(hint, dict) and hint.get("kind") == "rust-crate-local-visibility")
+    ]
     return symbol_record
 
 
@@ -532,6 +571,8 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
     for record in as_list(codebase_index.get("symbols")):
         path = record_path(record)
         if is_test_path(path):
+            continue
+        if isinstance(record, dict) and record.get("testOnly"):
             continue
         symbol = record_symbol(record)
         if not path and not symbol:
@@ -664,6 +705,7 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
         )
 
     style_sections = {
+        "boundaries": "module-boundary",
         "testConventions": "test-pattern",
         "errorHandling": "error-handling-pattern",
         "logging": "local-pattern",
@@ -696,11 +738,14 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
             languages.add(language)
     token_map = {
         "javascript": "javascript",
+        "cargo": "rust",
         "go": "go",
         "golang": "go",
         "js": "javascript",
         "py": "python",
         "python": "python",
+        "rs": "rust",
+        "rust": "rust",
         "ts": "typescript",
         "typescript": "typescript",
     }
