@@ -1,0 +1,52 @@
+{
+  "boundaryKinds": [
+    "npm-package",
+    "shared-name-weak",
+    "source-root",
+    "tsjs-test-file"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "javascript",
+    "python",
+    "typescript"
+  ],
+  "fixture": "basic-mixed",
+  "manifestKinds": [
+    "npm-package",
+    "python"
+  ],
+  "primaryLanguages": [
+    "typescript",
+    "javascript",
+    "python"
+  ],
+  "sharedCandidatePaths": [
+    "python_app/service.py",
+    "src/features/esm-consumer.mjs",
+    "src/features/profile.ts",
+    "src/features/signup.ts",
+    "src/shared/esm-helper.mjs",
+    "src/shared/validation.ts"
+  ],
+  "symbolNames": [
+    "ValidationResult",
+    "canAttachRecoveryEmail",
+    "createProfileHandle",
+    "createSignupPayload",
+    "format_status",
+    "normalizeEmail",
+    "normalizeHandle",
+    "parse_status",
+    "test_format_status_normalizes_known_status",
+    "test_parse_status_rejects_unknown_status",
+    "validateEmail"
+  ],
+  "testFrameworks": [
+    "javascript-test",
+    "pytest"
+  ]
+}

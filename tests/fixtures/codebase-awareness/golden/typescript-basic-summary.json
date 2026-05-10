@@ -1,0 +1,58 @@
+{
+  "boundaryKinds": [
+    "npm-bin-entrypoint",
+    "npm-package",
+    "npm-package-type",
+    "shared-name-weak",
+    "source-root",
+    "tsconfig-project",
+    "tsjs-test-file"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "typescript"
+  ],
+  "fixture": "typescript-basic",
+  "manifestKinds": [
+    "jsconfig",
+    "npm-lock",
+    "npm-package",
+    "pnpm-lock",
+    "pnpm-workspace",
+    "tsconfig",
+    "yarn-lock"
+  ],
+  "primaryLanguages": [
+    "typescript"
+  ],
+  "sharedCandidatePaths": [
+    "packages/api/src/signup.ts",
+    "packages/shared/src/index.ts",
+    "packages/shared/src/validation.ts",
+    "packages/web/src/signup-form.tsx"
+  ],
+  "symbolNames": [
+    "EmailValidationResult",
+    "Role",
+    "SignupForm",
+    "UserId",
+    "ValidationService",
+    "createUserSignup",
+    "default",
+    "formatValidationMessage",
+    "localOnlyValue",
+    "normalizeEmail",
+    "parseToken",
+    "runCli",
+    "sharedValidation",
+    "trimForDisplay",
+    "validateEmail",
+    "validation"
+  ],
+  "testFrameworks": [
+    "vitest"
+  ]
+}

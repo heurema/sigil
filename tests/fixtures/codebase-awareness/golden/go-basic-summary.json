@@ -1,0 +1,53 @@
+{
+  "boundaryKinds": [
+    "go-cmd",
+    "go-internal",
+    "go-pkg",
+    "go-test-file"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "go"
+  ],
+  "fixture": "go-basic",
+  "manifestKinds": [
+    "go",
+    "go-work"
+  ],
+  "primaryLanguages": [
+    "go"
+  ],
+  "sharedCandidatePaths": [
+    "internal/auth",
+    "internal/users",
+    "pkg/validation"
+  ],
+  "symbolNames": [
+    "BenchmarkValidateToken",
+    "DefaultTimeout",
+    "ErrInvalidToken",
+    "FuzzValidateToken",
+    "Repository",
+    "Role",
+    "Save",
+    "Service",
+    "Signup",
+    "SignupService",
+    "Store",
+    "TestValidateEmail",
+    "TestValidateToken",
+    "User",
+    "ValidateEmail",
+    "ValidateToken",
+    "main",
+    "normalizeEmail",
+    "parseToken",
+    "run"
+  ],
+  "testFrameworks": [
+    "go-test"
+  ]
+}

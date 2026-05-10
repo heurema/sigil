@@ -1,0 +1,51 @@
+{
+  "boundaryKinds": [
+    "rust-binary-crate-root",
+    "rust-crate-local-visibility",
+    "rust-inline-cfg-test",
+    "rust-integration-test",
+    "rust-library-crate-root",
+    "rust-public-api",
+    "rust-workspace-member"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "rust"
+  ],
+  "fixture": "rust-basic",
+  "manifestKinds": [
+    "cargo"
+  ],
+  "primaryLanguages": [
+    "rust"
+  ],
+  "sharedCandidatePaths": [
+    "crates/api/src/lib.rs",
+    "crates/api/src/signup.rs",
+    "crates/shared/src/lib.rs",
+    "crates/shared/src/validation.rs"
+  ],
+  "symbolNames": [
+    "CACHE_NAME",
+    "DEFAULT_TIMEOUT",
+    "EmailAddress",
+    "SignupRequest",
+    "UserId",
+    "ValidationError",
+    "Validator",
+    "create_signup",
+    "main",
+    "normalize_email",
+    "signup",
+    "validate",
+    "validate_email",
+    "validation"
+  ],
+  "testFrameworks": [
+    "rust-test",
+    "tokio-test"
+  ]
+}

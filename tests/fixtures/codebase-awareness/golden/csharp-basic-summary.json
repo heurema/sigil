@@ -1,0 +1,62 @@
+{
+  "boundaryKinds": [
+    "dotnet-executable-project",
+    "dotnet-internal-api",
+    "dotnet-project",
+    "dotnet-project-reference",
+    "dotnet-project-referenced",
+    "dotnet-props",
+    "dotnet-public-api",
+    "dotnet-solution",
+    "dotnet-test-project"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "csharp"
+  ],
+  "fixture": "csharp-basic",
+  "manifestKinds": [
+    "dotnet-project",
+    "dotnet-props",
+    "dotnet-solution"
+  ],
+  "primaryLanguages": [
+    "csharp"
+  ],
+  "sharedCandidatePaths": [
+    "src/App",
+    "src/App/SignupService.cs",
+    "src/Common",
+    "src/Common/EmailValidator.cs"
+  ],
+  "symbolNames": [
+    "CreateAsync",
+    "DefaultRole",
+    "EmailValidator",
+    "HasAtSign",
+    "IEmailValidator",
+    "IsValid",
+    "NormalizeEmail",
+    "NormalizeForStorage",
+    "NormalizesEmailThroughSharedValidator",
+    "Result",
+    "Role",
+    "Sample.App.Services",
+    "Sample.App.Tests",
+    "Sample.Common",
+    "SignupRequest",
+    "SignupService",
+    "SignupServiceTests",
+    "UserDto",
+    "UsesExistingEmailValidator",
+    "Validate",
+    "ValidateEmail",
+    "_validator"
+  ],
+  "testFrameworks": [
+    "xunit"
+  ]
+}
