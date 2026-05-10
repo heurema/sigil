@@ -85,6 +85,130 @@ write_valid_decision() {
 JSON
 }
 
+write_four_candidates() {
+  local path="$1"
+  mkdir -p "$(dirname "$path")"
+  cat > "$path" <<'JSON'
+{
+  "schemaVersion": "1.0",
+  "contractId": "validation-contract",
+  "candidateCount": 4,
+  "candidates": [
+    {
+      "candidateId": "cand-001",
+      "kind": "existing-helper",
+      "path": "src/shared/validation.ts",
+      "score": 0.91,
+      "confidence": 0.88
+    },
+    {
+      "candidateId": "cand-002",
+      "kind": "shared-module",
+      "path": "src/shared/account.ts",
+      "score": 0.62,
+      "confidence": 0.64
+    },
+    {
+      "candidateId": "cand-003",
+      "kind": "module-boundary",
+      "path": "src/shared/",
+      "score": 0.55,
+      "confidence": 0.58
+    },
+    {
+      "candidateId": "cand-004",
+      "kind": "existing-helper",
+      "path": "src/shared/optional.ts",
+      "score": 0.2,
+      "confidence": 0.2
+    }
+  ]
+}
+JSON
+}
+
+write_high_score_fourth_candidates() {
+  local path="$1"
+  write_four_candidates "$path"
+  python3 - "$path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["candidates"][3]["score"] = 0.8
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
+write_high_confidence_fourth_candidates() {
+  local path="$1"
+  write_four_candidates "$path"
+  python3 - "$path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["candidates"][3]["confidence"] = 0.8
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
+write_high_config_fourth_candidates() {
+  local path="$1"
+  write_four_candidates "$path"
+  python3 - "$path" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["candidates"][3]["kind"] = "config-pattern"
+data["candidates"][3]["score"] = 0.95
+data["candidates"][3]["confidence"] = 0.95
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
+write_top_three_decisions() {
+  local path="$1"
+  mkdir -p "$(dirname "$path")"
+  cat > "$path" <<'JSON'
+{
+  "schemaVersion": "1.0",
+  "contractId": "validation-contract",
+  "writtenAt": "2026-01-01T00:00:00Z",
+  "mode": "warn",
+  "decisions": [
+    {
+      "candidateId": "cand-001",
+      "disposition": "reuse",
+      "action": "Call existing validateEmail helper",
+      "rationale": "Candidate matches task intent and is already used by sibling signup flow."
+    },
+    {
+      "candidateId": "cand-002",
+      "disposition": "adapt",
+      "action": "Adapt the account module pattern where the helper boundary differs.",
+      "rationale": "Candidate shows a nearby module pattern relevant to the change."
+    },
+    {
+      "candidateId": "cand-003",
+      "disposition": "respect-boundary",
+      "action": "Keep new code inside the shared module boundary.",
+      "rationale": "Candidate identifies the boundary that should constrain the implementation."
+    }
+  ],
+  "newCodeJustifications": [],
+  "summary": "Addressed the top three reuse candidates; the fourth candidate is low-score and optional."
+}
+JSON
+}
+
 run_validator() {
   local dir="$1"
   python3 "$VALIDATOR" \
@@ -115,6 +239,18 @@ expect_exit() {
   fi
 }
 
+assert_stderr_contains() {
+  local label="$1"
+  local dir="$2"
+  local needle="$3"
+
+  if grep -Fq -- "$needle" "$dir/stderr.txt"; then
+    pass "$label"
+  else
+    fail "$label" "missing $needle; stderr=$(cat "$dir/stderr.txt" 2>/dev/null || true)"
+  fi
+}
+
 echo "=== Reuse decision validator ==="
 
 VALID="$WORK/valid"
@@ -122,6 +258,12 @@ write_contract "$VALID"
 write_candidates "$VALID/reuse_candidates.json" 1
 write_valid_decision "$VALID/reuse_decision.json"
 expect_exit "valid decision" 0 "$VALID"
+
+COVERAGE_VALID="$WORK/coverage-valid"
+write_contract "$COVERAGE_VALID"
+write_four_candidates "$COVERAGE_VALID/reuse_candidates.json"
+write_top_three_decisions "$COVERAGE_VALID/reuse_decision.json"
+expect_exit "valid decision covering required candidates" 0 "$COVERAGE_VALID"
 
 MISSING="$WORK/missing"
 write_contract "$MISSING"
@@ -149,6 +291,49 @@ data["decisions"][0]["candidateId"] = "cand-999"
 path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 expect_exit "unknown candidate" 4 "$UNKNOWN"
+
+TOP_OMITTED="$WORK/top-omitted"
+write_contract "$TOP_OMITTED"
+write_four_candidates "$TOP_OMITTED/reuse_candidates.json"
+write_top_three_decisions "$TOP_OMITTED/reuse_decision.json"
+python3 - "$TOP_OMITTED/reuse_decision.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["decisions"] = [item for item in data["decisions"] if item["candidateId"] != "cand-001"]
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+expect_exit "top candidate omitted" 4 "$TOP_OMITTED"
+assert_stderr_contains "top candidate omitted explains required coverage" "$TOP_OMITTED" "required reuse candidate 'cand-001' is not addressed"
+
+SCORE_OMITTED="$WORK/score-omitted"
+write_contract "$SCORE_OMITTED"
+write_high_score_fourth_candidates "$SCORE_OMITTED/reuse_candidates.json"
+write_top_three_decisions "$SCORE_OMITTED/reuse_decision.json"
+expect_exit "score >= 0.75 candidate omitted" 4 "$SCORE_OMITTED"
+assert_stderr_contains "score omission explains required coverage" "$SCORE_OMITTED" "required reuse candidate 'cand-004' is not addressed"
+
+CONFIDENCE_OMITTED="$WORK/confidence-omitted"
+write_contract "$CONFIDENCE_OMITTED"
+write_high_confidence_fourth_candidates "$CONFIDENCE_OMITTED/reuse_candidates.json"
+write_top_three_decisions "$CONFIDENCE_OMITTED/reuse_decision.json"
+expect_exit "confidence >= 0.75 candidate omitted" 4 "$CONFIDENCE_OMITTED"
+assert_stderr_contains "confidence omission explains required coverage" "$CONFIDENCE_OMITTED" "required reuse candidate 'cand-004' is not addressed"
+
+LOW_OPTIONAL="$WORK/low-optional"
+write_contract "$LOW_OPTIONAL"
+write_four_candidates "$LOW_OPTIONAL/reuse_candidates.json"
+write_top_three_decisions "$LOW_OPTIONAL/reuse_decision.json"
+expect_exit "low-score low-confidence candidate outside top three omitted" 0 "$LOW_OPTIONAL"
+
+CONFIG_OPTIONAL="$WORK/config-optional"
+write_contract "$CONFIG_OPTIONAL"
+write_high_config_fourth_candidates "$CONFIG_OPTIONAL/reuse_candidates.json"
+write_top_three_decisions "$CONFIG_OPTIONAL/reuse_decision.json"
+expect_exit "config-pattern candidate outside top three omitted" 0 "$CONFIG_OPTIONAL"
 
 EMPTY_NONZERO="$WORK/empty-nonzero"
 write_contract "$EMPTY_NONZERO"
@@ -239,6 +424,49 @@ data["decisions"][0].pop("action", None)
 path.write_text(json.dumps(data, indent=2) + "\n")
 PY
 expect_exit "missing action for reuse" 4 "$MISSING_ACTION"
+
+for disposition in reuse adapt follow-pattern respect-boundary; do
+  ACTION_WITHOUT_ID="$WORK/action-without-id-${disposition//-/_}"
+  write_contract "$ACTION_WITHOUT_ID"
+  write_candidates "$ACTION_WITHOUT_ID/reuse_candidates.json" 1
+  cat > "$ACTION_WITHOUT_ID/reuse_decision.json" <<JSON
+{
+  "schemaVersion": "1.0",
+  "contractId": "validation-contract",
+  "decisions": [
+    {
+      "disposition": "$disposition",
+      "action": "Use the relevant existing candidate.",
+      "rationale": "The decision is action-bearing and must bind to a specific candidate."
+    }
+  ],
+  "summary": "Attempted an action-bearing decision without candidateId."
+}
+JSON
+  expect_exit "action-bearing $disposition without candidateId" 4 "$ACTION_WITHOUT_ID"
+  assert_stderr_contains "action-bearing $disposition explains candidateId requirement" "$ACTION_WITHOUT_ID" "candidateId must be present for disposition $disposition"
+done
+
+for disposition in reject defer inspect-only; do
+  NON_ACTION_WITH_ID="$WORK/non-action-with-id-${disposition//-/_}"
+  write_contract "$NON_ACTION_WITH_ID"
+  write_candidates "$NON_ACTION_WITH_ID/reuse_candidates.json" 1
+  cat > "$NON_ACTION_WITH_ID/reuse_decision.json" <<JSON
+{
+  "schemaVersion": "1.0",
+  "contractId": "validation-contract",
+  "decisions": [
+    {
+      "candidateId": "cand-001",
+      "disposition": "$disposition",
+      "rationale": "This candidate was considered and does not require an implementation action."
+    }
+  ],
+  "summary": "Addressed the available candidate with $disposition."
+}
+JSON
+  expect_exit "$disposition with candidateId and rationale" 0 "$NON_ACTION_WITH_ID"
+done
 
 CONTRACT_ID_MISMATCH="$WORK/contract-id-mismatch"
 write_contract "$CONTRACT_ID_MISMATCH"

@@ -30,6 +30,10 @@ ACTION_REQUIRED_DISPOSITIONS = {
     "follow-pattern",
     "respect-boundary",
 }
+CANDIDATE_ID_REQUIRED_DISPOSITIONS = ACTION_REQUIRED_DISPOSITIONS
+COVERAGE_TOP_CANDIDATES = 3
+COVERAGE_THRESHOLD = 0.75
+COVERAGE_SKIP_KINDS = {"test-pattern", "config-pattern"}
 MODES = {"off", "hint", "warn", "gate"}
 
 
@@ -116,6 +120,54 @@ def candidate_ids_from(reuse_candidates: Any) -> tuple[set[str], int, list[str]]
     return ids, candidate_count, errors
 
 
+def numeric_candidate_value(candidate: dict[str, Any], key: str) -> float | None:
+    value = candidate.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def required_candidate_ids_from(reuse_candidates: Any) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    if not isinstance(reuse_candidates, dict):
+        return [], errors
+
+    raw_candidates = reuse_candidates.get("candidates", [])
+    if not isinstance(raw_candidates, list):
+        return [], errors
+
+    required_ids: list[str] = []
+    seen: set[str] = set()
+    for index, candidate in enumerate(raw_candidates, start=1):
+        if not isinstance(candidate, dict):
+            continue
+
+        is_top_candidate = index <= COVERAGE_TOP_CANDIDATES
+        kind = str(candidate.get("kind") or "")
+        score = numeric_candidate_value(candidate, "score")
+        confidence = numeric_candidate_value(candidate, "confidence")
+        is_strong_candidate = (
+            (score is not None and score >= COVERAGE_THRESHOLD)
+            or (confidence is not None and confidence >= COVERAGE_THRESHOLD)
+        )
+        if not is_top_candidate and kind in COVERAGE_SKIP_KINDS:
+            is_strong_candidate = False
+        if not is_top_candidate and not is_strong_candidate:
+            continue
+
+        candidate_id = candidate.get("candidateId")
+        if not non_empty_string(candidate_id):
+            errors.append(f"required reuse candidate at index {index} must have candidateId")
+            continue
+        candidate_id = str(candidate_id)
+        if candidate_id in seen:
+            continue
+        seen.add(candidate_id)
+        required_ids.append(candidate_id)
+
+    return required_ids, errors
+
+
 def validate_decision(
     *,
     contract: Any,
@@ -163,6 +215,7 @@ def validate_decision(
 
     if candidate_count > 0 and not decisions:
         errors.append("decisions must contain at least one entry when reuse candidates are available")
+    addressed_candidate_ids: set[str] = set()
     for index, item in enumerate(decisions, start=1):
         prefix = f"decisions[{index}]"
         if not isinstance(item, dict):
@@ -182,9 +235,20 @@ def validate_decision(
                 errors.append(f"{prefix}.candidateId must be a non-empty string when present")
             elif str(candidate_id) not in candidate_ids:
                 errors.append(f"{prefix}.candidateId {candidate_id!r} is not present in reuse_candidates.json")
+            else:
+                addressed_candidate_ids.add(str(candidate_id))
+        elif disposition in CANDIDATE_ID_REQUIRED_DISPOSITIONS:
+            errors.append(f"{prefix}.candidateId must be present for disposition {disposition}")
 
         if disposition in ACTION_REQUIRED_DISPOSITIONS and not non_empty_string(item.get("action")):
             errors.append(f"{prefix}.action must be a non-empty string for disposition {disposition}")
+
+    if candidate_count > 0:
+        required_candidate_ids, required_candidate_errors = required_candidate_ids_from(reuse_candidates)
+        errors.extend(required_candidate_errors)
+        for candidate_id in required_candidate_ids:
+            if candidate_id not in addressed_candidate_ids:
+                errors.append(f"required reuse candidate {candidate_id!r} is not addressed by reuse_decision.json")
 
     if errors:
         return ValidationResult(EXIT_SCHEMA, errors)

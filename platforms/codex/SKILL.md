@@ -222,7 +222,7 @@ Before coding:
 3. Derive an execution policy in `contract-policy.json` under the active contract artifact root
 4. Record `execution_context.json` with run id, base commit, risk level, and policy metadata
 5. Capture a pre-execute workspace snapshot under `snapshots/`
-6. When Codebase Awareness is enabled, use `implementation_context.json` and `reuse_candidates.json`; in `warn` or `gate` mode the Engineer must write `reuse_decision.json` before code changes.
+6. When Codebase Awareness is enabled, use `implementation_context.json` and `reuse_candidates.json`; in `hint` mode `reuse_decision.json` is advisory, and in `warn` or `gate` mode the Engineer must write `reuse_decision.json` before code changes with top/strong candidate coverage and `candidateId` on action-bearing decisions.
 
 When Codebase Awareness is enabled, AUDIT may produce `duplicate_scan.json` as reuse/duplicate evidence. In `warn`, unresolved major/critical duplicate findings cap AUDIT at `HUMAN_REVIEW`; in `gate`, critical and narrow high-confidence unresolved major findings can force `AUTO_BLOCK`. PACK writes `reuse_summary.json` as compact run-scoped Codebase Awareness evidence and proofpack includes or references that summary. Do not pack project-level `.signum/cache/` scanner cache files by default.
 

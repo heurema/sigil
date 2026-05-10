@@ -51,7 +51,11 @@ check_prompt() {
   assert_contains "$file" "Before editing code, write \`reuse_decision.json\`." "$label requires decision before code edits"
   assert_contains "$file" "reuse_decision.json" "$label mentions reuse decision artifact"
   assert_contains "$file" "reuse\`, \`adapt\`, \`reject\`, \`follow-pattern\`, \`respect-boundary\`, \`inspect-only\`, or \`defer\`" "$label lists accepted dispositions"
-  assert_contains "$file" "In \`warn\` and \`gate\` modes \`reuse_decision.json\` is required by the orchestrator." "$label says warn/gate require decision"
+  assert_contains "$file" "In \`warn\` and \`gate\` modes \`reuse_decision.json\` is required by the orchestrator and must address top/strong candidates" "$label says warn/gate require top/strong coverage"
+  assert_contains "$file" "top 3 candidates plus candidates with high score or confidence" "$label defines top/strong candidates"
+  assert_contains "$file" "Every \`reuse\`, \`adapt\`, \`follow-pattern\`, or \`respect-boundary\` decision must include \`candidateId\`." "$label requires candidateId for action-bearing decisions"
+  assert_contains "$file" "\`reject\`, \`defer\`, and \`inspect-only\` decisions must include rationale." "$label requires rationale for non-action decisions"
+  assert_contains "$file" "Do not use a generic \"I looked at candidates\" decision without binding it to relevant candidate IDs." "$label forbids generic reuse decision"
   assert_not_contains "$file" "duplicate_scan.json" "$label does not assign duplicate scan"
   assert_not_contains "$file" "reuse_summary.json" "$label does not assign reuse summary"
 }
