@@ -390,8 +390,10 @@ helper = next(
         for candidate in candidates
         if candidate.get("path") == target_path and candidate.get("symbol") == helper_symbol
     ),
-    next((candidate for candidate in candidates if candidate.get("path") == target_path), {}),
+    None,
 )
+require(helper is not None, f"{target_path} {helper_symbol} helper candidate is missing")
+helper = helper or {}
 why_list = helper.get("whyRelevant", [])
 why = " ".join(why_list).lower()
 non_contract_reasons = [reason for reason in why_list if not str(reason).startswith("contract terms matched")]
