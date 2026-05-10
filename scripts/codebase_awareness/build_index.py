@@ -37,7 +37,20 @@ TEXT_EXTRACTION_LIMIT = 800_000
 INDEX_SCAN_MODE = "shallow-regex-v1"
 DIGEST_SCAN_MODE = "lexical-symbol"
 EXTRACTS_SCHEMA_VERSION = "1.0"
-EXTRACTOR_VERSION = "codebase-awareness-extracts-v1"
+ADAPTER_EXTRACTOR_ABI = {
+    "core": 1,
+    "go": 1,
+    "rust": 1,
+    "csharp": 1,
+    "typescript_js": 1,
+    "python": 1,
+    "shell": 1,
+}
+EXTRACTOR_VERSION = "codebase-awareness-extracts-" + json.dumps(
+    ADAPTER_EXTRACTOR_ABI,
+    sort_keys=True,
+    separators=(",", ":"),
+)
 
 IGNORE_DIRS = {
     ".git",
@@ -575,14 +588,18 @@ def extraction_cache_is_compatible(cache: dict[str, Any]) -> tuple[bool, str | N
     if not cache:
         return False, "missing"
     if cache.get("schemaVersion") != EXTRACTS_SCHEMA_VERSION:
-        return False, "schemaVersion"
+        return False, "incompatible schemaVersion"
     if cache.get("scanMode") != INDEX_SCAN_MODE:
-        return False, "scanMode"
+        return False, "incompatible scanMode"
+    if "extractorAbi" not in cache:
+        return False, "missing extractorAbi"
+    if cache.get("extractorAbi") != ADAPTER_EXTRACTOR_ABI:
+        return False, "incompatible extractorAbi"
     if cache.get("extractorVersion") != EXTRACTOR_VERSION:
-        return False, "extractorVersion"
+        return False, "incompatible extractorVersion"
     files = cache.get("files")
     if not isinstance(files, dict):
-        return False, "files"
+        return False, "incompatible files"
     return True, None
 
 
@@ -621,7 +638,7 @@ def build_extractions(
 ) -> dict[str, dict[str, Any]]:
     compatible, reason = extraction_cache_is_compatible(previous_extracts)
     if previous_extracts and not compatible and reason != "missing":
-        scan_stats_add_note(scan.scan_stats, f"previous-extracts ignored: incompatible {reason}")
+        scan_stats_add_note(scan.scan_stats, f"previous-extracts ignored: {reason}")
 
     previous_files = previous_extracts.get("files") if compatible else {}
     if not isinstance(previous_files, dict):
@@ -665,6 +682,7 @@ def build_extracts_cache(
         "projectRoot": project_root_arg,
         "scanMode": INDEX_SCAN_MODE,
         "extractorVersion": EXTRACTOR_VERSION,
+        "extractorAbi": clone_jsonable(ADAPTER_EXTRACTOR_ABI),
         "files": {rel: clone_jsonable(extractions[rel]) for rel in sorted(extractions)},
         "scanStats": scan.scan_stats,
     }

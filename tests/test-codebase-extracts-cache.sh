@@ -92,7 +92,11 @@ assert extracts["schemaVersion"] == "1.0", "schemaVersion"
 assert extracts["generatedAt"] == "2026-01-01T00:00:00Z", "generatedAt"
 assert extracts["projectRoot"] == ".", "projectRoot"
 assert extracts["scanMode"] == "shallow-regex-v1", "scanMode"
-assert extracts["extractorVersion"] == "codebase-awareness-extracts-v1", "extractorVersion"
+expected_abi = {"core": 1, "go": 1, "rust": 1, "csharp": 1, "typescript_js": 1, "python": 1, "shell": 1}
+expected_version = "codebase-awareness-extracts-" + json.dumps(expected_abi, sort_keys=True, separators=(",", ":"))
+assert extracts["extractorVersion"] == expected_version, "extractorVersion"
+assert extracts["extractorAbi"] == expected_abi, "extractorAbi"
+assert set(extracts["extractorAbi"]) == {"core", "go", "rust", "csharp", "typescript_js", "python", "shell"}, "extractorAbi keys"
 files = extracts.get("files")
 assert isinstance(files, dict) and files, "files"
 stats = extracts.get("scanStats", {})
@@ -229,9 +233,56 @@ assert any("previous-extracts ignored" in note for note in stats.get("notes", []
   "$PROJECT_F/.signum/cache/file-extracts-v1.json"
 
 echo ""
-echo "=== Schema/version mismatch falls back ==="
-PROJECT_G="$(make_project version-mismatch)"
+echo "=== Cache ABI and compatibility mismatches fall back ==="
+PROJECT_G="$(make_project compatibility-mismatches)"
 run_scanner "$PROJECT_G" ".signum/cache/codebase-index-a.json" ".signum/cache/style-profile-a.json" ".signum/cache/file-digests-a.json" ".signum/cache/file-extracts-a.json"
+
+python3 - "$PROJECT_G/.signum/cache/file-extracts-a.json" "$PROJECT_G/.signum/cache/file-extracts-missing-abi.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data.pop("extractorAbi", None)
+Path(sys.argv[2]).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if run_scanner "$PROJECT_G" ".signum/cache/codebase-index-missing-abi.json" ".signum/cache/style-profile-missing-abi.json" ".signum/cache/file-digests-missing-abi.json" ".signum/cache/file-extracts-missing-abi-output.json" --previous-extracts ".signum/cache/file-extracts-missing-abi.json"; then
+  pass "missing extractorAbi previous extracts exits 0"
+else
+  fail "missing extractorAbi previous extracts exits 0" "command failed"
+fi
+assert_json "missing extractorAbi does full extraction with note" \
+  "$PROJECT_G" \
+  'extracts = data[0]
+stats = extracts["scanStats"]
+assert stats["filesReused"] == 0, "missing ABI cache reused files"
+assert stats["filesExtracted"] > 0, "missing ABI cache did not extract"
+assert any(note == "previous-extracts ignored: missing extractorAbi" for note in stats.get("notes", [])), "missing ABI note"' \
+  "$PROJECT_G/.signum/cache/file-extracts-missing-abi-output.json"
+
+python3 - "$PROJECT_G/.signum/cache/file-extracts-a.json" "$PROJECT_G/.signum/cache/file-extracts-bad-abi.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["extractorAbi"]["python"] = 999
+Path(sys.argv[2]).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if run_scanner "$PROJECT_G" ".signum/cache/codebase-index-bad-abi.json" ".signum/cache/style-profile-bad-abi.json" ".signum/cache/file-digests-bad-abi.json" ".signum/cache/file-extracts-bad-abi-output.json" --previous-extracts ".signum/cache/file-extracts-bad-abi.json"; then
+  pass "ABI mismatch previous extracts exits 0"
+else
+  fail "ABI mismatch previous extracts exits 0" "command failed"
+fi
+assert_json "ABI mismatch does full extraction with note" \
+  "$PROJECT_G" \
+  'extracts = data[0]
+stats = extracts["scanStats"]
+assert stats["filesReused"] == 0, "ABI mismatch cache reused files"
+assert stats["filesExtracted"] > 0, "ABI mismatch cache did not extract"
+assert any(note == "previous-extracts ignored: incompatible extractorAbi" for note in stats.get("notes", [])), "missing ABI mismatch note"' \
+  "$PROJECT_G/.signum/cache/file-extracts-bad-abi-output.json"
+
 python3 - "$PROJECT_G/.signum/cache/file-extracts-a.json" "$PROJECT_G/.signum/cache/file-extracts-bad-version.json" <<'PY'
 import json
 import sys
@@ -241,7 +292,7 @@ data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 data["extractorVersion"] = "codebase-awareness-extracts-v0"
 Path(sys.argv[2]).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 PY
-if run_scanner "$PROJECT_G" ".signum/cache/codebase-index-b.json" ".signum/cache/style-profile-b.json" ".signum/cache/file-digests-b.json" ".signum/cache/file-extracts-b.json" --previous-extracts ".signum/cache/file-extracts-bad-version.json"; then
+if run_scanner "$PROJECT_G" ".signum/cache/codebase-index-bad-version.json" ".signum/cache/style-profile-bad-version.json" ".signum/cache/file-digests-bad-version.json" ".signum/cache/file-extracts-bad-version-output.json" --previous-extracts ".signum/cache/file-extracts-bad-version.json"; then
   pass "version mismatch previous extracts exits 0"
 else
   fail "version mismatch previous extracts exits 0" "command failed"
@@ -252,8 +303,54 @@ assert_json "version mismatch does full extraction with note" \
 stats = extracts["scanStats"]
 assert stats["filesReused"] == 0, "mismatch cache reused files"
 assert stats["filesExtracted"] > 0, "mismatch cache did not extract"
-assert any("extractorVersion" in note for note in stats.get("notes", [])), "missing version note"' \
-  "$PROJECT_G/.signum/cache/file-extracts-b.json"
+assert any(note == "previous-extracts ignored: incompatible extractorVersion" for note in stats.get("notes", [])), "missing version note"' \
+  "$PROJECT_G/.signum/cache/file-extracts-bad-version-output.json"
+
+python3 - "$PROJECT_G/.signum/cache/file-extracts-a.json" "$PROJECT_G/.signum/cache/file-extracts-bad-schema.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["schemaVersion"] = "0.9"
+Path(sys.argv[2]).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if run_scanner "$PROJECT_G" ".signum/cache/codebase-index-bad-schema.json" ".signum/cache/style-profile-bad-schema.json" ".signum/cache/file-digests-bad-schema.json" ".signum/cache/file-extracts-bad-schema-output.json" --previous-extracts ".signum/cache/file-extracts-bad-schema.json"; then
+  pass "schema mismatch previous extracts exits 0"
+else
+  fail "schema mismatch previous extracts exits 0" "command failed"
+fi
+assert_json "schema mismatch does full extraction with note" \
+  "$PROJECT_G" \
+  'extracts = data[0]
+stats = extracts["scanStats"]
+assert stats["filesReused"] == 0, "schema mismatch cache reused files"
+assert stats["filesExtracted"] > 0, "schema mismatch cache did not extract"
+assert any(note == "previous-extracts ignored: incompatible schemaVersion" for note in stats.get("notes", [])), "missing schema note"' \
+  "$PROJECT_G/.signum/cache/file-extracts-bad-schema-output.json"
+
+python3 - "$PROJECT_G/.signum/cache/file-extracts-a.json" "$PROJECT_G/.signum/cache/file-extracts-bad-scan-mode.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+data["scanMode"] = "other-scan-mode"
+Path(sys.argv[2]).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+if run_scanner "$PROJECT_G" ".signum/cache/codebase-index-bad-scan-mode.json" ".signum/cache/style-profile-bad-scan-mode.json" ".signum/cache/file-digests-bad-scan-mode.json" ".signum/cache/file-extracts-bad-scan-mode-output.json" --previous-extracts ".signum/cache/file-extracts-bad-scan-mode.json"; then
+  pass "scan mode mismatch previous extracts exits 0"
+else
+  fail "scan mode mismatch previous extracts exits 0" "command failed"
+fi
+assert_json "scan mode mismatch does full extraction with note" \
+  "$PROJECT_G" \
+  'extracts = data[0]
+stats = extracts["scanStats"]
+assert stats["filesReused"] == 0, "scan mode mismatch cache reused files"
+assert stats["filesExtracted"] > 0, "scan mode mismatch cache did not extract"
+assert any(note == "previous-extracts ignored: incompatible scanMode" for note in stats.get("notes", [])), "missing scan mode note"' \
+  "$PROJECT_G/.signum/cache/file-extracts-bad-scan-mode-output.json"
 
 echo ""
 echo "=== Skipped files are not reused as indexed payloads ==="
