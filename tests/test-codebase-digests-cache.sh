@@ -114,7 +114,8 @@ assert_digest "digest schema uses repo-relative indexed files" \
   'assert "src/shared/validation.ts" in files, "missing validation digest"
 assert files["src/shared/validation.ts"]["indexed"] is True, "validation not indexed"
 assert files["src/shared/validation.ts"]["reason"] == "indexed", "validation reason"
-assert stats["filesReused"] == 0, "filesReused not honest zero"'
+assert stats["filesReused"] == 0, "filesReused not honest zero"
+assert stats["filesExtracted"] > 0, "filesExtracted missing"'
 
 echo ""
 echo "=== Determinism ==="
@@ -239,10 +240,10 @@ assert_digest "previous digest input does not fake reuse" \
 
 echo ""
 echo "=== Proofpack cache exclusion ==="
-if grep -Fq 'file-digests-v1.json' "$ROOT_DIR/commands/signum.fragments/100-phase-pack.md" "$ROOT_DIR/platforms/claude-code/commands/signum.fragments/100-phase-pack.md"; then
-  fail "PACK fragments exclude file digest cache" "file-digests-v1.json appears in PACK fragment"
+if grep -Eq 'file-(digests|extracts)-v1\.json' "$ROOT_DIR/commands/signum.fragments/100-phase-pack.md" "$ROOT_DIR/platforms/claude-code/commands/signum.fragments/100-phase-pack.md"; then
+  fail "PACK fragments exclude file digest and extraction cache" "project cache path appears in PACK fragment"
 else
-  pass "PACK fragments exclude file digest cache"
+  pass "PACK fragments exclude file digest and extraction cache"
 fi
 
 echo ""

@@ -652,8 +652,14 @@ def module_role(rel: str, crate: dict[str, Any] | None) -> str | None:
     return None
 
 
-def module_fields(rel: str, text: str, rust_context: dict[str, Any]) -> dict[str, Any]:
+def module_fields(
+    rel: str,
+    text: str,
+    rust_context: dict[str, Any],
+    file_text_signals: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     crate = crate_for_path(rel, rust_context)
+    signals = file_text_signals or {}
     fields: dict[str, Any] = {}
     if crate:
         if crate.get("root"):
@@ -683,7 +689,10 @@ def module_fields(rel: str, text: str, rust_context: dict[str, Any]) -> dict[str
                 "path": crate.get("root"),
             }
         )
-    if re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text):
+    has_inline_cfg_test = bool(signals.get("hasInlineCfgTest"))
+    if not has_inline_cfg_test and text:
+        has_inline_cfg_test = bool(re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text))
+    if has_inline_cfg_test:
         fields["hasInlineCfgTest"] = True
         hints.append({"kind": "rust-inline-cfg-test", "value": "inline #[cfg(test)] tests", "weak": False})
     if hints:
