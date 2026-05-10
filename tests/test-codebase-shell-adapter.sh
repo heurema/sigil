@@ -166,11 +166,14 @@ detected = {item.get("language"): item.get("fileCount") for item in records("lan
 require(detected.get("shell", 0) >= 7, "Shell language detection missing or too small")
 require(index.get("primaryLanguages") == ["shell"], "Shell primary language missing")
 require(find("modules", path="scripts/policy-entry", language="shell") is not None, "extensionless /bin/sh shebang script not detected")
+require(find("modules", path="scripts/zsh-entry", language="shell") is not None, "extensionless /usr/bin/env zsh shebang script not detected")
 
 json_payload = extract_payload("lib/json-output.sh")
 policy_payload = extract_payload("lib/policy-check.sh")
 test_payload = extract_payload("tests/test-policy-check.sh")
+zsh_payload = extract_payload("scripts/zsh-entry")
 require(json_payload.get("fileTextSignals", {}).get("shellShebang") is True, "shell shebang signal missing")
+require(zsh_payload.get("fileTextSignals", {}).get("shellShebang") is True, "zsh shebang signal missing")
 require(json_payload.get("fileTextSignals", {}).get("shellStrictMode") is True, "set -euo pipefail signal missing")
 
 expected_symbols = {
@@ -238,7 +241,9 @@ require(boundary("commands/signum.fragments/90-phase-audit.md", "shell-command-f
 require(find("sharedCandidates", path="commands/signum.fragments/90-phase-audit.md") is None, "command fragment became shared helper candidate")
 require(boundary("scripts/run-policy-check.sh", "shell-executable-script"), "shell executable script boundary missing")
 require(boundary("scripts/policy-entry", "shell-executable-script"), "extensionless executable script boundary missing")
+require(boundary("scripts/zsh-entry", "shell-executable-script"), "extensionless zsh executable script boundary missing")
 require(find("sharedCandidates", path="scripts/run-policy-check.sh") is None, "executable wrapper became shared helper candidate")
+require(find("sharedCandidates", path="scripts/zsh-entry") is None, "extensionless zsh executable script became shared helper candidate")
 require(boundary("scripts/run-policy-check.sh", "shell-tempdir-trap-cleanup"), "tempdir/trap cleanup boundary missing")
 require(boundary("tests/test-policy-check.sh", "shell-test-file"), "shell test boundary missing")
 
@@ -246,6 +251,7 @@ for cache, label in ((digests, "digests"), (extracts, "extracts")):
     files = cache.get("files", {})
     require("lib/json-output.sh" in files, f"{label} missing shell helper")
     require("scripts/policy-entry" in files, f"{label} missing shebang extensionless shell script")
+    require("scripts/zsh-entry" in files, f"{label} missing zsh shebang extensionless shell script")
     require("tests/test-policy-check.sh" in files, f"{label} missing shell test")
 require(any(item.get("name") == "emit_json_report" for item in json_payload.get("symbols", [])), "extract cache missing shell symbols")
 require(any(item.get("imported") == "$ROOT_DIR/lib/json-output.sh" for item in policy_payload.get("imports", [])), "extract cache missing shell source imports")
@@ -386,7 +392,7 @@ for candidate in json_helpers[:2]:
     require("imported" in why or "sourced" in why, "JSON helper candidate lacks fan-in whyRelevant evidence")
     require("paired test" in why or "multiple reuse signals" in why, "JSON helper candidate lacks paired-test/multi-signal evidence")
 
-weak_paths = {"lib/utils.sh", "commands/signum.fragments/90-phase-audit.md", "scripts/run-policy-check.sh", "scripts/policy-entry"}
+weak_paths = {"lib/utils.sh", "commands/signum.fragments/90-phase-audit.md", "scripts/run-policy-check.sh", "scripts/policy-entry", "scripts/zsh-entry"}
 require(not any(candidate.get("path") in weak_paths and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates), "weak/orchestrator/executable path surfaced as reusable shell helper")
 test_candidates = [candidate for candidate in candidates if candidate.get("path") == "tests/test-policy-check.sh"]
 for candidate in test_candidates:
