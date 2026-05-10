@@ -127,11 +127,14 @@ if not go_work or go_work.get("workspaceUses") != ["./libs/shared", "./services/
     errors.append("go.work workspaceUses missing")
 
 validate = symbol("ValidateToken", "function", "internal/auth/token.go")
+nested_validate = symbol("ValidateToken", "function", "services/api/pkg/validation/token.go")
 parse = symbol("parseToken", "function", "internal/auth/token.go")
 method = symbol("ValidateToken", "method", "internal/auth/token.go")
 save = symbol("Save", "method", "internal/auth/token.go")
 if not validate or validate.get("exported") is not True or validate.get("receiver") is not None:
     errors.append("ValidateToken function extraction/export failed")
+if not nested_validate or nested_validate.get("exported") is not True:
+    errors.append("nested services/api/pkg ValidateToken function extraction/export failed")
 if not parse or parse.get("exported") is not False:
     errors.append("parseToken unexported extraction failed")
 if not method or method.get("receiver") != "Service" or method.get("exported") is not True:
@@ -180,12 +183,18 @@ modules = index.get("modules", [])
 pkg_module = next((item for item in modules if item.get("path") == "pkg/validation" and item.get("kind") == "package"), None)
 internal_module = next((item for item in modules if item.get("path") == "internal/auth" and item.get("kind") == "package"), None)
 cmd_module = next((item for item in modules if item.get("path") == "cmd/api" and item.get("kind") == "package"), None)
+nested_cmd_module = next((item for item in modules if item.get("path") == "services/api/cmd/server" and item.get("kind") == "package"), None)
+nested_pkg_module = next((item for item in modules if item.get("path") == "services/api/pkg/validation" and item.get("kind") == "package"), None)
 if not pkg_module or pkg_module.get("weakReusablePackageConvention") is not True:
     errors.append("pkg/ weak package boundary missing")
 if not internal_module or internal_module.get("internalBoundary") is not True:
     errors.append("internal/ boundary missing")
 if not cmd_module or cmd_module.get("entrypointBoundary") is not True:
     errors.append("cmd/ boundary missing")
+if not nested_cmd_module or nested_cmd_module.get("entrypointBoundary") is not True:
+    errors.append("nested cmd/ boundary missing")
+if not nested_pkg_module or nested_pkg_module.get("weakReusablePackageConvention") is not True:
+    errors.append("nested pkg/ weak package boundary missing")
 
 boundaries = index.get("moduleBoundaries", [])
 if not any(item.get("path") == "internal/auth" and item.get("kind") == "go-internal" for item in boundaries):
@@ -194,6 +203,10 @@ if not any(item.get("path") == "cmd/api" and item.get("kind") == "go-cmd" for it
     errors.append("go-cmd module boundary missing")
 if not any(item.get("path") == "pkg/validation" and item.get("kind") == "go-pkg" and item.get("weak") is True for item in boundaries):
     errors.append("go-pkg weak module boundary missing")
+if not any(item.get("path") == "services/api/cmd/server" and item.get("kind") == "go-cmd" for item in boundaries):
+    errors.append("nested go-cmd module boundary missing")
+if not any(item.get("path") == "services/api/pkg/validation" and item.get("kind") == "go-pkg" and item.get("weak") is True for item in boundaries):
+    errors.append("nested go-pkg weak module boundary missing")
 if "pkg/validation/testdata/valid.txt" not in index.get("conventions", {}).get("goTestdataPaths", []):
     errors.append("testdata convention missing")
 
@@ -214,6 +227,18 @@ else:
 internal_candidate = next((item for item in shared if item.get("path") == "internal/auth"), None)
 if not internal_candidate or internal_candidate.get("internalBoundary") is not True:
     errors.append("internal/auth candidate is not boundary-aware")
+nested_cmd_candidate = next((item for item in shared if item.get("path") == "services/api/cmd/server"), None)
+if nested_cmd_candidate:
+    errors.append("nested cmd entrypoint became shared candidate from path alone")
+nested_pkg_candidate = next((item for item in shared if item.get("path") == "services/api/pkg/validation"), None)
+if nested_pkg_candidate:
+    nested_pkg_reasons = set(nested_pkg_candidate.get("reasons", []))
+    if nested_pkg_reasons <= {"go-pkg-weak-convention"}:
+        errors.append("nested pkg candidate relies only on weak pkg convention")
+    if "exported-symbols" not in nested_pkg_reasons:
+        errors.append("nested pkg candidate lacks stronger exported-symbol evidence")
+    if not any(hint.get("kind") == "go-pkg" and hint.get("weak") is True for hint in nested_pkg_candidate.get("boundaryHints", [])):
+        errors.append("nested pkg candidate lost weak go-pkg boundary evidence")
 
 style_tests = style.get("testConventions", [])
 if not any(item.get("language") == "go" and item.get("value") == "*_test.go" for item in style_tests):
@@ -225,7 +250,7 @@ if not any(item.get("value") == "package-local tests" for item in style_go):
     errors.append("Go package-local test convention missing")
 
 digest_files = digests.get("files", {})
-for rel in ("go.mod", "cmd/api/main.go", "internal/auth/token.go", "internal/auth/token_test.go", "pkg/validation/email.go"):
+for rel in ("go.mod", "cmd/api/main.go", "internal/auth/token.go", "internal/auth/token_test.go", "pkg/validation/email.go", "services/api/cmd/server/main.go", "services/api/pkg/validation/token.go"):
     record = digest_files.get(rel)
     if not record or record.get("indexed") is not True:
         errors.append(f"missing indexed digest for {rel}")

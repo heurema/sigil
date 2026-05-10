@@ -18,7 +18,7 @@ SHELL_NAMES = {"bash", "sh", "zsh"}
 SHARED_DIR_HINTS = {"common", "lib", "shared", "utils"}
 
 SHELL_SHEBANG_RE = re.compile(
-    r"^#!\s*(?:/usr/bin/env\s+(?:bash|sh)|/bin/(?:bash|sh))(?:\s|$)"
+    r"^#!\s*(?:/usr/bin/env\s+(?:bash|sh|zsh)|/bin/(?:bash|sh|zsh))(?:\s|$)"
 )
 FUNCTION_PATTERNS = (
     re.compile(r"^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_-]*)\s*\(\s*\)\s*(?:\{|$)"),

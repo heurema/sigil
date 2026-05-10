@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+set -euo pipefail
+
+main() {
+  print "ok"
+}
+
+main "$@"

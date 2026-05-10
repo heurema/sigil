@@ -340,8 +340,9 @@ def test_info(rel: str, text: str, language: str | None) -> dict[str, Any]:
 def boundary_hints_for_path(rel: str) -> list[dict[str, Any]]:
     path = Path(rel)
     parts = path.parts
+    part_set = set(parts)
     hints: list[dict[str, Any]] = []
-    if "internal" in parts:
+    if "internal" in part_set:
         index = parts.index("internal")
         allowed_root = "/".join(parts[:index]) or "."
         hints.append(
@@ -352,7 +353,7 @@ def boundary_hints_for_path(rel: str) -> list[dict[str, Any]]:
                 "weak": False,
             }
         )
-    if parts and parts[0] == "cmd":
+    if "cmd" in part_set:
         hints.append(
             {
                 "kind": "go-cmd",
@@ -360,7 +361,7 @@ def boundary_hints_for_path(rel: str) -> list[dict[str, Any]]:
                 "weak": False,
             }
         )
-    if parts and parts[0] == "pkg":
+    if "pkg" in part_set:
         hints.append(
             {
                 "kind": "go-pkg",

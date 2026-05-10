@@ -23,7 +23,8 @@
   "sharedCandidatePaths": [
     "internal/auth",
     "internal/users",
-    "pkg/validation"
+    "pkg/validation",
+    "services/api/pkg/validation"
   ],
   "symbolNames": [
     "BenchmarkValidateToken",
