@@ -226,6 +226,8 @@ Before coding:
 
 When Codebase Awareness is enabled, AUDIT may produce `duplicate_scan.json` as reuse/duplicate evidence. In `warn`, unresolved major/critical duplicate findings cap AUDIT at `HUMAN_REVIEW`; in `gate`, critical and narrow high-confidence unresolved major findings can force `AUTO_BLOCK`. PACK writes `reuse_summary.json` as compact run-scoped Codebase Awareness evidence and proofpack includes or references that summary. Do not pack project-level `.signum/cache/` scanner cache files by default.
 
+`scripts/codebase_awareness/summarize_dogfood_run.py` is an optional reporting-only helper for Codebase Awareness dogfood. It summarizes existing active-contract artifacts and project-level cache stats, is not required for Signum runs, and does not change EXECUTE, AUDIT, PACK, scanner, matcher, or audit behavior.
+
 The policy should restrict:
 
 - files or directories allowed to change
