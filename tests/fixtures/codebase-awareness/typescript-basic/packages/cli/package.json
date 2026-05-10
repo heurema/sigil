@@ -1,0 +1,14 @@
+{
+  "name": "@acme/cli",
+  "type": "module",
+  "bin": {
+    "acme": "src/index.ts"
+  },
+  "dependencies": {
+    "@acme/shared": "workspace:*",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.0.0"
+  }
+}

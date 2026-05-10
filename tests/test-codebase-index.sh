@@ -100,6 +100,7 @@ required_style = (
     "logging",
     "config",
     "validation",
+    "typescriptJavascriptConventions",
 )
 for section in required_index:
     if section not in index:
@@ -145,6 +146,8 @@ if not style.get("testConventions"):
     errors.append("test conventions")
 if not style.get("validation"):
     errors.append("validation style conventions")
+if not style.get("typescriptJavascriptConventions"):
+    errors.append("TypeScript/JavaScript style conventions")
 if project in json.dumps(index) or project in json.dumps(style) or project in json.dumps(digests):
     errors.append("scanner artifacts leaked temp project path")
 

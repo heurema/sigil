@@ -397,6 +397,7 @@ def is_test_path(path: str | None) -> bool:
         "test" in parts
         or "tests" in parts
         or "testdata" in parts
+        or "__tests__" in parts
         or name.startswith("test_")
         or name.endswith("_test.go")
         or name.endswith("_test.py")
@@ -513,6 +514,26 @@ def add_draft(
                 risk = "C# test project should guide tests, not production helper placement."
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
+            elif kind_value == "npm-package":
+                why = "npm package boundary identified by scanner"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "tsconfig-project":
+                why = "tsconfig/jsconfig project boundary identified by scanner"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "npm-bin-entrypoint":
+                risk = "CLI package/bin entrypoint is not a generic helper module."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "tsjs-test-file":
+                risk = "TypeScript/JavaScript test files should guide tests, not production helper placement."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "shared-name-weak":
+                why = "shared/common/utils/lib path name is weak evidence only"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
         boundary_risk = record.get("risk")
         if isinstance(boundary_risk, str) and boundary_risk and boundary_risk not in draft["risks"]:
             draft["risks"].append(boundary_risk)
@@ -546,6 +567,19 @@ def add_draft(
                     draft["risks"].append(risk)
             if record.get("executableBoundary"):
                 risk = "C# executable project is not a generic helper module"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+        if record_language in {"javascript", "typescript"}:
+            if visibility in {"local", "package-private"} and kind == "existing-helper":
+                risk = "TypeScript/JavaScript non-exported helper may be package-private and not reusable across package boundary"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("executableBoundary"):
+                risk = "CLI package/bin entrypoint is not a generic helper module"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("kind") == "test":
+                risk = "TypeScript/JavaScript test file should guide tests, not production helper placement"
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
         for risk in as_list(record.get("visibilityRisks")):
@@ -764,6 +798,7 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
         "logging": "local-pattern",
         "config": "config-pattern",
         "validation": "local-pattern",
+        "typescriptJavascriptConventions": "module-boundary",
     }
     for section, kind in style_sections.items():
         for record in as_list(style_profile.get(section)):
@@ -790,25 +825,29 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
         if language:
             languages.add(language)
     token_map = {
-        "javascript": "javascript",
-        "cargo": "rust",
-        "csharp": "csharp",
-        "cs": "csharp",
-        "dotnet": "csharp",
-        "go": "go",
-        "golang": "go",
-        "js": "javascript",
-        "net": "csharp",
-        "py": "python",
-        "python": "python",
-        "rs": "rust",
-        "rust": "rust",
-        "ts": "typescript",
-        "typescript": "typescript",
+        "javascript": ("javascript",),
+        "cargo": ("rust",),
+        "csharp": ("csharp",),
+        "cs": ("csharp",),
+        "dotnet": ("csharp",),
+        "go": ("go",),
+        "golang": ("go",),
+        "js": ("javascript",),
+        "net": ("csharp",),
+        "node": ("javascript", "typescript"),
+        "npm": ("javascript", "typescript"),
+        "package": ("javascript", "typescript"),
+        "py": ("python",),
+        "python": ("python",),
+        "rs": ("rust",),
+        "rust": ("rust",),
+        "ts": ("typescript",),
+        "typescript": ("typescript",),
+        "workspace": ("javascript", "typescript"),
     }
     for token in task_intent.get("tokens", []):
         if token in token_map:
-            languages.add(token_map[token])
+            languages.update(token_map[token])
     if not languages:
         for language in codebase_index.get("primaryLanguages", []):
             if isinstance(language, str):
@@ -1062,6 +1101,10 @@ def dominant_conventions(style_profile: dict[str, Any]) -> dict[str, list[str]]:
         "validation": [summarize_convention(item) for item in as_list(style_profile.get("validation"))][:6],
         "go": [summarize_convention(item) for item in as_list(style_profile.get("goConventions"))][:6],
         "csharp": [summarize_convention(item) for item in as_list(style_profile.get("csharpConventions"))][:6],
+        "typescriptJavascript": [
+            summarize_convention(item)
+            for item in as_list(style_profile.get("typescriptJavascriptConventions"))
+        ][:6],
     }
 
 

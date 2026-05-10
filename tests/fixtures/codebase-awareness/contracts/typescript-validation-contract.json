@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "typescript-validation-contract",
+  "goal": "Add email validation to the TypeScript signup flow",
+  "inScope": [
+    "packages/api/src/signup.ts"
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "description": "Signup rejects invalid email addresses."
+    },
+    {
+      "id": "AC-2",
+      "description": "Existing TypeScript validation helpers are reused when relevant."
+    }
+  ]
+}

@@ -276,12 +276,82 @@ def assert_csharp(index):
         require("internal" not in risk_text and "assembly-local" not in risk_text, "C# public helper inherited internal risk")
 
 
+def assert_typescript(index):
+    validation_path = "packages/shared/src/validation.ts"
+    validate = symbol(index, "validateEmail", "function", validation_path)
+    normalize = symbol(index, "normalizeEmail", "function", validation_path)
+    local_helper = symbol(index, "parseToken", "function", validation_path)
+    require(
+        validate is not None and validate.get("exported") is True and validate.get("visibility") == "exported",
+        "TypeScript exported validateEmail helper missing",
+    )
+    require(
+        normalize is not None and normalize.get("exported") is True and normalize.get("visibility") == "exported",
+        "TypeScript exported normalizeEmail helper missing",
+    )
+    require(
+        local_helper is not None and local_helper.get("exported") is False and local_helper.get("visibility") == "local",
+        "TypeScript local helper visibility missing",
+    )
+    default_symbol = symbol(index, "default", "function", validation_path)
+    require(
+        default_symbol is not None and default_symbol.get("visibility") == "default-export",
+        "TypeScript default export visibility missing",
+    )
+    api_import = next(
+        (
+            item
+            for item in records(index, "imports")
+            if item.get("path") == "packages/api/src/signup.ts"
+            and item.get("imported") == "@acme/shared/validation"
+            and item.get("kind") == "import"
+        ),
+        None,
+    )
+    require(api_import is not None and api_import.get("resolvedPath") == validation_path, "TypeScript package import did not resolve")
+    require(
+        any(
+            item.get("path") == "packages/shared/src/index.ts"
+            and item.get("kind") == "export-from"
+            and item.get("resolvedPath") == validation_path
+            for item in records(index, "imports")
+        ),
+        "TypeScript export-from did not resolve",
+    )
+    test_record = next(
+        (
+            item
+            for item in records(index, "tests")
+            if item.get("path") == "packages/shared/src/validation.test.ts"
+        ),
+        None,
+    )
+    require(test_record is not None and test_record.get("framework") == "vitest", "TypeScript vitest test record missing")
+    candidate = find(index, "sharedCandidates", path=validation_path)
+    require(candidate is not None, "TypeScript validation shared candidate missing")
+    if candidate:
+        reasons = set(candidate.get("reasons", []))
+        require(
+            {"imported-by-local-files", "exported-symbols", "paired-test", "workspace-package", "package-name-import"} <= reasons,
+            "TypeScript validation candidate lacks fan-in, symbol, paired-test, or package evidence",
+        )
+        require(candidate.get("usageCount") == 4, "TypeScript validation fan-in changed")
+        require(candidate.get("pairedTests") == ["packages/shared/src/validation.test.ts"], "TypeScript paired test changed")
+    require(
+        not any(item.get("path") == "packages/shared/src/common-utils.ts" for item in records(index, "sharedCandidates")),
+        "TypeScript weak shared/common/utils path became shared candidate",
+    )
+    require(has_boundary(index, "packages/cli/src/index.ts", "npm-bin-entrypoint"), "TypeScript CLI bin boundary missing")
+
+
 if language == "go":
     assert_go(cached_index)
 elif language == "rust":
     assert_rust(cached_index)
 elif language == "csharp":
     assert_csharp(cached_index)
+elif language == "typescript":
+    assert_typescript(cached_index)
 else:
     errors.append(f"unknown language: {language}")
 
@@ -335,6 +405,7 @@ run_case() {
 run_case "go-basic" "go"
 run_case "rust-basic" "rust"
 run_case "csharp-basic" "csharp"
+run_case "typescript-basic" "typescript"
 
 printf 'Passed: %s\n' "$passed"
 printf 'Failed: %s\n' "$failed"
@@ -343,4 +414,4 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 
-echo "ok: Codebase Awareness extraction cache preserves Go, Rust, and C# adapter-sensitive assembly"
+echo "ok: Codebase Awareness extraction cache preserves Go, Rust, C#, and TypeScript adapter-sensitive assembly"

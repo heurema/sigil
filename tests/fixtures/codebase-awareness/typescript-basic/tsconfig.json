@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@acme/shared/*": [
+        "packages/shared/src/*"
+      ]
+    }
+  },
+  "references": [
+    {
+      "path": "packages/shared"
+    },
+    {
+      "path": "packages/api"
+    }
+  ],
+  "include": [
+    "packages/**/*.ts",
+    "packages/**/*.tsx"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

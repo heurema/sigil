@@ -23,6 +23,7 @@ def is_test_path(rel: str) -> bool:
     return (
         "test" in parts
         or "tests" in parts
+        or "__tests__" in parts
         or name.startswith("test_")
         or name.endswith("Test.cs")
         or name.endswith("Tests.cs")
