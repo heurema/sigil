@@ -34,7 +34,7 @@ assert_file "Go adapter exists" "$ADAPTER_DIR/go.py"
 assert_file "Rust adapter exists" "$ADAPTER_DIR/rust.py"
 assert_file "C# adapter exists" "$ADAPTER_DIR/csharp.py"
 
-if rg -q 'from scripts\.codebase_awareness\.adapters import csharp, go, rust' "$BUILD_INDEX"; then
+if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, rust' "$BUILD_INDEX"; then
   pass "build_index imports language adapters"
 else
   fail "build_index imports language adapters" "adapter import missing"
@@ -80,16 +80,48 @@ else
   fail "adapters use only stdlib and local scanner helpers" "unexpected import found"
 fi
 
-if rg -n 'subprocess|os\.system|os\.popen|Popen|check_call|check_output|execv|spawn' "$ADAPTER_DIR"; then
-  fail "adapters do not invoke external commands" "process execution API found"
-else
+if python3 - "$ADAPTER_DIR" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+pattern = re.compile(r"subprocess|os\.system|os\.popen|Popen|check_call|check_output|execv|spawn")
+errors = []
+for path in sorted(root.glob("*.py")):
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if pattern.search(line):
+            errors.append(f"{path.name}:{line_number}: {line.strip()}")
+if errors:
+    print("\n".join(errors))
+    raise SystemExit(1)
+PY
+then
   pass "adapters do not invoke external commands"
+else
+  fail "adapters do not invoke external commands" "process execution API found"
 fi
 
-if rg -n 'go list|cargo metadata|msbuild|nuget|roslyn' "$ADAPTER_DIR"; then
-  fail "adapters avoid banned external tooling strings" "banned tooling string found"
-else
+if python3 - "$ADAPTER_DIR" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+pattern = re.compile(r"go list|cargo metadata|msbuild|nuget|roslyn")
+errors = []
+for path in sorted(root.glob("*.py")):
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if pattern.search(line):
+            errors.append(f"{path.name}:{line_number}: {line.strip()}")
+if errors:
+    print("\n".join(errors))
+    raise SystemExit(1)
+PY
+then
   pass "adapters avoid banned external tooling strings"
+else
+  fail "adapters avoid banned external tooling strings" "banned tooling string found"
 fi
 
 echo ""
@@ -99,7 +131,7 @@ for test_file in \
   "$ROOT_DIR/tests/test-codebase-rust-adapter.sh" \
   "$ROOT_DIR/tests/test-codebase-csharp-adapter.sh"
 do
-  if rg -q 'sharedCandidates|moduleBoundaries|symbols|imports|tests' "$test_file" && rg -q 'SCANNER=' "$test_file"; then
+  if grep -Eq 'sharedCandidates|moduleBoundaries|symbols|imports|tests' "$test_file" && grep -Eq 'SCANNER=' "$test_file"; then
     pass "$(basename "$test_file") exercises scanner output"
   else
     fail "$(basename "$test_file") exercises scanner output" "expected output assertions missing"
