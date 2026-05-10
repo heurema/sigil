@@ -1607,6 +1607,7 @@ CONTRACT_ENGINEER_PATH="${ARTIFACT_ROOT}contract-engineer.json"
 CODEBASE_INDEX_PATH=".signum/cache/codebase-index-v1.json"
 STYLE_PROFILE_PATH=".signum/cache/style-profile-v1.json"
 FILE_DIGESTS_PATH=".signum/cache/file-digests-v1.json"
+FILE_EXTRACTS_PATH=".signum/cache/file-extracts-v1.json"
 IMPLEMENTATION_CONTEXT_PATH="${ARTIFACT_ROOT}implementation_context.json"
 REUSE_CANDIDATES_PATH="${ARTIFACT_ROOT}reuse_candidates.json"
 REUSE_DECISION_PATH="${ARTIFACT_ROOT}reuse_decision.json"
@@ -1679,13 +1680,17 @@ else
     --project-root . \
     --output "$CODEBASE_INDEX_PATH" \
     --style-output "$STYLE_PROFILE_PATH" \
-    --digests-output "$FILE_DIGESTS_PATH"
+    --digests-output "$FILE_DIGESTS_PATH" \
+    --extracts-output "$FILE_EXTRACTS_PATH"
   )
   if [ -f "$FILE_DIGESTS_PATH" ]; then
     _SCANNER_ARGS+=(--previous-digests "$FILE_DIGESTS_PATH")
   fi
+  if [ -f "$FILE_EXTRACTS_PATH" ]; then
+    _SCANNER_ARGS+=(--previous-extracts "$FILE_EXTRACTS_PATH")
+  fi
 
-  echo "CODEBASE_RECON: writing $CODEBASE_INDEX_PATH, $STYLE_PROFILE_PATH, and $FILE_DIGESTS_PATH"
+  echo "CODEBASE_RECON: writing $CODEBASE_INDEX_PATH, $STYLE_PROFILE_PATH, $FILE_DIGESTS_PATH, and $FILE_EXTRACTS_PATH"
   if python3 scripts/build_codebase_index.py "${_SCANNER_ARGS[@]}"; then
     echo "CODEBASE_RECON: complete"
     _CODEBASE_RECON_OK=1

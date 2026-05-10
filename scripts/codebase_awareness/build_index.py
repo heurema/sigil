@@ -9,6 +9,7 @@ parse ASTs or call external tools.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -35,6 +36,8 @@ DEFAULT_MAX_FILE_SIZE = 1_048_576
 TEXT_EXTRACTION_LIMIT = 800_000
 INDEX_SCAN_MODE = "shallow-regex-v1"
 DIGEST_SCAN_MODE = "lexical-symbol"
+EXTRACTS_SCHEMA_VERSION = "1.0"
+EXTRACTOR_VERSION = "codebase-awareness-extracts-v1"
 
 IGNORE_DIRS = {
     ".git",
@@ -158,6 +161,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--style-profile", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--digests-output", default=None)
     parser.add_argument("--previous-digests", default=None)
+    parser.add_argument("--extracts-output", default=None)
+    parser.add_argument("--previous-extracts", default=None)
     parser.add_argument("--max-files", type=non_negative_int, default=DEFAULT_MAX_FILES)
     parser.add_argument("--max-bytes", type=non_negative_int, default=DEFAULT_MAX_BYTES)
     parser.add_argument("--max-file-size", type=non_negative_int, default=DEFAULT_MAX_FILE_SIZE)
@@ -400,6 +405,243 @@ def build_scan(
         scan_stats=scan_stats,
         unsupported_files_summary=dict(sorted(unsupported.items())),
     )
+
+
+def scan_stats_add_note(scan_stats: dict[str, Any], note: str) -> None:
+    notes = [str(item) for item in scan_stats.get("notes", []) if item]
+    notes.append(note)
+    scan_stats["notes"] = sorted(set(notes))
+
+
+def clone_jsonable(value: Any) -> Any:
+    return copy.deepcopy(value)
+
+
+def extract_file_text_signals(rel: str, language: str | None, text: str) -> dict[str, Any]:
+    signals: dict[str, Any] = {
+        "lineCount": len(text.splitlines()) if text else 0,
+        "tokens": tokens_for_path(rel),
+        "style": {
+            "throwCatch": bool(re.search(r"\bthrow\s+new\s+Error\b|\btry\s*\{|\bcatch\s*\(", text)),
+            "tryExceptRaise": bool(re.search(r"^\s*(try:|except\b|raise\b)", text, flags=re.MULTILINE)),
+            "runtimeLoggingCall": bool(re.search(r"\bconsole\.(log|warn|error)\b|\blogger\.|\blogging\.getLogger\b", text)),
+            "environmentVariableAccess": bool(re.search(r"\b(process\.env|os\.environ|getenv)\b", text)),
+        },
+    }
+    if language == "go":
+        package_name = go.extract_package_name(text)
+        if package_name:
+            signals["packageName"] = package_name
+    if language == "rust":
+        signals["hasInlineCfgTest"] = bool(re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text))
+    if language == "csharp" and Path(rel).suffix == ".cs":
+        framework = csharp.test_framework_for_text(rel, text)
+        if framework:
+            signals["csharpTestFramework"] = framework
+    return signals
+
+
+def basic_module_record(rel: str, language: str | None, signals: dict[str, Any]) -> dict[str, Any]:
+    module: dict[str, Any] = {
+        "path": rel,
+        "name": Path(rel).stem,
+        "directory": Path(rel).parent.as_posix() if Path(rel).parent.as_posix() != "." else "",
+        "language": language,
+        "kind": module_kind(rel),
+        "tokens": tokens_for_path(rel),
+        "lineCount": int(signals.get("lineCount", 0)),
+    }
+    package_name = signals.get("packageName")
+    if isinstance(package_name, str) and package_name:
+        module["package"] = package_name
+    return module
+
+
+def text_only_test_info(rel: str, text: str, language: str | None) -> dict[str, Any]:
+    if language == "go":
+        return go.test_info(rel, text, language)
+    if language == "rust":
+        info = rust.test_info(rel, text, language)
+        info["framework"] = rust.test_framework(text) if info.get("hasTests") else None
+        return info
+    if language == "csharp":
+        return csharp.test_info(rel, text, language, None)
+    return {
+        "hasTests": is_test_path(rel),
+        "framework": test_framework_for_path(rel, text, language) if is_test_path(rel) else None,
+        "testFunctions": [],
+    }
+
+
+def cached_test_records(
+    rel: str,
+    language: str | None,
+    signals: dict[str, Any],
+    test_info: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if not (is_test_path(rel) or test_info.get("hasTests")):
+        return []
+    record: dict[str, Any] = {
+        "path": rel,
+        "language": language,
+        "framework": test_info.get("framework"),
+        "tokens": sorted(set(tokens_for_path(rel)) | ({"test"} if language == "rust" else set())),
+    }
+    package_name = signals.get("packageName")
+    if language == "go" and isinstance(package_name, str) and package_name:
+        record["package"] = package_name
+        record["targetPackage"] = package_name[: -len("_test")] if package_name.endswith("_test") else package_name
+    if test_info.get("testFunctions"):
+        record["testFunctions"] = test_info["testFunctions"]
+    if test_info.get("hasCfgTest"):
+        record["inlineCfgTest"] = True
+    return [record]
+
+
+def fresh_extraction_payload(scanned_file: ScanFile) -> dict[str, Any]:
+    signals = extract_file_text_signals(scanned_file.rel, scanned_file.language, scanned_file.text)
+    test_info = text_only_test_info(scanned_file.rel, scanned_file.text, scanned_file.language)
+    manifest = extract_manifest(scanned_file.rel, scanned_file.text)
+    return {
+        "sha256": scanned_file.sha256,
+        "sizeBytes": scanned_file.size_bytes,
+        "language": scanned_file.language,
+        "indexed": True,
+        "reason": scanned_file.reason,
+        "module": basic_module_record(scanned_file.rel, scanned_file.language, signals),
+        "symbols": extract_symbols(scanned_file.rel, scanned_file.language, scanned_file.text),
+        "imports": extract_import_records(scanned_file.language, scanned_file.text),
+        "tests": cached_test_records(scanned_file.rel, scanned_file.language, signals, test_info),
+        "manifest": manifest,
+        "fileTextSignals": signals,
+        "testInfo": test_info,
+    }
+
+
+def skipped_extraction_payload(scanned_file: ScanFile) -> dict[str, Any]:
+    return {
+        "sha256": scanned_file.sha256,
+        "sizeBytes": scanned_file.size_bytes,
+        "language": scanned_file.language,
+        "indexed": False,
+        "reason": scanned_file.reason,
+        "module": {},
+        "symbols": [],
+        "imports": [],
+        "tests": [],
+        "manifest": None,
+        "fileTextSignals": {
+            "lineCount": 0,
+            "tokens": tokens_for_path(scanned_file.rel),
+        },
+        "testInfo": {
+            "hasTests": False,
+            "framework": None,
+            "testFunctions": [],
+        },
+    }
+
+
+def extraction_cache_is_compatible(cache: dict[str, Any]) -> tuple[bool, str | None]:
+    if not cache:
+        return False, "missing"
+    if cache.get("schemaVersion") != EXTRACTS_SCHEMA_VERSION:
+        return False, "schemaVersion"
+    if cache.get("scanMode") != INDEX_SCAN_MODE:
+        return False, "scanMode"
+    if cache.get("extractorVersion") != EXTRACTOR_VERSION:
+        return False, "extractorVersion"
+    files = cache.get("files")
+    if not isinstance(files, dict):
+        return False, "files"
+    return True, None
+
+
+def previous_extraction_record_is_reusable(
+    scanned_file: ScanFile,
+    record: Any,
+) -> bool:
+    if not scanned_file.indexed or not isinstance(record, dict):
+        return False
+    if record.get("sha256") != scanned_file.sha256:
+        return False
+    if record.get("sizeBytes") != scanned_file.size_bytes:
+        return False
+    if record.get("indexed") is not True:
+        return False
+    required_types = {
+        "module": dict,
+        "symbols": list,
+        "imports": list,
+        "tests": list,
+        "fileTextSignals": dict,
+        "testInfo": dict,
+    }
+    for key, expected_type in required_types.items():
+        if not isinstance(record.get(key), expected_type):
+            return False
+    manifest = record.get("manifest")
+    if manifest is not None and not isinstance(manifest, dict):
+        return False
+    return True
+
+
+def build_extractions(
+    scan: ScanResult,
+    previous_extracts: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    compatible, reason = extraction_cache_is_compatible(previous_extracts)
+    if previous_extracts and not compatible and reason != "missing":
+        scan_stats_add_note(scan.scan_stats, f"previous-extracts ignored: incompatible {reason}")
+
+    previous_files = previous_extracts.get("files") if compatible else {}
+    if not isinstance(previous_files, dict):
+        previous_files = {}
+
+    files_reused = 0
+    files_extracted = 0
+    extracted: dict[str, dict[str, Any]] = {}
+    for scanned_file in sorted(scan.files, key=lambda item: item.rel):
+        if not scanned_file.indexed:
+            extracted[scanned_file.rel] = skipped_extraction_payload(scanned_file)
+            continue
+        previous_record = previous_files.get(scanned_file.rel)
+        if previous_extraction_record_is_reusable(scanned_file, previous_record):
+            payload = clone_jsonable(previous_record)
+            payload["sha256"] = scanned_file.sha256
+            payload["sizeBytes"] = scanned_file.size_bytes
+            payload["language"] = scanned_file.language
+            payload["indexed"] = True
+            payload["reason"] = scanned_file.reason
+            extracted[scanned_file.rel] = payload
+            files_reused += 1
+            continue
+        extracted[scanned_file.rel] = fresh_extraction_payload(scanned_file)
+        files_extracted += 1
+
+    scan.scan_stats["filesReused"] = files_reused
+    scan.scan_stats["filesExtracted"] = files_extracted
+    return extracted
+
+
+def build_extracts_cache(
+    generated_at: str,
+    project_root_arg: str,
+    scan: ScanResult,
+    extractions: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    cache: dict[str, Any] = {
+        "schemaVersion": EXTRACTS_SCHEMA_VERSION,
+        "generatedAt": generated_at,
+        "projectRoot": project_root_arg,
+        "scanMode": INDEX_SCAN_MODE,
+        "extractorVersion": EXTRACTOR_VERSION,
+        "files": {rel: clone_jsonable(extractions[rel]) for rel in sorted(extractions)},
+        "scanStats": scan.scan_stats,
+    }
+    if scan.unsupported_files_summary:
+        cache["unsupportedFilesSummary"] = scan.unsupported_files_summary
+    return cache
 
 
 def module_kind(rel: str) -> str:
@@ -648,7 +890,7 @@ def build_style_profile(
     modules: list[dict[str, Any]],
     symbols: list[dict[str, Any]],
     manifests: list[dict[str, Any]],
-    file_text: dict[str, str],
+    file_text_signals: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     language_counts = Counter(
         str(module.get("language"))
@@ -680,9 +922,9 @@ def build_style_profile(
             by_pattern[(language, "*Tests.cs")].append(path)
         elif "tests" in Path(path).parts:
             by_pattern[(language, "tests/ directory")].append(path)
-    for rel, text in sorted(file_text.items()):
+    for rel, signals in sorted(file_text_signals.items()):
         language = language_for_path(rel)
-        if language == "rust" and re.search(r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]", text):
+        if language == "rust" and signals.get("hasInlineCfgTest"):
             by_pattern[(language, "inline #[cfg(test)]")].append(rel)
     for (language, pattern), evidence in sorted(by_pattern.items()):
         test_conventions.append(convention_entry("test-file-pattern", pattern, language or None, evidence))
@@ -694,25 +936,28 @@ def build_style_profile(
     go_conventions: list[dict[str, Any]] = []
     csharp_conventions: list[dict[str, Any]] = []
     rust_boundaries: list[dict[str, Any]] = []
-    for rel, text in sorted(file_text.items()):
+    modules_by_path = {str(module.get("path")): module for module in modules}
+    for rel, signals in sorted(file_text_signals.items()):
         language = language_for_path(rel)
-        if re.search(r"\bthrow\s+new\s+Error\b|\btry\s*\{|\bcatch\s*\(", text):
+        style_signals = signals.get("style") if isinstance(signals.get("style"), dict) else {}
+        if style_signals.get("throwCatch"):
             error_handling.append(convention_entry("error-handling", "throw/catch", language, [rel]))
-        if re.search(r"^\s*(try:|except\b|raise\b)", text, flags=re.MULTILINE):
+        if style_signals.get("tryExceptRaise"):
             error_handling.append(convention_entry("error-handling", "try/except/raise", language, [rel]))
-        if re.search(r"\bconsole\.(log|warn|error)\b|\blogger\.|\blogging\.getLogger\b", text):
+        if style_signals.get("runtimeLoggingCall"):
             logging.append(convention_entry("logging", "runtime logging call", language, [rel]))
-        if re.search(r"\b(process\.env|os\.environ|getenv)\b", text):
+        if style_signals.get("environmentVariableAccess"):
             config.append(convention_entry("config", "environment variable access", language, [rel]))
         if language == "go" and go.is_test_path(rel):
             go_conventions.append(convention_entry("go-test-command", "go test", "go", [rel]))
-            package_name = go.extract_package_name(text)
+            module = modules_by_path.get(rel, {})
+            package_name = module.get("package") or signals.get("packageName")
             if package_name and not package_name.endswith("_test"):
                 go_conventions.append(convention_entry("go-test-scope", "package-local tests", "go", [rel]))
         if language == "csharp" and Path(rel).suffix == ".cs":
             if Path(rel).name.endswith("Tests.cs"):
                 csharp_conventions.append(convention_entry("test-file-pattern", "*Tests.cs", "csharp", [rel]))
-            framework = test_framework_for_path(rel, text, language)
+            framework = signals.get("csharpTestFramework")
             if framework:
                 csharp_conventions.append(convention_entry("test-framework", framework, "csharp", [rel]))
         if language == "rust":
@@ -877,30 +1122,66 @@ def collect_module_boundaries(modules: list[dict[str, Any]]) -> list[dict[str, A
     )
 
 
+def final_test_info(
+    rel: str,
+    language: str | None,
+    payload: dict[str, Any],
+    csharp_project: dict[str, Any] | None,
+) -> dict[str, Any]:
+    base_info = payload.get("testInfo") if isinstance(payload.get("testInfo"), dict) else {}
+    if language != "csharp":
+        return clone_jsonable(base_info)
+
+    test_functions = sorted(str(item) for item in base_info.get("testFunctions", []) if isinstance(item, str))
+    frameworks = {str(base_info.get("framework"))} if base_info.get("framework") else set()
+    if csharp_project:
+        for package in csharp_project.get("packageReferences", []):
+            framework = csharp.TEST_PACKAGE_FRAMEWORKS.get(str(package).lower())
+            if framework:
+                frameworks.add(framework)
+    framework_order = ("xunit", "nunit", "mstest", "dotnet-test")
+    framework = next((item for item in framework_order if item in frameworks), None)
+    if framework is None and csharp_project and csharp_project.get("isTestProject"):
+        framework = "dotnet-test"
+    has_tests = bool(
+        test_functions
+        or frameworks
+        or is_test_path(rel)
+        or (csharp_project and csharp_project.get("isTestProject"))
+    )
+    return {
+        "hasTests": has_tests,
+        "framework": framework,
+        "testFunctions": test_functions,
+    }
+
+
 def build_index(
     project_root_arg: str,
     generated_at: str,
     scan: ScanResult,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    extractions: dict[str, dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     indexed_files = [file for file in scan.files if file.indexed]
     known_files = {file.rel for file in indexed_files}
-    go_modules = go.collect_modules(indexed_files)
     go_package_dirs = {
         Path(file.rel).parent.as_posix() if Path(file.rel).parent.as_posix() != "." else ""
         for file in indexed_files
         if file.language == "go" and file.rel.endswith(".go") and not is_test_fixture_path(file.rel)
     }
-    file_text: dict[str, str] = {}
+    file_text_signals: dict[str, dict[str, Any]] = {}
     modules: list[dict[str, Any]] = []
     symbols: list[dict[str, Any]] = []
     imports: list[dict[str, Any]] = []
     tests: list[dict[str, Any]] = []
     manifest_by_path: dict[str, dict[str, Any]] = {}
     for scanned_file in indexed_files:
-        manifest = extract_manifest(scanned_file.rel, scanned_file.text)
+        payload = extractions.get(scanned_file.rel, {})
+        manifest = payload.get("manifest")
         if manifest:
-            manifest_by_path[scanned_file.rel] = manifest
+            manifest_by_path[scanned_file.rel] = clone_jsonable(manifest)
     manifests: list[dict[str, Any]] = list(manifest_by_path.values())
+    go_modules = go.collect_modules_from_manifests(manifests)
     rust_context = rust.build_context(manifests, known_files)
     csharp_context = csharp.build_context(manifests, known_files)
     csharp_project_by_path = csharp_context.get("projectByPath")
@@ -916,14 +1197,14 @@ def build_index(
     for scanned_file in indexed_files:
         rel = scanned_file.rel
         language = scanned_file.language
-        text = scanned_file.text
-        if text:
-            file_text[rel] = text
+        payload = extractions.get(rel, {})
+        signals = payload.get("fileTextSignals") if isinstance(payload.get("fileTextSignals"), dict) else {}
+        file_text_signals[rel] = clone_jsonable(signals)
         kind = module_kind(rel)
         csharp_project = csharp.project_for_path(rel, csharp_context) if language == "csharp" else None
         if language == "csharp" and Path(rel).suffix == ".cs" and csharp_project and csharp_project.get("isTestProject"):
             kind = "test"
-        package_name = go.extract_package_name(text) if language == "go" else None
+        package_name = signals.get("packageName") if language == "go" else None
         boundary_hints = go.boundary_hints_for_path(rel) if language == "go" or is_test_fixture_path(rel) else []
         module = {
             "path": rel,
@@ -932,9 +1213,9 @@ def build_index(
             "language": language,
             "kind": kind,
             "tokens": tokens_for_path(rel),
-            "lineCount": len(text.splitlines()) if text else 0,
+            "lineCount": int(signals.get("lineCount", 0)),
         }
-        if package_name:
+        if isinstance(package_name, str) and package_name:
             module["package"] = package_name
         if language == "go" and kind == "test" and package_name:
             module["targetPackage"] = package_name[: -len("_test")] if package_name.endswith("_test") else package_name
@@ -942,15 +1223,14 @@ def build_index(
             module["boundaryHints"] = boundary_hints
             module["boundaryKinds"] = sorted(str(hint.get("kind")) for hint in boundary_hints)
         if language == "rust":
-            module.update(rust.module_fields(rel, text, rust_context))
+            module.update(rust.module_fields(rel, "", rust_context, signals))
         if language == "csharp":
-            module.update(csharp.module_fields(rel, text, csharp_context, manifest_by_path.get(rel)))
+            module.update(csharp.module_fields(rel, "", csharp_context, manifest_by_path.get(rel)))
         if is_test_fixture_path(rel):
             module["testFixture"] = True
         modules.append(module)
-        file_symbols = extract_symbols(rel, language, text)
-        symbols.extend(file_symbols)
-        for import_record in extract_import_records(language, text):
+        symbols.extend(clone_jsonable(payload.get("symbols", [])))
+        for import_record in clone_jsonable(payload.get("imports", [])):
             spec = str(import_record.get("imported") or "")
             if not spec:
                 continue
@@ -975,28 +1255,22 @@ def build_index(
                 if key in import_record:
                     item[key] = import_record.get(key)
             imports.append(item)
-        go_tests = go.test_info(rel, text, language)
-        rust_tests = rust.test_info(rel, text, language)
-        csharp_tests = csharp.test_info(rel, text, language, csharp_project)
-        if kind == "test" or go_tests.get("hasTests") or rust_tests.get("hasTests") or csharp_tests.get("hasTests"):
+        test_info = final_test_info(rel, language, payload, csharp_project)
+        if kind == "test" or test_info.get("hasTests"):
             test_entry = {
                 "path": rel,
                 "language": language,
-                "framework": csharp_tests.get("framework") if language == "csharp" else test_framework_for_path(rel, text, language),
+                "framework": test_info.get("framework"),
                 "tokens": sorted(set(tokens_for_path(rel)) | ({"test"} if language == "rust" else set())),
             }
             if language == "go":
-                if package_name:
+                if isinstance(package_name, str) and package_name:
                     test_entry["package"] = package_name
                     test_entry["targetPackage"] = package_name[: -len("_test")] if package_name.endswith("_test") else package_name
-                if go_tests.get("testFunctions"):
-                    test_entry["testFunctions"] = go_tests["testFunctions"]
-            if rust_tests.get("testFunctions"):
-                test_entry["testFunctions"] = rust_tests["testFunctions"]
-            if rust_tests.get("hasCfgTest"):
+            if test_info.get("testFunctions"):
+                test_entry["testFunctions"] = test_info["testFunctions"]
+            if test_info.get("hasCfgTest"):
                 test_entry["inlineCfgTest"] = True
-            if csharp_tests.get("testFunctions"):
-                test_entry["testFunctions"] = csharp_tests["testFunctions"]
             if language == "csharp" and csharp_project:
                 test_entry["projectPath"] = csharp_project.get("path")
                 test_entry["projectName"] = csharp_project.get("projectName")
@@ -1255,6 +1529,8 @@ def build_index(
         "sharedCandidateCount": len(shared_candidates),
         "filesSeen": scan.scan_stats["filesSeen"],
         "filesIndexed": scan.scan_stats["filesIndexed"],
+        "filesReused": scan.scan_stats.get("filesReused", 0),
+        "filesExtracted": scan.scan_stats.get("filesExtracted", 0),
         "filesSkipped": scan.scan_stats["filesSkipped"],
         "bytesIndexed": scan.scan_stats["bytesIndexed"],
         "truncated": scan.scan_stats["truncated"],
@@ -1282,9 +1558,10 @@ def build_index(
         "scanStats": scan_stats,
         "unsupportedFilesSummary": scan.unsupported_files_summary,
     }
-    style_profile = build_style_profile(generated_at, portable_root, modules, symbols, manifests, file_text)
+    style_profile = build_style_profile(generated_at, portable_root, modules, symbols, manifests, file_text_signals)
     digest_cache = build_digest_cache(generated_at, portable_root, scan)
-    return codebase_index, style_profile, digest_cache
+    extracts_cache = build_extracts_cache(generated_at, portable_root, scan, extractions)
+    return codebase_index, style_profile, digest_cache, extracts_cache
 
 
 def build_digest_cache(generated_at: str, project_root_arg: str, scan: ScanResult) -> dict[str, Any]:
@@ -1327,6 +1604,18 @@ def load_previous_digests(path: Path | None) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def load_previous_extracts(path: Path | None) -> tuple[dict[str, Any], str | None]:
+    if path is None or not path.exists():
+        return {}, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}, "previous-extracts ignored: invalid or unreadable JSON"
+    if not isinstance(data, dict):
+        return {}, "previous-extracts ignored: invalid top-level value"
+    return data, None
+
+
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
     project_root = Path(args.project_root).resolve()
@@ -1336,17 +1625,24 @@ def main(argv: list[str]) -> int:
     generated_at = args.generated_at or utc_now()
     previous_digests_path = project_root / args.previous_digests if args.previous_digests else None
     load_previous_digests(previous_digests_path)
+    previous_extracts_path = project_root / args.previous_extracts if args.previous_extracts else None
+    previous_extracts, previous_extracts_note = load_previous_extracts(previous_extracts_path)
     scan = build_scan(
         project_root,
         max_files=args.max_files,
         max_bytes=args.max_bytes,
         max_file_size=args.max_file_size,
     )
-    codebase_index, style_profile, digest_cache = build_index(args.project_root, generated_at, scan)
+    if previous_extracts_note:
+        scan_stats_add_note(scan.scan_stats, previous_extracts_note)
+    extractions = build_extractions(scan, previous_extracts)
+    codebase_index, style_profile, digest_cache, extracts_cache = build_index(args.project_root, generated_at, scan, extractions)
     write_json(project_root / args.output, codebase_index)
     write_json(project_root / args.style_output, style_profile)
     if args.digests_output:
         write_json(project_root / args.digests_output, digest_cache)
+    if args.extracts_output:
+        write_json(project_root / args.extracts_output, extracts_cache)
     return 0
 
 

@@ -295,6 +295,19 @@ def collect_modules(indexed_files: list[Any]) -> list[tuple[str, str]]:
     return sorted(modules, key=lambda item: (-len(item[1]), item[0], item[1]))
 
 
+def collect_modules_from_manifests(manifests: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    modules: list[tuple[str, str]] = []
+    for manifest in manifests:
+        if manifest.get("kind") != "go":
+            continue
+        module_path = manifest.get("modulePath")
+        if not isinstance(module_path, str) or not module_path:
+            continue
+        directory = Path(str(manifest.get("path") or "")).parent.as_posix()
+        modules.append(("" if directory == "." else directory, module_path))
+    return sorted(modules, key=lambda item: (-len(item[1]), item[0], item[1]))
+
+
 def resolve_import(
     spec: str,
     go_modules: list[tuple[str, str]],

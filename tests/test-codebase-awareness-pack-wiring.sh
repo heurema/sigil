@@ -373,6 +373,7 @@ for forbidden in (
     ".signum/cache/codebase-index-v1.json",
     ".signum/cache/style-profile-v1.json",
     ".signum/cache/file-digests-v1.json",
+    ".signum/cache/file-extracts-v1.json",
 ):
     if forbidden in text:
         raise SystemExit(f"project cache path leaked: {forbidden}")
@@ -560,6 +561,7 @@ assert_proofpack_codebase_section "$PACK_PROJECT" "second PACK run has one Codeb
 assert_not_contains "$PACK_PROJECT/.signum/contracts/sig-example/proofpack.json" ".signum/cache/codebase-index-v1.json" "proofpack does not embed codebase index cache"
 assert_not_contains "$PACK_PROJECT/.signum/contracts/sig-example/proofpack.json" ".signum/cache/style-profile-v1.json" "proofpack does not embed style profile cache"
 assert_not_contains "$PACK_PROJECT/.signum/contracts/sig-example/proofpack.json" ".signum/cache/file-digests-v1.json" "proofpack does not embed future digest cache"
+assert_not_contains "$PACK_PROJECT/.signum/contracts/sig-example/proofpack.json" ".signum/cache/file-extracts-v1.json" "proofpack does not embed extraction cache"
 assert_not_contains "$ROOT_FRAGMENT" "reuse_summary produced by AUDIT" "PACK wiring does not claim AUDIT produces reuse summary"
 assert_not_contains "$ROOT_FRAGMENT" "evaluate_codebase_awareness_audit.py" "PACK does not run verdict evaluator"
 assert_not_contains "$OVERLAY_FRAGMENT" "evaluate_codebase_awareness_audit.py" "overlay PACK does not run verdict evaluator"
