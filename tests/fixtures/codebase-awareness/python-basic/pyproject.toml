@@ -1,0 +1,21 @@
+[project]
+name = "signum-python-basic"
+version = "0.1.0"
+dependencies = [
+  "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "hypothesis",
+  "ruff",
+  "mypy",
+]
+
+[project.scripts]
+acme-signup = "acme_cli.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

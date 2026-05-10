@@ -344,6 +344,72 @@ def assert_typescript(index):
     require(has_boundary(index, "packages/cli/src/index.ts", "npm-bin-entrypoint"), "TypeScript CLI bin boundary missing")
 
 
+def assert_python(index):
+    validation_path = "src/acme_shared/validation.py"
+    validate = symbol(index, "validate_email", "function", validation_path)
+    private = symbol(index, "_private_format_email", "function", validation_path)
+    require(
+        validate is not None and validate.get("exported") is True and validate.get("visibility") == "public",
+        "Python public validate_email helper missing",
+    )
+    require(
+        private is not None and private.get("exported") is False and private.get("visibility") == "private",
+        "Python private helper visibility missing",
+    )
+    require(private is not None and private.get("visibilityRisks"), "Python private helper risk missing")
+    require(has_boundary(index, validation_path, "python-package"), "Python package boundary missing")
+    require(has_boundary(index, "src/acme_cli/__main__.py", "python-cli-entrypoint"), "Python CLI boundary missing")
+    api_import = next(
+        (
+            item
+            for item in records(index, "imports")
+            if item.get("path") == "src/acme_api/signup.py"
+            and item.get("imported") == "acme_shared.validation"
+        ),
+        None,
+    )
+    require(api_import is not None and api_import.get("resolvedPath") == validation_path, "Python absolute import did not resolve")
+    package_import = next(
+        (
+            item
+            for item in records(index, "imports")
+            if item.get("path") == "src/acme_web/signup_form.py"
+            and item.get("imported") == "acme_shared"
+        ),
+        None,
+    )
+    require(package_import is not None and package_import.get("resolvedPath") == validation_path, "Python from package import module did not resolve")
+    test_record = next(
+        (
+            item
+            for item in records(index, "tests")
+            if item.get("path") == "tests/test_validation.py"
+        ),
+        None,
+    )
+    require(test_record is not None and test_record.get("framework") == "pytest", "Python pytest test record missing")
+    require(test_record is not None and test_record.get("fixtures") == ["validator"], "Python pytest fixture missing")
+    candidate = find(index, "sharedCandidates", path=validation_path)
+    require(candidate is not None, "Python validation shared candidate missing")
+    if candidate:
+        reasons = set(candidate.get("reasons", []))
+        require(
+            {"imported-by-local-files", "exported-symbols", "paired-test", "python-package-boundary"} <= reasons,
+            "Python validation candidate lacks fan-in, symbol, paired-test, or package evidence",
+        )
+        require(candidate.get("usageCount", 0) >= 2, "Python validation fan-in changed")
+        require("tests/test_validation.py" in candidate.get("pairedTests", []), "Python paired test changed")
+        require(candidate.get("visibilityRisks"), "Python private helper risk missing from candidate")
+    require(
+        not any(item.get("path") == "src/shared/helpers.py" for item in records(index, "sharedCandidates")),
+        "Python weak shared/common/utils path became shared candidate",
+    )
+    require(
+        not any(item.get("path") == "src/acme_cli/__main__.py" for item in records(index, "sharedCandidates")),
+        "Python CLI entrypoint became shared candidate",
+    )
+
+
 if language == "go":
     assert_go(cached_index)
 elif language == "rust":
@@ -352,6 +418,8 @@ elif language == "csharp":
     assert_csharp(cached_index)
 elif language == "typescript":
     assert_typescript(cached_index)
+elif language == "python":
+    assert_python(cached_index)
 else:
     errors.append(f"unknown language: {language}")
 
@@ -406,6 +474,7 @@ run_case "go-basic" "go"
 run_case "rust-basic" "rust"
 run_case "csharp-basic" "csharp"
 run_case "typescript-basic" "typescript"
+run_case "python-basic" "python"
 
 printf 'Passed: %s\n' "$passed"
 printf 'Failed: %s\n' "$failed"
@@ -414,4 +483,4 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 
-echo "ok: Codebase Awareness extraction cache preserves Go, Rust, C#, and TypeScript adapter-sensitive assembly"
+echo "ok: Codebase Awareness extraction cache preserves Go, Rust, C#, TypeScript, and Python adapter-sensitive assembly"

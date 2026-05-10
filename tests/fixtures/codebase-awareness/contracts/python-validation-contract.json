@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "python-validation-contract",
+  "goal": "Add email validation to the Python signup flow",
+  "riskLevel": "low",
+  "inScope": [
+    "src/acme_api/signup.py"
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "description": "Signup rejects malformed email values before creating a payload."
+    },
+    {
+      "id": "AC-2",
+      "description": "Existing Python validation helpers are reused when scanner evidence shows one is already available."
+    }
+  ],
+  "openQuestions": [],
+  "requiredInputsProvided": true
+}
