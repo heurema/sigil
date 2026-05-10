@@ -40,6 +40,7 @@ contract_for_fixture() {
     csharp-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/csharp-validation-contract.json" ;;
     typescript-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/typescript-validation-contract.json" ;;
     python-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/python-validation-contract.json" ;;
+    shell-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/shell-json-checker-contract.json" ;;
     *) return 1 ;;
   esac
 }
@@ -325,6 +326,14 @@ elif fixture == "python-basic":
     require("pytest" in test_frameworks, "pytest evidence missing")
     require({"python-project", "python-package", "python-cli-entrypoint", "python-test-file"} <= boundary_kinds, "Python boundary hints missing")
     require("src/shared/helpers.py" not in shared_paths, "Python weak shared/common/utils path became shared candidate")
+elif fixture == "shell-basic":
+    require("shell" in primary and "shell" in detected, "Shell language missing")
+    require("lib/json-output.sh" in shared_paths, "Shell JSON helper shared candidate missing")
+    require("emit_json_report" in symbol_names, "Shell emit_json_report helper missing")
+    require("shell-test" in test_frameworks, "shell-test evidence missing")
+    require({"shell-lib-helper", "shell-sourced-helper", "shell-json-output", "shell-test-file", "shell-command-fragment", "shell-executable-script"} <= boundary_kinds, "Shell boundary hints missing")
+    require("lib/utils.sh" not in shared_paths, "Shell weak lib/utils path became shared candidate")
+    require("scripts/run-policy-check.sh" not in shared_paths, "Shell executable wrapper became shared candidate")
 else:
     errors.append(f"unknown fixture {fixture}")
 
@@ -385,6 +394,7 @@ targets = {
     "csharp-basic": ("src/Common", "ValidateEmail"),
     "typescript-basic": ("packages/shared/src/validation.ts", "validateEmail"),
     "python-basic": ("src/acme_shared/validation.py", "validate_email"),
+    "shell-basic": ("lib/json-output.sh", "emit_json_report"),
 }
 target_path, helper_symbol = targets[fixture]
 candidates = reuse.get("candidates", [])
@@ -477,6 +487,29 @@ elif fixture == "python-basic":
     private = [candidate for candidate in candidates if candidate.get("symbol") == "_private_format_email"]
     if private:
         require(any("private" in " ".join(candidate.get("risks", [])).lower() for candidate in private), "Python private helper risk missing")
+elif fixture == "shell-basic":
+    require({"shell-command-fragment", "shell-executable-script", "shell-test-file"} <= boundary_kinds(), "Shell command/executable/test boundaries missing")
+    require(
+        not any(candidate.get("path") == "lib/utils.sh" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates),
+        "Shell weak lib/utils helper surfaced as reusable helper",
+    )
+    require(
+        not any(candidate.get("path") == "scripts/run-policy-check.sh" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates),
+        "Shell executable wrapper surfaced as reusable helper",
+    )
+    shell_helper = next(
+        (
+            candidate
+            for candidate in candidates
+            if candidate.get("path") == "lib/json-output.sh"
+            and candidate.get("symbol") == "emit_json_report"
+        ),
+        None,
+    )
+    require(shell_helper is not None, "Shell JSON helper candidate missing")
+    if shell_helper:
+        why = " ".join(shell_helper.get("whyRelevant", [])).lower()
+        require("json" in why and ("imported" in why or "sourced" in why) and "paired test" in why, "Shell JSON helper lacks JSON/fan-in/paired-test evidence")
 elif fixture == "basic-mixed":
     require("tsjs-test-file" in boundary_kinds(), "basic mixed test boundary missing")
 
@@ -488,7 +521,7 @@ PY
 }
 
 echo "=== Multi-language scanner acceptance ==="
-for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic python-basic; do
+for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic python-basic shell-basic; do
   project="$WORK/$fixture"
   cp -R "$FIXTURE_ROOT/$fixture" "$project"
 
@@ -520,7 +553,7 @@ done
 
 echo ""
 echo "=== Multi-language matcher acceptance ==="
-for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic python-basic; do
+for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic python-basic shell-basic; do
   project="$WORK/$fixture"
   contract="$(contract_for_fixture "$fixture")"
   if [ ! -f "$contract" ]; then

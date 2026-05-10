@@ -1,0 +1,9 @@
+{
+  "contractId": "shell-json-checker-contract",
+  "goal": "Add a shell JSON-emitting checker that validates policy output",
+  "inScope": ["lib"],
+  "acceptanceCriteria": [
+    "Follow existing JSON checker pattern",
+    "Add matching shell test"
+  ]
+}

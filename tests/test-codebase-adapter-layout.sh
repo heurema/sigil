@@ -35,8 +35,9 @@ assert_file "Rust adapter exists" "$ADAPTER_DIR/rust.py"
 assert_file "C# adapter exists" "$ADAPTER_DIR/csharp.py"
 assert_file "TypeScript/JavaScript adapter exists" "$ADAPTER_DIR/typescript_js.py"
 assert_file "Python adapter exists" "$ADAPTER_DIR/python.py"
+assert_file "Bash/Shell adapter exists" "$ADAPTER_DIR/shell.py"
 
-if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, python, rust, typescript_js' "$BUILD_INDEX"; then
+if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, python, rust, shell, typescript_js' "$BUILD_INDEX"; then
   pass "build_index imports language adapters"
 else
   fail "build_index imports language adapters" "adapter import missing"
@@ -55,6 +56,7 @@ allowed_roots = {
     "pathlib",
     "re",
     "scripts",
+    "shlex",
     "tomllib",
     "typing",
     "xml",
@@ -112,7 +114,7 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-pattern = re.compile(r"go list|cargo metadata|msbuild|nuget|roslyn|tree-sitter|typescript compiler|tsc\s|npm\s|pnpm\s|yarn\s|node\s")
+pattern = re.compile(r"go list|cargo metadata|msbuild|nuget|roslyn|shellcheck|tree-sitter|typescript compiler|tsc\s|npm\s|pnpm\s|yarn\s|node\s")
 errors = []
 for path in sorted(root.glob("*.py")):
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -135,7 +137,8 @@ for test_file in \
   "$ROOT_DIR/tests/test-codebase-rust-adapter.sh" \
   "$ROOT_DIR/tests/test-codebase-csharp-adapter.sh" \
   "$ROOT_DIR/tests/test-codebase-typescript-adapter.sh" \
-  "$ROOT_DIR/tests/test-codebase-python-adapter.sh"
+  "$ROOT_DIR/tests/test-codebase-python-adapter.sh" \
+  "$ROOT_DIR/tests/test-codebase-shell-adapter.sh"
 do
   if grep -Eq 'sharedCandidates|moduleBoundaries|symbols|imports|tests' "$test_file" && grep -Eq 'SCANNER=' "$test_file"; then
     pass "$(basename "$test_file") exercises scanner output"

@@ -1,0 +1,45 @@
+{
+  "boundaryKinds": [
+    "shared-name-weak",
+    "shell-ci-annotation",
+    "shell-command-fragment",
+    "shell-executable-script",
+    "shell-exit-78",
+    "shell-jq-convention",
+    "shell-json-output",
+    "shell-json-validation",
+    "shell-lib-helper",
+    "shell-sourced-helper",
+    "shell-strict-mode",
+    "shell-tempdir-trap-cleanup",
+    "shell-test-file"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "shell"
+  ],
+  "fixture": "shell-basic",
+  "manifestKinds": [],
+  "primaryLanguages": [
+    "shell"
+  ],
+  "sharedCandidatePaths": [
+    "lib/contract-dir.sh",
+    "lib/json-output.sh",
+    "lib/policy-check.sh"
+  ],
+  "symbolNames": [
+    "contract_dir_for",
+    "emit_json_report",
+    "fail",
+    "main",
+    "pass",
+    "write_json_file"
+  ],
+  "testFrameworks": [
+    "shell-test"
+  ]
+}
