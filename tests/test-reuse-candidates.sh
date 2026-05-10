@@ -7,6 +7,7 @@ MATCHER="$ROOT_DIR/scripts/build_reuse_candidates.py"
 FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/basic-mixed"
 GO_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/go-basic"
 CSHARP_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/csharp-basic"
+TYPESCRIPT_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/typescript-basic"
 CONTRACTS="$ROOT_DIR/tests/fixtures/codebase-awareness/contracts"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -55,6 +56,13 @@ setup_csharp_project() {
   cp -R "$CSHARP_FIXTURE" "$project"
   mkdir -p "$project/.signum/contracts/csharp-validation"
   cp "$CONTRACTS/csharp-validation-contract.json" "$project/.signum/contracts/csharp-validation/contract.json"
+}
+
+setup_typescript_project() {
+  local project="$1"
+  cp -R "$TYPESCRIPT_FIXTURE" "$project"
+  mkdir -p "$project/.signum/contracts/typescript-validation"
+  cp "$CONTRACTS/typescript-validation-contract.json" "$project/.signum/contracts/typescript-validation/contract.json"
 }
 
 run_scanner() {
@@ -134,6 +142,22 @@ run_csharp_matcher() {
   )
 }
 
+run_typescript_matcher() {
+  local project="$1"
+  (
+    cd "$project"
+    python3 "$MATCHER" \
+      --project-root "." \
+      --contract ".signum/contracts/typescript-validation/contract.json" \
+      --codebase-index ".signum/cache/codebase-index-v1.json" \
+      --style-profile ".signum/cache/style-profile-v1.json" \
+      --output ".signum/contracts/typescript-validation/reuse_candidates.json" \
+      --implementation-context ".signum/contracts/typescript-validation/implementation_context.json" \
+      --max-candidates 8 \
+      --generated-at "2026-01-01T00:00:00Z"
+  )
+}
+
 PROJECT_A="$WORK/run-a/basic-mixed"
 PROJECT_B="$WORK/run-b/basic-mixed"
 mkdir -p "$(dirname "$PROJECT_A")" "$(dirname "$PROJECT_B")"
@@ -161,6 +185,11 @@ mkdir -p "$(dirname "$PROJECT_CSHARP")"
 setup_csharp_project "$PROJECT_CSHARP"
 CSHARP_REUSE="$PROJECT_CSHARP/.signum/contracts/csharp-validation/reuse_candidates.json"
 CSHARP_CONTEXT="$PROJECT_CSHARP/.signum/contracts/csharp-validation/implementation_context.json"
+PROJECT_TYPESCRIPT="$WORK/typescript/typescript-basic"
+mkdir -p "$(dirname "$PROJECT_TYPESCRIPT")"
+setup_typescript_project "$PROJECT_TYPESCRIPT"
+TYPESCRIPT_REUSE="$PROJECT_TYPESCRIPT/.signum/contracts/typescript-validation/reuse_candidates.json"
+TYPESCRIPT_CONTEXT="$PROJECT_TYPESCRIPT/.signum/contracts/typescript-validation/implementation_context.json"
 
 echo "=== Scanner prerequisite ==="
 if run_scanner "$PROJECT_A"; then
@@ -565,6 +594,72 @@ then
   pass "C# contract surfaces validation helper with non-name-only evidence"
 else
   fail "C# contract surfaces validation helper with non-name-only evidence" "Python assertion failed"
+fi
+
+echo ""
+echo "=== TypeScript contract ==="
+if run_scanner "$PROJECT_TYPESCRIPT"; then
+  pass "TypeScript scanner prerequisite exits 0"
+else
+  fail "TypeScript scanner prerequisite exits 0" "command failed"
+fi
+if run_typescript_matcher "$PROJECT_TYPESCRIPT"; then
+  pass "matcher supports TypeScript validation contract"
+else
+  fail "matcher supports TypeScript validation contract" "command failed"
+fi
+
+if python3 - "$TYPESCRIPT_REUSE" "$TYPESCRIPT_CONTEXT" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+reuse = json.loads(Path(sys.argv[1]).read_text())
+context = json.loads(Path(sys.argv[2]).read_text())
+errors = []
+candidates = reuse.get("candidates", [])
+top_paths = [candidate.get("path") for candidate in candidates[:5]]
+helper = next(
+    (
+        candidate
+        for candidate in candidates
+        if candidate.get("path") == "packages/shared/src/validation.ts"
+        and candidate.get("symbol") == "validateEmail"
+    ),
+    None,
+)
+if reuse.get("contractId") != "typescript-validation-contract":
+    errors.append("typescript contractId")
+if "packages/shared/src/validation.ts" not in top_paths:
+    errors.append("TypeScript validation helper should be a top candidate")
+if not helper:
+    errors.append("validateEmail helper candidate missing")
+else:
+    why = " ".join(helper.get("whyRelevant", [])).lower()
+    for term in ("validation", "shared candidate", "imported", "paired test", "exported"):
+        if term not in why:
+            errors.append(f"missing TypeScript whyRelevant evidence: {term}")
+    if "domain terms matched validation helper: email" not in why:
+        errors.append("generic TypeScript domain overlap explanation missing")
+if any(candidate.get("path") == "packages/shared/src/common-utils.ts" for candidate in candidates):
+    errors.append("weak shared/common/utils path surfaced as TypeScript candidate")
+if any(candidate.get("path") == "packages/cli/src/index.ts" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates):
+    errors.append("CLI bin entrypoint surfaced as TypeScript helper")
+if "typescript" not in context.get("primaryLanguages", []):
+    errors.append("TypeScript primary language missing")
+if not context.get("dominantConventions", {}).get("typescriptJavascript"):
+    errors.append("TypeScript/JavaScript conventions missing")
+if not context.get("moduleBoundaries"):
+    errors.append("TypeScript module boundaries missing")
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+  pass "TypeScript contract surfaces validation helper with non-path-only evidence"
+else
+  fail "TypeScript contract surfaces validation helper with non-path-only evidence" "Python assertion failed"
 fi
 
 echo ""

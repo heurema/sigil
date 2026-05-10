@@ -33,8 +33,9 @@ assert_file "common adapter helpers exist" "$ADAPTER_DIR/common.py"
 assert_file "Go adapter exists" "$ADAPTER_DIR/go.py"
 assert_file "Rust adapter exists" "$ADAPTER_DIR/rust.py"
 assert_file "C# adapter exists" "$ADAPTER_DIR/csharp.py"
+assert_file "TypeScript/JavaScript adapter exists" "$ADAPTER_DIR/typescript_js.py"
 
-if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, rust' "$BUILD_INDEX"; then
+if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, rust, typescript_js' "$BUILD_INDEX"; then
   pass "build_index imports language adapters"
 else
   fail "build_index imports language adapters" "adapter import missing"
@@ -55,6 +56,7 @@ allowed_roots = {
     "tomllib",
     "typing",
     "xml",
+    "json",
 }
 errors = []
 for path in sorted(root.glob("*.py")):
@@ -108,7 +110,7 @@ import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-pattern = re.compile(r"go list|cargo metadata|msbuild|nuget|roslyn")
+pattern = re.compile(r"go list|cargo metadata|msbuild|nuget|roslyn|tree-sitter|typescript compiler|tsc\s|npm\s|pnpm\s|yarn\s|node\s")
 errors = []
 for path in sorted(root.glob("*.py")):
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -129,7 +131,8 @@ echo "=== Existing language coverage hooks ==="
 for test_file in \
   "$ROOT_DIR/tests/test-codebase-go-adapter.sh" \
   "$ROOT_DIR/tests/test-codebase-rust-adapter.sh" \
-  "$ROOT_DIR/tests/test-codebase-csharp-adapter.sh"
+  "$ROOT_DIR/tests/test-codebase-csharp-adapter.sh" \
+  "$ROOT_DIR/tests/test-codebase-typescript-adapter.sh"
 do
   if grep -Eq 'sharedCandidates|moduleBoundaries|symbols|imports|tests' "$test_file" && grep -Eq 'SCANNER=' "$test_file"; then
     pass "$(basename "$test_file") exercises scanner output"

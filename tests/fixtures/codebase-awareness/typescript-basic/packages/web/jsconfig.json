@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@acme/shared/*": [
+        "../shared/src/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.tsx"
+  ]
+}

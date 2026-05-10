@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from scripts.codebase_awareness.adapters import csharp, go, rust
+from scripts.codebase_awareness.adapters import csharp, go, rust, typescript_js
 from scripts.codebase_awareness.adapters.common import (
     is_test_fixture_path,
     is_test_path,
@@ -103,7 +103,7 @@ LANGUAGE_BY_SUFFIX = {
 }
 
 SOURCE_LANGUAGES = {"csharp", "go", "javascript", "python", "rust", "shell", "typescript"}
-LANGUAGE_ADAPTERS = (go, rust, csharp)
+LANGUAGE_ADAPTERS = (go, rust, csharp, typescript_js)
 
 MANIFEST_NAMES = {
     "package-lock.json": "npm",
@@ -438,6 +438,8 @@ def extract_file_text_signals(rel: str, language: str | None, text: str) -> dict
         framework = csharp.test_framework_for_text(rel, text)
         if framework:
             signals["csharpTestFramework"] = framework
+    if language in {"javascript", "typescript"}:
+        signals.update(typescript_js.file_text_signals(rel, text, language))
     return signals
 
 
@@ -466,6 +468,8 @@ def text_only_test_info(rel: str, text: str, language: str | None) -> dict[str, 
         return info
     if language == "csharp":
         return csharp.test_info(rel, text, language, None)
+    if language in {"javascript", "typescript"}:
+        return typescript_js.test_info(rel, text, language)
     return {
         "hasTests": is_test_path(rel),
         "framework": test_framework_for_path(rel, text, language) if is_test_path(rel) else None,
@@ -661,18 +665,11 @@ def extract_symbols(rel: str, language: str | None, text: str) -> list[dict[str,
         return go.extract_symbols(rel, text)
     if language == "rust":
         return rust.extract_symbols(rel, text)
+    if language in {"javascript", "typescript"} and Path(rel).suffix in typescript_js.SOURCE_EXTENSIONS:
+        return typescript_js.extract_symbols(rel, text)
 
     patterns: list[tuple[str, str, str]] = []
-    if language in {"javascript", "typescript"}:
-        patterns = [
-            ("function", r"^\s*export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\b", "exported"),
-            ("class", r"^\s*export\s+class\s+([A-Za-z_$][\w$]*)\b", "exported"),
-            ("constant", r"^\s*export\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)\b", "exported"),
-            ("function", r"^\s*(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\b", "local"),
-            ("class", r"^\s*class\s+([A-Za-z_$][\w$]*)\b", "local"),
-            ("constant", r"^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=", "local"),
-        ]
-    elif language == "python":
+    if language == "python":
         patterns = [
             ("function", r"^\s*def\s+([A-Za-z_][\w]*)\s*\(", "local"),
             ("class", r"^\s*class\s+([A-Za-z_][\w]*)\b", "local"),
@@ -740,6 +737,8 @@ def extract_import_records(language: str | None, text: str) -> list[dict[str, An
         return go.extract_import_records(text)
     if language == "rust":
         return rust.extract_import_records(text)
+    if language in {"javascript", "typescript"}:
+        return typescript_js.extract_import_records(text)
     return [
         {
             "imported": spec,
@@ -792,6 +791,7 @@ def resolve_import(
     go_package_dirs: set[str],
     rust_context: dict[str, Any] | None = None,
     csharp_context: dict[str, Any] | None = None,
+    typescript_context: dict[str, Any] | None = None,
 ) -> str | None:
     if language == "csharp":
         if isinstance(csharp_context, dict):
@@ -802,6 +802,10 @@ def resolve_import(
     if language == "rust":
         if isinstance(rust_context, dict):
             return rust.resolve_import(source_rel, spec, known_files, rust_context)
+        return None
+    if language in {"javascript", "typescript"}:
+        if isinstance(typescript_context, dict):
+            return typescript_js.resolve_import(source_rel, spec, known_files, typescript_context)
         return None
     if not spec.startswith("."):
         return None
@@ -839,9 +843,7 @@ def test_framework_for_path(rel: str, text: str, language: str | None) -> str | 
     if language == "go" and go.is_test_path(rel):
         return "go-test"
     if language in {"javascript", "typescript"}:
-        if re.search(r"\bdescribe\s*\(|\bit\s*\(|\btest\s*\(", text):
-            return "jest-or-vitest"
-        return "javascript-test"
+        return typescript_js.test_info(rel, text, language).get("framework")
     if language == "python":
         if "pytest" in text or Path(rel).name.startswith("test_"):
             return "pytest"
@@ -912,8 +914,12 @@ def build_style_profile(
             by_pattern[(language, "*_test.go")].append(path)
         elif ".test." in name:
             by_pattern[(language, "*.test.*")].append(path)
+            if language in {"javascript", "typescript"} and "tests" not in Path(path).parts:
+                by_pattern[(language, "colocated test convention")].append(path)
         elif ".spec." in name:
             by_pattern[(language, "*.spec.*")].append(path)
+            if language in {"javascript", "typescript"} and "tests" not in Path(path).parts:
+                by_pattern[(language, "colocated test convention")].append(path)
         elif name.startswith("test_"):
             by_pattern[(language, "test_*.py")].append(path)
         elif name.endswith("_test.py"):
@@ -935,6 +941,7 @@ def build_style_profile(
     config: list[dict[str, Any]] = []
     go_conventions: list[dict[str, Any]] = []
     csharp_conventions: list[dict[str, Any]] = []
+    tsjs_conventions: list[dict[str, Any]] = []
     rust_boundaries: list[dict[str, Any]] = []
     modules_by_path = {str(module.get("path")): module for module in modules}
     for rel, signals in sorted(file_text_signals.items()):
@@ -960,6 +967,21 @@ def build_style_profile(
             framework = signals.get("csharpTestFramework")
             if framework:
                 csharp_conventions.append(convention_entry("test-framework", framework, "csharp", [rel]))
+        if language in {"javascript", "typescript"}:
+            framework = signals.get("testFramework")
+            if framework:
+                tsjs_conventions.append(convention_entry("test-framework", str(framework), language, [rel]))
+            module = modules_by_path.get(rel, {})
+            for hint in module.get("boundaryHints", []):
+                if isinstance(hint, dict):
+                    tsjs_conventions.append(
+                        convention_entry(
+                            "boundary",
+                            str(hint.get("value") or hint.get("kind")),
+                            language,
+                            [rel],
+                        )
+                    )
         if language == "rust":
             if rel.endswith("/src/lib.rs") or rel == "src/lib.rs":
                 rust_boundaries.append(convention_entry("boundary", "Rust library crate root", "rust", [rel]))
@@ -996,6 +1018,28 @@ def build_style_profile(
                     csharp_conventions.append(
                         convention_entry("test-framework", str(hint.get("framework")), "csharp", [path])
                     )
+        if manifest.get("kind") == "npm-package":
+            path = str(manifest.get("path"))
+            package_name = str(manifest.get("packageName") or path)
+            tsjs_conventions.append(convention_entry("boundary", f"npm package {package_name}", "javascript", [path]))
+            if manifest.get("workspaces"):
+                tsjs_conventions.append(convention_entry("boundary", "npm workspaces", "javascript", [path]))
+            if manifest.get("bin"):
+                tsjs_conventions.append(convention_entry("boundary", "package.json bin entrypoint", "javascript", [path]))
+            for hint in manifest.get("testFrameworkHints", []):
+                if isinstance(hint, dict) and hint.get("framework"):
+                    tsjs_conventions.append(
+                        convention_entry("test-framework", str(hint.get("framework")), "javascript", [path])
+                    )
+            for runtime in manifest.get("runtimeHints", []):
+                tsjs_conventions.append(convention_entry("runtime", str(runtime), "javascript", [path]))
+        if manifest.get("kind") in {"tsconfig", "jsconfig"}:
+            path = str(manifest.get("path"))
+            tsjs_conventions.append(convention_entry("boundary", str(manifest.get("kind")), "typescript", [path]))
+            if manifest.get("paths"):
+                tsjs_conventions.append(convention_entry("path-alias", "compilerOptions.paths", "typescript", [path]))
+            if manifest.get("references"):
+                tsjs_conventions.append(convention_entry("project-reference", "tsconfig references", "typescript", [path]))
 
     validation_paths: set[str] = set()
     for symbol in symbols:
@@ -1055,9 +1099,10 @@ def build_style_profile(
     compact_validation = compact_conventions(validation)
     compact_go_conventions = compact_conventions(go_conventions)
     compact_csharp_conventions = compact_conventions(csharp_conventions)
+    compact_tsjs_conventions = compact_conventions(tsjs_conventions)
     compact_rust_boundaries = compact_conventions(rust_boundaries)
     confidence = 0.45
-    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_csharp_conventions, compact_rust_boundaries):
+    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_csharp_conventions, compact_tsjs_conventions, compact_rust_boundaries):
         if section:
             confidence += 0.08
     if primary_languages:
@@ -1076,6 +1121,7 @@ def build_style_profile(
         "validation": compact_validation,
         "goConventions": compact_go_conventions,
         "csharpConventions": compact_csharp_conventions,
+        "typescriptJavascriptConventions": compact_tsjs_conventions,
         "boundaries": compact_rust_boundaries,
     }
 
@@ -1184,6 +1230,7 @@ def build_index(
     go_modules = go.collect_modules_from_manifests(manifests)
     rust_context = rust.build_context(manifests, known_files)
     csharp_context = csharp.build_context(manifests, known_files)
+    typescript_context = typescript_js.build_context(manifests, known_files)
     csharp_project_by_path = csharp_context.get("projectByPath")
     if isinstance(csharp_project_by_path, dict):
         for manifest in manifests:
@@ -1226,6 +1273,8 @@ def build_index(
             module.update(rust.module_fields(rel, "", rust_context, signals))
         if language == "csharp":
             module.update(csharp.module_fields(rel, "", csharp_context, manifest_by_path.get(rel)))
+        if language in {"javascript", "typescript", "json", "yaml"}:
+            module.update(typescript_js.module_fields(rel, typescript_context))
         if is_test_fixture_path(rel):
             module["testFixture"] = True
         modules.append(module)
@@ -1243,6 +1292,7 @@ def build_index(
                 go_package_dirs=go_package_dirs,
                 rust_context=rust_context,
                 csharp_context=csharp_context,
+                typescript_context=typescript_context,
             )
             item = {
                 "path": rel,
@@ -1252,6 +1302,9 @@ def build_index(
                 "tokens": import_record.get("tokens", sorted(set(split_identifier(spec)))),
             }
             for key in ("alias", "importKind", "kind", "visibility", "exported", "line", "static", "global"):
+                if key in import_record:
+                    item[key] = import_record.get(key)
+            for key in ("symbols",):
                 if key in import_record:
                     item[key] = import_record.get(key)
             imports.append(item)
@@ -1293,6 +1346,8 @@ def build_index(
         if paired_tests and (path not in tests_by_path or tests_by_path.get(path, {}).get("inlineCfgTest")):
             module["pairedTests"] = paired_tests
 
+    typescript_js.update_package_usage(modules, manifests, imports, typescript_context)
+
     modules.extend(go.build_package_modules(modules, symbols, tests, importers_by_target))
     modules.extend(csharp.build_project_modules(modules, symbols, tests, importers_by_target, csharp_context))
 
@@ -1326,10 +1381,13 @@ def build_index(
                 symbol.get("name")
                 for symbol in symbols_by_path.get(path, [])
                 if symbol.get("exported") and isinstance(symbol.get("name"), str)
-            ]
+        ]
         reasons = []
         if parts & SHARED_DIR_HINTS:
-            reasons.append("shared-directory-name")
+            if module.get("language") in {"javascript", "typescript"}:
+                reasons.append("shared-directory-name-weak")
+            else:
+                reasons.append("shared-directory-name")
         if module.get("language") == "go" and module.get("weakReusablePackageConvention"):
             reasons.append("go-pkg-weak-convention")
         if module.get("language") == "go" and module.get("internalBoundary"):
@@ -1338,6 +1396,12 @@ def build_index(
             reasons.append("project-referenced-by-local-projects")
         if module.get("language") == "csharp" and module.get("internalAssemblyLocal"):
             reasons.append("internal-assembly-boundary")
+        if module.get("language") in {"javascript", "typescript"} and module.get("workspacePackageReferenced"):
+            reasons.append("workspace-package")
+        if module.get("language") in {"javascript", "typescript"} and module.get("packageImportCount", 0):
+            reasons.append("package-name-import")
+        if module.get("language") in {"javascript", "typescript"} and module.get("tsconfigPathReferenced"):
+            reasons.append("tsconfig-path-reference")
         if module.get("importCount", 0):
             reasons.append("imported-by-local-files")
         if module.get("pairedTests"):
@@ -1373,6 +1437,17 @@ def build_index(
                 or module.get("importCount", 0)
                 or module.get("pairedTests")
                 or exported_symbols
+            )
+        elif module.get("language") in {"javascript", "typescript"}:
+            if module.get("executableBoundary") and not (
+                module.get("importCount", 0) > 1
+                or module.get("packageImportCount", 0) > 1
+            ):
+                continue
+            has_primary_shared_signal = bool(
+                exported_symbols
+                or module.get("importCount", 0)
+                or module.get("pairedTests")
             )
         else:
             has_primary_shared_signal = bool((parts & SHARED_DIR_HINTS) or module.get("importCount", 0) or module.get("pairedTests"))
@@ -1419,6 +1494,24 @@ def build_index(
                     candidate[key] = module.get(key)
             if module.get("internalSymbols"):
                 candidate["visibilityRisks"] = ["internal symbols are assembly-local"]
+        if module.get("language") in {"javascript", "typescript"}:
+            for key in (
+                "packageName",
+                "packageRoot",
+                "packageType",
+                "packageImportedBy",
+                "packageImportCount",
+                "boundaryHints",
+                "boundaryKinds",
+                "workspaceMember",
+                "workspacePackageReferenced",
+                "tsconfigPath",
+                "tsconfigPathReferenced",
+                "tsconfigPathImportedBy",
+                "executableBoundary",
+            ):
+                if key in module:
+                    candidate[key] = module.get(key)
         shared_candidates.append(candidate)
 
     symbol_name_counts = Counter(str(symbol.get("name")) for symbol in symbols if symbol.get("name"))
@@ -1503,6 +1596,21 @@ def build_index(
             str(module.get("projectPath"))
             for module in modules
             if module.get("language") == "csharp" and module.get("executableBoundary")
+        ),
+        "typescriptJavascriptPackagePaths": sorted(
+            str(manifest.get("path"))
+            for manifest in manifests
+            if manifest.get("kind") == "npm-package"
+        ),
+        "typescriptJavascriptConfigPaths": sorted(
+            str(manifest.get("path"))
+            for manifest in manifests
+            if manifest.get("kind") in {"tsconfig", "jsconfig"}
+        ),
+        "typescriptJavascriptCliEntrypoints": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") in {"javascript", "typescript"} and module.get("executableBoundary")
         ),
     }
     module_boundaries = collect_module_boundaries(modules)
