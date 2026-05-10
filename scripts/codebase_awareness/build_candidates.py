@@ -530,6 +530,26 @@ def add_draft(
                 risk = "TypeScript/JavaScript test files should guide tests, not production helper placement."
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
+            elif kind_value == "python-project":
+                why = "Python project boundary identified by scanner"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "python-package":
+                why = "Python package boundary identified by scanner"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "python-cli-entrypoint":
+                risk = "Python CLI entrypoint is not a generic helper module."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "python-test-file":
+                risk = "Python test file should guide tests, not production helper placement."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "python-private-module":
+                risk = "Python private module is not a cross-package reuse default."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
             elif kind_value == "shared-name-weak":
                 why = "shared/common/utils/lib path name is weak evidence only"
                 if why not in draft["why"]:
@@ -582,6 +602,23 @@ def add_draft(
                 risk = "TypeScript/JavaScript test file should guide tests, not production helper placement"
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
+        if record_language == "python":
+            if visibility in {"private", "special"} and kind == "existing-helper":
+                risk = "Python private helper is not reusable outside its module/package by convention"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("privateModule") or record.get("privateSymbols"):
+                risk = "Python private helpers/modules require boundary review before reuse"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("executableBoundary"):
+                risk = "Python CLI entrypoint is not a generic helper module"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("kind") == "test":
+                risk = "Python test file should guide tests, not production helper placement"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
         for risk in as_list(record.get("visibilityRisks")):
             if kind == "existing-helper":
                 continue
@@ -604,6 +641,8 @@ def shared_symbol_record(record: dict[str, Any], name: str) -> dict[str, Any]:
     symbol_record["tokens"] = split_identifier(name)
     symbol_record["symbols"] = [name]
     symbol_record.pop("visibilityRisks", None)
+    symbol_record.pop("privateSymbols", None)
+    symbol_record.pop("privateModule", None)
     symbol_record.pop("crateLocalSymbols", None)
     symbol_record.pop("internalSymbols", None)
     symbol_record.pop("internalAssemblyLocal", None)
@@ -612,7 +651,7 @@ def shared_symbol_record(record: dict[str, Any], name: str) -> dict[str, Any]:
         for hint in as_list(record.get("boundaryHints"))
         if not (
             isinstance(hint, dict)
-            and hint.get("kind") in {"dotnet-internal-api", "rust-crate-local-visibility"}
+            and hint.get("kind") in {"dotnet-internal-api", "python-private-module", "rust-crate-local-visibility"}
         )
     ]
     return symbol_record
@@ -799,6 +838,7 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
         "config": "config-pattern",
         "validation": "local-pattern",
         "typescriptJavascriptConventions": "module-boundary",
+        "pythonConventions": "module-boundary",
     }
     for section, kind in style_sections.items():
         for record in as_list(style_profile.get(section)):
@@ -838,6 +878,8 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
         "npm": ("javascript", "typescript"),
         "package": ("javascript", "typescript"),
         "py": ("python",),
+        "pyproject": ("python",),
+        "pytest": ("python",),
         "python": ("python",),
         "rs": ("rust",),
         "rust": ("rust",),
@@ -1105,6 +1147,7 @@ def dominant_conventions(style_profile: dict[str, Any]) -> dict[str, list[str]]:
             summarize_convention(item)
             for item in as_list(style_profile.get("typescriptJavascriptConventions"))
         ][:6],
+        "python": [summarize_convention(item) for item in as_list(style_profile.get("pythonConventions"))][:6],
     }
 
 

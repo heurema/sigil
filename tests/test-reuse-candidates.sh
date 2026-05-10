@@ -8,6 +8,7 @@ FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/basic-mixed"
 GO_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/go-basic"
 CSHARP_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/csharp-basic"
 TYPESCRIPT_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/typescript-basic"
+PYTHON_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/python-basic"
 CONTRACTS="$ROOT_DIR/tests/fixtures/codebase-awareness/contracts"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -63,6 +64,13 @@ setup_typescript_project() {
   cp -R "$TYPESCRIPT_FIXTURE" "$project"
   mkdir -p "$project/.signum/contracts/typescript-validation"
   cp "$CONTRACTS/typescript-validation-contract.json" "$project/.signum/contracts/typescript-validation/contract.json"
+}
+
+setup_python_project() {
+  local project="$1"
+  cp -R "$PYTHON_FIXTURE" "$project"
+  mkdir -p "$project/.signum/contracts/python-validation"
+  cp "$CONTRACTS/python-validation-contract.json" "$project/.signum/contracts/python-validation/contract.json"
 }
 
 run_scanner() {
@@ -158,6 +166,22 @@ run_typescript_matcher() {
   )
 }
 
+run_python_matcher() {
+  local project="$1"
+  (
+    cd "$project"
+    python3 "$MATCHER" \
+      --project-root "." \
+      --contract ".signum/contracts/python-validation/contract.json" \
+      --codebase-index ".signum/cache/codebase-index-v1.json" \
+      --style-profile ".signum/cache/style-profile-v1.json" \
+      --output ".signum/contracts/python-validation/reuse_candidates.json" \
+      --implementation-context ".signum/contracts/python-validation/implementation_context.json" \
+      --max-candidates 12 \
+      --generated-at "2026-01-01T00:00:00Z"
+  )
+}
+
 PROJECT_A="$WORK/run-a/basic-mixed"
 PROJECT_B="$WORK/run-b/basic-mixed"
 mkdir -p "$(dirname "$PROJECT_A")" "$(dirname "$PROJECT_B")"
@@ -190,6 +214,11 @@ mkdir -p "$(dirname "$PROJECT_TYPESCRIPT")"
 setup_typescript_project "$PROJECT_TYPESCRIPT"
 TYPESCRIPT_REUSE="$PROJECT_TYPESCRIPT/.signum/contracts/typescript-validation/reuse_candidates.json"
 TYPESCRIPT_CONTEXT="$PROJECT_TYPESCRIPT/.signum/contracts/typescript-validation/implementation_context.json"
+PROJECT_PYTHON="$WORK/python/python-basic"
+mkdir -p "$(dirname "$PROJECT_PYTHON")"
+setup_python_project "$PROJECT_PYTHON"
+PYTHON_REUSE="$PROJECT_PYTHON/.signum/contracts/python-validation/reuse_candidates.json"
+PYTHON_CONTEXT="$PROJECT_PYTHON/.signum/contracts/python-validation/implementation_context.json"
 
 echo "=== Scanner prerequisite ==="
 if run_scanner "$PROJECT_A"; then
@@ -660,6 +689,93 @@ then
   pass "TypeScript contract surfaces validation helper with non-path-only evidence"
 else
   fail "TypeScript contract surfaces validation helper with non-path-only evidence" "Python assertion failed"
+fi
+
+echo ""
+echo "=== Python contract ==="
+if run_scanner "$PROJECT_PYTHON"; then
+  pass "Python scanner prerequisite exits 0"
+else
+  fail "Python scanner prerequisite exits 0" "command failed"
+fi
+if run_python_matcher "$PROJECT_PYTHON"; then
+  pass "matcher supports Python validation contract"
+else
+  fail "matcher supports Python validation contract" "command failed"
+fi
+
+if python3 - "$PYTHON_REUSE" "$PYTHON_CONTEXT" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+reuse = json.loads(Path(sys.argv[1]).read_text())
+context = json.loads(Path(sys.argv[2]).read_text())
+errors = []
+candidates = reuse.get("candidates", [])
+top_window = candidates[:8]
+helper = next(
+    (
+        candidate
+        for candidate in candidates
+        if candidate.get("path") == "src/acme_shared/validation.py"
+        and candidate.get("symbol") == "validate_email"
+    ),
+    None,
+)
+if reuse.get("contractId") != "python-validation-contract":
+    errors.append("python contractId")
+if "src/acme_shared/validation.py" not in [candidate.get("path") for candidate in top_window]:
+    errors.append("Python validation helper should be a top candidate")
+if not helper:
+    errors.append("validate_email helper candidate missing")
+else:
+    why = " ".join(helper.get("whyRelevant", [])).lower()
+    for term in ("validation", "shared candidate", "imported", "paired test", "exported"):
+        if term not in why:
+            errors.append(f"missing Python whyRelevant evidence: {term}")
+    if "domain terms matched validation helper: email" not in why:
+        errors.append("generic Python domain overlap explanation missing")
+    risks = " ".join(helper.get("risks", [])).lower()
+    for forbidden in ("private", "module-local", "boundary review"):
+        if forbidden in risks:
+            errors.append(f"public Python helper inherited {forbidden} risk")
+shared_module = next(
+    (
+        candidate
+        for candidate in candidates
+        if candidate.get("path") == "src/acme_shared/validation.py"
+        and candidate.get("kind") == "shared-module"
+        and candidate.get("symbol") is None
+    ),
+    None,
+)
+if not shared_module:
+    errors.append("Python validation shared-module candidate missing")
+elif not any("private" in risk.lower() for risk in shared_module.get("risks", [])):
+    errors.append("Python shared-module lost private module-level risk")
+private = [candidate for candidate in candidates if candidate.get("symbol") == "_private_format_email"]
+if private and not any("private" in " ".join(candidate.get("risks", [])).lower() for candidate in private):
+    errors.append("private Python boundary risk missing")
+if any(candidate.get("path") == "src/shared/helpers.py" for candidate in candidates):
+    errors.append("weak shared/common/utils path surfaced as Python candidate")
+if any(candidate.get("path") == "src/acme_cli/__main__.py" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates):
+    errors.append("CLI entrypoint surfaced as Python helper")
+if "python" not in context.get("primaryLanguages", []):
+    errors.append("Python primary language missing")
+if not context.get("dominantConventions", {}).get("python"):
+    errors.append("Python conventions missing")
+if not context.get("moduleBoundaries"):
+    errors.append("Python module boundaries missing")
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+  pass "Python contract surfaces validation helper with non-path-only evidence"
+else
+  fail "Python contract surfaces validation helper with non-path-only evidence" "Python assertion failed"
 fi
 
 echo ""

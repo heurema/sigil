@@ -39,6 +39,7 @@ contract_for_fixture() {
     rust-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/rust-validation-contract.json" ;;
     csharp-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/csharp-validation-contract.json" ;;
     typescript-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/typescript-validation-contract.json" ;;
+    python-basic) printf '%s\n' "$FIXTURE_ROOT/contracts/python-validation-contract.json" ;;
     *) return 1 ;;
   esac
 }
@@ -316,6 +317,14 @@ elif fixture == "typescript-basic":
     require("vitest" in test_frameworks, "Vitest test evidence missing")
     require("npm-bin-entrypoint" in boundary_kinds, "TypeScript CLI/bin boundary missing")
     require("packages/shared/src/common-utils.ts" not in shared_paths, "common-utils became shared candidate from weak path only")
+elif fixture == "python-basic":
+    require("python" in primary and "python" in detected, "Python language missing")
+    require({"python-project", "python-requirements"} <= manifest_kinds, "Python project/requirements manifests missing")
+    require("src/acme_shared/validation.py" in shared_paths, "Python validation shared candidate missing")
+    require("validate_email" in symbol_names, "Python validate_email helper missing")
+    require("pytest" in test_frameworks, "pytest evidence missing")
+    require({"python-project", "python-package", "python-cli-entrypoint", "python-test-file"} <= boundary_kinds, "Python boundary hints missing")
+    require("src/shared/helpers.py" not in shared_paths, "Python weak shared/common/utils path became shared candidate")
 else:
     errors.append(f"unknown fixture {fixture}")
 
@@ -375,6 +384,7 @@ targets = {
     "rust-basic": ("crates/shared/src/validation.rs", "validate_email"),
     "csharp-basic": ("src/Common", "ValidateEmail"),
     "typescript-basic": ("packages/shared/src/validation.ts", "validateEmail"),
+    "python-basic": ("src/acme_shared/validation.py", "validate_email"),
 }
 target_path, helper_symbol = targets[fixture]
 candidates = reuse.get("candidates", [])
@@ -438,6 +448,35 @@ elif fixture == "typescript-basic":
         not any(candidate.get("path") == "packages/cli/src/index.ts" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates),
         "TypeScript CLI/bin entrypoint surfaced as reusable helper",
     )
+elif fixture == "python-basic":
+    require({"python-cli-entrypoint", "python-test-file"} <= boundary_kinds(), "Python CLI/test boundaries missing")
+    validate_email = symbol("validate_email", "src/acme_shared/validation.py")
+    require(validate_email is not None, "Python validate_email helper missing from matcher candidates")
+    if validate_email:
+        risks = " ".join(validate_email.get("risks", [])).lower()
+        require("private" not in risks, "Python public validate_email inherited private risk")
+        require("module-local" not in risks, "Python public validate_email inherited module-local risk")
+        require("boundary review" not in risks, "Python public validate_email inherited boundary-review risk")
+    shared_module = next(
+        (
+            candidate
+            for candidate in candidates
+            if candidate.get("path") == "src/acme_shared/validation.py"
+            and candidate.get("kind") == "shared-module"
+            and candidate.get("symbol") is None
+        ),
+        None,
+    )
+    require(shared_module is not None, "Python validation shared-module candidate missing")
+    if shared_module:
+        require(any("private" in risk.lower() for risk in shared_module.get("risks", [])), "Python shared-module lost private risk")
+    require(
+        not any(candidate.get("path") == "src/acme_cli/__main__.py" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates),
+        "Python CLI entrypoint surfaced as reusable helper",
+    )
+    private = [candidate for candidate in candidates if candidate.get("symbol") == "_private_format_email"]
+    if private:
+        require(any("private" in " ".join(candidate.get("risks", [])).lower() for candidate in private), "Python private helper risk missing")
 elif fixture == "basic-mixed":
     require("tsjs-test-file" in boundary_kinds(), "basic mixed test boundary missing")
 
@@ -449,7 +488,7 @@ PY
 }
 
 echo "=== Multi-language scanner acceptance ==="
-for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic; do
+for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic python-basic; do
   project="$WORK/$fixture"
   cp -R "$FIXTURE_ROOT/$fixture" "$project"
 
@@ -481,7 +520,7 @@ done
 
 echo ""
 echo "=== Multi-language matcher acceptance ==="
-for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic; do
+for fixture in basic-mixed go-basic rust-basic csharp-basic typescript-basic python-basic; do
   project="$WORK/$fixture"
   contract="$(contract_for_fixture "$fixture")"
   if [ ! -f "$contract" ]; then

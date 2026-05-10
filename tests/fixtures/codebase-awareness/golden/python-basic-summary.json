@@ -1,0 +1,60 @@
+{
+  "boundaryKinds": [
+    "python-cli-entrypoint",
+    "python-framework",
+    "python-manifest",
+    "python-package",
+    "python-project",
+    "python-test-file",
+    "shared-name-weak",
+    "source-root"
+  ],
+  "cacheStatsShape": {
+    "hasFilesExtracted": true,
+    "hasFilesReused": true
+  },
+  "detectedLanguages": [
+    "python"
+  ],
+  "fixture": "python-basic",
+  "manifestKinds": [
+    "python-project",
+    "python-requirements"
+  ],
+  "primaryLanguages": [
+    "python"
+  ],
+  "sharedCandidatePaths": [
+    "src/acme_api",
+    "src/acme_api/signup.py",
+    "src/acme_shared",
+    "src/acme_shared/validation.py",
+    "src/acme_web/signup_form.py"
+  ],
+  "symbolNames": [
+    "DEFAULT_TIMEOUT",
+    "EMAIL_SUFFIX",
+    "EmailValidator",
+    "SignupForm",
+    "SignupPayload",
+    "_format_for_log",
+    "_private_format_email",
+    "_shared_name_only_helper",
+    "create_signup_payload",
+    "fetch_user",
+    "is_valid",
+    "main",
+    "normalize",
+    "normalize_email",
+    "test_create_signup_payload_reuses_validation",
+    "test_normalize_email",
+    "test_validate_email",
+    "test_validate_email_rejects_missing_at",
+    "validate",
+    "validate_email",
+    "validator"
+  ],
+  "testFrameworks": [
+    "pytest"
+  ]
+}

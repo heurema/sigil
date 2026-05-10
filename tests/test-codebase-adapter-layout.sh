@@ -34,8 +34,9 @@ assert_file "Go adapter exists" "$ADAPTER_DIR/go.py"
 assert_file "Rust adapter exists" "$ADAPTER_DIR/rust.py"
 assert_file "C# adapter exists" "$ADAPTER_DIR/csharp.py"
 assert_file "TypeScript/JavaScript adapter exists" "$ADAPTER_DIR/typescript_js.py"
+assert_file "Python adapter exists" "$ADAPTER_DIR/python.py"
 
-if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, rust, typescript_js' "$BUILD_INDEX"; then
+if grep -Eq 'from scripts\.codebase_awareness\.adapters import csharp, go, python, rust, typescript_js' "$BUILD_INDEX"; then
   pass "build_index imports language adapters"
 else
   fail "build_index imports language adapters" "adapter import missing"
@@ -50,6 +51,7 @@ root = Path(sys.argv[1])
 allowed_roots = {
     "__future__",
     "collections",
+    "configparser",
     "pathlib",
     "re",
     "scripts",
@@ -132,7 +134,8 @@ for test_file in \
   "$ROOT_DIR/tests/test-codebase-go-adapter.sh" \
   "$ROOT_DIR/tests/test-codebase-rust-adapter.sh" \
   "$ROOT_DIR/tests/test-codebase-csharp-adapter.sh" \
-  "$ROOT_DIR/tests/test-codebase-typescript-adapter.sh"
+  "$ROOT_DIR/tests/test-codebase-typescript-adapter.sh" \
+  "$ROOT_DIR/tests/test-codebase-python-adapter.sh"
 do
   if grep -Eq 'sharedCandidates|moduleBoundaries|symbols|imports|tests' "$test_file" && grep -Eq 'SCANNER=' "$test_file"; then
     pass "$(basename "$test_file") exercises scanner output"

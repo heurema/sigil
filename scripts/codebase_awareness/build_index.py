@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from scripts.codebase_awareness.adapters import csharp, go, rust, typescript_js
+from scripts.codebase_awareness.adapters import csharp, go, python, rust, typescript_js
 from scripts.codebase_awareness.adapters.common import (
     is_test_fixture_path,
     is_test_path,
@@ -103,7 +103,7 @@ LANGUAGE_BY_SUFFIX = {
 }
 
 SOURCE_LANGUAGES = {"csharp", "go", "javascript", "python", "rust", "shell", "typescript"}
-LANGUAGE_ADAPTERS = (go, rust, csharp, typescript_js)
+LANGUAGE_ADAPTERS = (go, rust, csharp, typescript_js, python)
 
 MANIFEST_NAMES = {
     "package-lock.json": "npm",
@@ -440,6 +440,8 @@ def extract_file_text_signals(rel: str, language: str | None, text: str) -> dict
             signals["csharpTestFramework"] = framework
     if language in {"javascript", "typescript"}:
         signals.update(typescript_js.file_text_signals(rel, text, language))
+    if language == "python":
+        signals.update(python.file_text_signals(rel, text, language))
     return signals
 
 
@@ -470,6 +472,8 @@ def text_only_test_info(rel: str, text: str, language: str | None) -> dict[str, 
         return csharp.test_info(rel, text, language, None)
     if language in {"javascript", "typescript"}:
         return typescript_js.test_info(rel, text, language)
+    if language == "python":
+        return python.test_info(rel, text, language)
     return {
         "hasTests": is_test_path(rel),
         "framework": test_framework_for_path(rel, text, language) if is_test_path(rel) else None,
@@ -497,6 +501,8 @@ def cached_test_records(
         record["targetPackage"] = package_name[: -len("_test")] if package_name.endswith("_test") else package_name
     if test_info.get("testFunctions"):
         record["testFunctions"] = test_info["testFunctions"]
+    if test_info.get("fixtures"):
+        record["fixtures"] = test_info["fixtures"]
     if test_info.get("hasCfgTest"):
         record["inlineCfgTest"] = True
     return [record]
@@ -667,14 +673,11 @@ def extract_symbols(rel: str, language: str | None, text: str) -> list[dict[str,
         return rust.extract_symbols(rel, text)
     if language in {"javascript", "typescript"} and Path(rel).suffix in typescript_js.SOURCE_EXTENSIONS:
         return typescript_js.extract_symbols(rel, text)
+    if language == "python" and Path(rel).suffix in python.SOURCE_EXTENSIONS:
+        return python.extract_symbols(rel, text)
 
     patterns: list[tuple[str, str, str]] = []
-    if language == "python":
-        patterns = [
-            ("function", r"^\s*def\s+([A-Za-z_][\w]*)\s*\(", "local"),
-            ("class", r"^\s*class\s+([A-Za-z_][\w]*)\b", "local"),
-        ]
-    elif language == "shell":
+    if language == "shell":
         patterns = [
             ("function", r"^\s*([A-Za-z_][\w-]*)\s*\(\)\s*\{", "local"),
             ("function", r"^\s*function\s+([A-Za-z_][\w-]*)\b", "local"),
@@ -739,6 +742,8 @@ def extract_import_records(language: str | None, text: str) -> list[dict[str, An
         return rust.extract_import_records(text)
     if language in {"javascript", "typescript"}:
         return typescript_js.extract_import_records(text)
+    if language == "python":
+        return python.extract_import_records(text)
     return [
         {
             "imported": spec,
@@ -792,6 +797,8 @@ def resolve_import(
     rust_context: dict[str, Any] | None = None,
     csharp_context: dict[str, Any] | None = None,
     typescript_context: dict[str, Any] | None = None,
+    python_context: dict[str, Any] | None = None,
+    import_record: dict[str, Any] | None = None,
 ) -> str | None:
     if language == "csharp":
         if isinstance(csharp_context, dict):
@@ -806,6 +813,10 @@ def resolve_import(
     if language in {"javascript", "typescript"}:
         if isinstance(typescript_context, dict):
             return typescript_js.resolve_import(source_rel, spec, known_files, typescript_context)
+        return None
+    if language == "python":
+        if isinstance(python_context, dict):
+            return python.resolve_import(source_rel, spec, known_files, python_context, import_record)
         return None
     if not spec.startswith("."):
         return None
@@ -845,9 +856,7 @@ def test_framework_for_path(rel: str, text: str, language: str | None) -> str | 
     if language in {"javascript", "typescript"}:
         return typescript_js.test_info(rel, text, language).get("framework")
     if language == "python":
-        if "pytest" in text or Path(rel).name.startswith("test_"):
-            return "pytest"
-        return "python-test"
+        return python.test_info(rel, text, language).get("framework")
     if language == "shell":
         return "shell"
     if language == "rust":
@@ -942,6 +951,7 @@ def build_style_profile(
     go_conventions: list[dict[str, Any]] = []
     csharp_conventions: list[dict[str, Any]] = []
     tsjs_conventions: list[dict[str, Any]] = []
+    python_conventions: list[dict[str, Any]] = []
     rust_boundaries: list[dict[str, Any]] = []
     modules_by_path = {str(module.get("path")): module for module in modules}
     for rel, signals in sorted(file_text_signals.items()):
@@ -979,6 +989,25 @@ def build_style_profile(
                             "boundary",
                             str(hint.get("value") or hint.get("kind")),
                             language,
+                            [rel],
+                        )
+                    )
+        if language == "python":
+            framework = signals.get("testFramework")
+            if framework:
+                test_conventions.append(convention_entry("test-framework", str(framework), "python", [rel]))
+                python_conventions.append(convention_entry("test-framework", str(framework), "python", [rel]))
+            for fixture in signals.get("pytestFixtures", []):
+                python_conventions.append(convention_entry("pytest-fixture", str(fixture), "python", [rel]))
+                test_conventions.append(convention_entry("pytest-fixture", str(fixture), "python", [rel]))
+            module = modules_by_path.get(rel, {})
+            for hint in module.get("boundaryHints", []):
+                if isinstance(hint, dict):
+                    python_conventions.append(
+                        convention_entry(
+                            "boundary",
+                            str(hint.get("value") or hint.get("kind")),
+                            "python",
                             [rel],
                         )
                     )
@@ -1040,6 +1069,28 @@ def build_style_profile(
                 tsjs_conventions.append(convention_entry("path-alias", "compilerOptions.paths", "typescript", [path]))
             if manifest.get("references"):
                 tsjs_conventions.append(convention_entry("project-reference", "tsconfig references", "typescript", [path]))
+        if str(manifest.get("kind") or "").startswith("python-"):
+            path = str(manifest.get("path"))
+            if manifest.get("projectName"):
+                python_conventions.append(convention_entry("boundary", f"Python project {manifest.get('projectName')}", "python", [path]))
+            if manifest.get("entrypoints"):
+                python_conventions.append(convention_entry("boundary", "Python CLI entrypoints", "python", [path]))
+            for hint in manifest.get("testFrameworkHints", []):
+                if isinstance(hint, dict) and hint.get("framework"):
+                    test_conventions.append(
+                        convention_entry("test-framework", str(hint.get("framework")), "python", [path])
+                    )
+                    python_conventions.append(
+                        convention_entry("test-framework", str(hint.get("framework")), "python", [path])
+                    )
+            for hint in manifest.get("toolHints", []):
+                if isinstance(hint, dict) and hint.get("tool"):
+                    python_conventions.append(convention_entry("tool", str(hint.get("tool")), "python", [path]))
+            for hint in manifest.get("frameworkHints", []):
+                if isinstance(hint, dict) and hint.get("framework"):
+                    python_conventions.append(convention_entry("framework", str(hint.get("framework")), "python", [path]))
+            for hint in manifest.get("buildBackendHints", []):
+                python_conventions.append(convention_entry("build-backend", str(hint), "python", [path]))
 
     validation_paths: set[str] = set()
     for symbol in symbols:
@@ -1100,9 +1151,10 @@ def build_style_profile(
     compact_go_conventions = compact_conventions(go_conventions)
     compact_csharp_conventions = compact_conventions(csharp_conventions)
     compact_tsjs_conventions = compact_conventions(tsjs_conventions)
+    compact_python_conventions = compact_conventions(python_conventions)
     compact_rust_boundaries = compact_conventions(rust_boundaries)
     confidence = 0.45
-    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_csharp_conventions, compact_tsjs_conventions, compact_rust_boundaries):
+    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_csharp_conventions, compact_tsjs_conventions, compact_python_conventions, compact_rust_boundaries):
         if section:
             confidence += 0.08
     if primary_languages:
@@ -1122,6 +1174,7 @@ def build_style_profile(
         "goConventions": compact_go_conventions,
         "csharpConventions": compact_csharp_conventions,
         "typescriptJavascriptConventions": compact_tsjs_conventions,
+        "pythonConventions": compact_python_conventions,
         "boundaries": compact_rust_boundaries,
     }
 
@@ -1231,6 +1284,7 @@ def build_index(
     rust_context = rust.build_context(manifests, known_files)
     csharp_context = csharp.build_context(manifests, known_files)
     typescript_context = typescript_js.build_context(manifests, known_files)
+    python_context = python.build_context(manifests, known_files)
     csharp_project_by_path = csharp_context.get("projectByPath")
     if isinstance(csharp_project_by_path, dict):
         for manifest in manifests:
@@ -1275,6 +1329,18 @@ def build_index(
             module.update(csharp.module_fields(rel, "", csharp_context, manifest_by_path.get(rel)))
         if language in {"javascript", "typescript", "json", "yaml"}:
             module.update(typescript_js.module_fields(rel, typescript_context))
+        manifest = manifest_by_path.get(rel)
+        if language == "python" or (manifest and str(manifest.get("kind") or "").startswith("python-")):
+            module.update(python.module_fields(rel, python_context, manifest, signals))
+            private_symbols = sorted(
+                str(symbol.get("name"))
+                for symbol in payload.get("symbols", [])
+                if isinstance(symbol, dict)
+                and str(symbol.get("visibility") or "") == "private"
+                and isinstance(symbol.get("name"), str)
+            )
+            if private_symbols:
+                module["privateSymbols"] = private_symbols
         if is_test_fixture_path(rel):
             module["testFixture"] = True
         modules.append(module)
@@ -1293,6 +1359,8 @@ def build_index(
                 rust_context=rust_context,
                 csharp_context=csharp_context,
                 typescript_context=typescript_context,
+                python_context=python_context,
+                import_record=import_record,
             )
             item = {
                 "path": rel,
@@ -1322,6 +1390,8 @@ def build_index(
                     test_entry["targetPackage"] = package_name[: -len("_test")] if package_name.endswith("_test") else package_name
             if test_info.get("testFunctions"):
                 test_entry["testFunctions"] = test_info["testFunctions"]
+            if test_info.get("fixtures"):
+                test_entry["fixtures"] = test_info["fixtures"]
             if test_info.get("hasCfgTest"):
                 test_entry["inlineCfgTest"] = True
             if language == "csharp" and csharp_project:
@@ -1350,6 +1420,7 @@ def build_index(
 
     modules.extend(go.build_package_modules(modules, symbols, tests, importers_by_target))
     modules.extend(csharp.build_project_modules(modules, symbols, tests, importers_by_target, csharp_context))
+    modules.extend(python.build_package_modules(modules, symbols, tests, importers_by_target, python_context))
 
     symbols_by_path: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for symbol in symbols:
@@ -1370,6 +1441,12 @@ def build_index(
                 for symbol in module.get("symbols", [])
                 if isinstance(symbol, str)
             ]
+        elif module.get("language") == "python" and module.get("kind") == "package":
+            exported_symbols = [
+                symbol
+                for symbol in module.get("symbols", [])
+                if isinstance(symbol, str)
+            ]
         elif module.get("language") == "csharp" and module.get("kind") == "project":
             exported_symbols = [
                 symbol
@@ -1384,7 +1461,7 @@ def build_index(
         ]
         reasons = []
         if parts & SHARED_DIR_HINTS:
-            if module.get("language") in {"javascript", "typescript"}:
+            if module.get("language") in {"javascript", "typescript", "python"}:
                 reasons.append("shared-directory-name-weak")
             else:
                 reasons.append("shared-directory-name")
@@ -1402,6 +1479,8 @@ def build_index(
             reasons.append("package-name-import")
         if module.get("language") in {"javascript", "typescript"} and module.get("tsconfigPathReferenced"):
             reasons.append("tsconfig-path-reference")
+        if module.get("language") == "python" and module.get("packageName"):
+            reasons.append("python-package-boundary")
         if module.get("importCount", 0):
             reasons.append("imported-by-local-files")
         if module.get("pairedTests"):
@@ -1448,6 +1527,15 @@ def build_index(
                 exported_symbols
                 or module.get("importCount", 0)
                 or module.get("pairedTests")
+            )
+        elif module.get("language") == "python":
+            if module.get("executableBoundary"):
+                continue
+            has_primary_shared_signal = bool(
+                exported_symbols
+                or module.get("importCount", 0)
+                or module.get("pairedTests")
+                or (module.get("kind") == "package" and module.get("packageName"))
             )
         else:
             has_primary_shared_signal = bool((parts & SHARED_DIR_HINTS) or module.get("importCount", 0) or module.get("pairedTests"))
@@ -1512,6 +1600,22 @@ def build_index(
             ):
                 if key in module:
                     candidate[key] = module.get(key)
+        if module.get("language") == "python":
+            for key in (
+                "moduleName",
+                "packageName",
+                "packagePath",
+                "sourceFiles",
+                "boundaryHints",
+                "boundaryKinds",
+                "privateModule",
+                "privateSymbols",
+                "executableBoundary",
+            ):
+                if key in module:
+                    candidate[key] = module.get(key)
+            if module.get("privateSymbols") or module.get("privateModule"):
+                candidate["visibilityRisks"] = ["private Python helpers/modules are not cross-module reuse defaults"]
         shared_candidates.append(candidate)
 
     symbol_name_counts = Counter(str(symbol.get("name")) for symbol in symbols if symbol.get("name"))
@@ -1611,6 +1715,21 @@ def build_index(
             str(module.get("path"))
             for module in modules
             if module.get("language") in {"javascript", "typescript"} and module.get("executableBoundary")
+        ),
+        "pythonProjectPaths": sorted(
+            str(manifest.get("path"))
+            for manifest in manifests
+            if str(manifest.get("kind") or "").startswith("python-")
+        ),
+        "pythonPackagePaths": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "python" and module.get("kind") == "package"
+        ),
+        "pythonCliEntrypoints": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "python" and module.get("executableBoundary")
         ),
     }
     module_boundaries = collect_module_boundaries(modules)

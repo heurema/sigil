@@ -1,6 +1,8 @@
 {
   "boundaryKinds": [
     "npm-package",
+    "python-project",
+    "python-test-file",
     "shared-name-weak",
     "source-root",
     "tsjs-test-file"
@@ -17,7 +19,7 @@
   "fixture": "basic-mixed",
   "manifestKinds": [
     "npm-package",
-    "python"
+    "python-project"
   ],
   "primaryLanguages": [
     "typescript",
