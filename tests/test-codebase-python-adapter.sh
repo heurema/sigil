@@ -375,6 +375,22 @@ if helper:
         require(term in why, f"missing Python whyRelevant evidence: {term}")
     require("domain terms matched validation helper: email" in why, "Python validation domain overlap missing")
     require("shared/common directory hint" not in why or any(term in why for term in ("imported", "paired test", "exported")), "helper relies on weak shared/common prior only")
+    helper_risks = " ".join(helper.get("risks", [])).lower()
+    require("private" not in helper_risks, "public validate_email inherited private risk")
+    require("module-local" not in helper_risks, "public validate_email inherited module-local risk")
+    require("boundary review" not in helper_risks, "public validate_email inherited boundary-review risk")
+shared_module = next(
+    (
+        item for item in candidates
+        if item.get("path") == "src/acme_shared/validation.py"
+        and item.get("kind") == "shared-module"
+        and item.get("symbol") is None
+    ),
+    None,
+)
+require(shared_module is not None, "Python validation shared-module candidate missing")
+if shared_module:
+    require(any("private" in risk.lower() for risk in shared_module.get("risks", [])), "shared-module validation.py lost module-level private risk")
 private = next((item for item in candidates if item.get("symbol") == "_private_format_email"), None)
 if private:
     require(any("private" in risk.lower() for risk in private.get("risks", [])), "private helper candidate lacks risk")

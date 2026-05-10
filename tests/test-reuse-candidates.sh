@@ -736,6 +736,24 @@ else:
             errors.append(f"missing Python whyRelevant evidence: {term}")
     if "domain terms matched validation helper: email" not in why:
         errors.append("generic Python domain overlap explanation missing")
+    risks = " ".join(helper.get("risks", [])).lower()
+    for forbidden in ("private", "module-local", "boundary review"):
+        if forbidden in risks:
+            errors.append(f"public Python helper inherited {forbidden} risk")
+shared_module = next(
+    (
+        candidate
+        for candidate in candidates
+        if candidate.get("path") == "src/acme_shared/validation.py"
+        and candidate.get("kind") == "shared-module"
+        and candidate.get("symbol") is None
+    ),
+    None,
+)
+if not shared_module:
+    errors.append("Python validation shared-module candidate missing")
+elif not any("private" in risk.lower() for risk in shared_module.get("risks", [])):
+    errors.append("Python shared-module lost private module-level risk")
 private = [candidate for candidate in candidates if candidate.get("symbol") == "_private_format_email"]
 if private and not any("private" in " ".join(candidate.get("risks", [])).lower() for candidate in private):
     errors.append("private Python boundary risk missing")

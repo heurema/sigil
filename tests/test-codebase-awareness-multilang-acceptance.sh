@@ -450,6 +450,26 @@ elif fixture == "typescript-basic":
     )
 elif fixture == "python-basic":
     require({"python-cli-entrypoint", "python-test-file"} <= boundary_kinds(), "Python CLI/test boundaries missing")
+    validate_email = symbol("validate_email", "src/acme_shared/validation.py")
+    require(validate_email is not None, "Python validate_email helper missing from matcher candidates")
+    if validate_email:
+        risks = " ".join(validate_email.get("risks", [])).lower()
+        require("private" not in risks, "Python public validate_email inherited private risk")
+        require("module-local" not in risks, "Python public validate_email inherited module-local risk")
+        require("boundary review" not in risks, "Python public validate_email inherited boundary-review risk")
+    shared_module = next(
+        (
+            candidate
+            for candidate in candidates
+            if candidate.get("path") == "src/acme_shared/validation.py"
+            and candidate.get("kind") == "shared-module"
+            and candidate.get("symbol") is None
+        ),
+        None,
+    )
+    require(shared_module is not None, "Python validation shared-module candidate missing")
+    if shared_module:
+        require(any("private" in risk.lower() for risk in shared_module.get("risks", [])), "Python shared-module lost private risk")
     require(
         not any(candidate.get("path") == "src/acme_cli/__main__.py" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates),
         "Python CLI entrypoint surfaced as reusable helper",
