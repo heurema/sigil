@@ -249,27 +249,76 @@ assert_future_artifacts_absent() {
 
 write_valid_reuse_decision() {
   local project="$1"
-  cat > "$project/.signum/contracts/example/reuse_decision.json" <<'JSON'
-{
-  "schemaVersion": "1.0",
-  "contractId": "validation-contract",
-  "writtenAt": "2026-01-01T00:00:00Z",
-  "mode": "gate",
-  "decisions": [
+  python3 - "$project/.signum/contracts/example/reuse_candidates.json" "$project/.signum/contracts/example/reuse_decision.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+reuse_candidates_path = Path(sys.argv[1])
+reuse_decision_path = Path(sys.argv[2])
+reuse_candidates = json.loads(reuse_candidates_path.read_text())
+required = []
+seen = set()
+for index, candidate in enumerate(reuse_candidates.get("candidates", []), start=1):
+    if not isinstance(candidate, dict):
+        continue
+    candidate_id = candidate.get("candidateId")
+    if not candidate_id or candidate_id in seen:
+        continue
+    kind = str(candidate.get("kind") or "")
+    score = candidate.get("score")
+    confidence = candidate.get("confidence")
+    is_top = index <= 3
+    is_strong = (
+        isinstance(score, (int, float)) and score >= 0.75
+    ) or (
+        isinstance(confidence, (int, float)) and confidence >= 0.75
+    )
+    if not is_top and kind in {"test-pattern", "config-pattern"}:
+        is_strong = False
+    if is_top or is_strong:
+        seen.add(candidate_id)
+        required.append(str(candidate_id))
+
+decisions = [
     {
-      "candidateId": "cand-001",
-      "disposition": "reuse",
-      "action": "Call existing validateEmail helper",
-      "rationale": "Candidate matches task intent and is already used by sibling signup flow."
+        "candidateId": candidate_id,
+        "disposition": "inspect-only",
+        "rationale": f"Addressed required reuse candidate {candidate_id} before implementation.",
     }
-  ],
-  "newCodeJustifications": [],
-  "summary": "Reused existing validation helper and followed existing test pattern."
+    for candidate_id in required
+]
+reuse_decision = {
+    "schemaVersion": "1.0",
+    "contractId": "validation-contract",
+    "writtenAt": "2026-01-01T00:00:00Z",
+    "mode": "gate",
+    "decisions": decisions,
+    "newCodeJustifications": [],
+    "summary": "Addressed required top and strong reuse candidates.",
 }
-JSON
+reuse_decision_path.write_text(json.dumps(reuse_decision, indent=2) + "\n")
+PY
 }
 
-write_invalid_reuse_decision() {
+write_invalid_coverage_reuse_decision() {
+  local project="$1"
+  write_valid_reuse_decision "$project"
+  python3 - "$project/.signum/contracts/example/reuse_decision.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text())
+if data.get("decisions"):
+    data["decisions"] = data["decisions"][1:]
+data["summary"] = "Omitted at least one required reuse candidate."
+path.write_text(json.dumps(data, indent=2) + "\n")
+PY
+}
+
+write_unknown_reuse_decision() {
   local project="$1"
   cat > "$project/.signum/contracts/example/reuse_decision.json" <<'JSON'
 {
@@ -286,6 +335,11 @@ write_invalid_reuse_decision() {
   "summary": "Invalid candidate reference."
 }
 JSON
+}
+
+write_invalid_json_reuse_decision() {
+  local project="$1"
+  printf '{not json\n' > "$project/.signum/contracts/example/reuse_decision.json"
 }
 
 run_unset_fixture() {
@@ -427,16 +481,17 @@ run_hint_validation_invalid_decision_fixture() {
   local project="$WORK/validate-hint-invalid"
   local output="$WORK/validate-hint-invalid.out"
   prepare_validation_project "$project" hint "$output" || return
-  write_invalid_reuse_decision "$project"
+  write_invalid_coverage_reuse_decision "$project"
 
   if run_validation_step "$project" hint "$output"; then
-    pass "hint validation with invalid reuse_decision continues"
+    pass "hint validation with invalid coverage continues"
   else
-    fail "hint validation with invalid reuse_decision continues" "command failed"
+    fail "hint validation with invalid coverage continues" "command failed"
     return
   fi
 
   assert_contains "$output" "WARNING: optional REUSE_DECISION validation failed with exit 4; continuing because mode is hint" "hint invalid decision emits optional warning"
+  assert_contains "$output" "required reuse candidate" "hint invalid coverage reports missing required candidate"
   assert_future_artifacts_absent "$project" "hint invalid validation"
 }
 
@@ -444,7 +499,7 @@ run_off_validation_skips_fixture() {
   local project="$WORK/validate-off-skips"
   local output="$WORK/validate-off-skips.out"
   setup_fixture_project "$project"
-  write_invalid_reuse_decision "$project"
+  write_unknown_reuse_decision "$project"
 
   if run_validation_step "$project" off "$output"; then
     pass "off validation skips reuse_decision checks"
@@ -477,16 +532,17 @@ run_warn_validation_invalid_decision_fixture() {
   local project="$WORK/validate-warn-invalid"
   local output="$WORK/validate-warn-invalid.out"
   prepare_validation_project "$project" warn "$output" || return
-  write_invalid_reuse_decision "$project"
+  write_invalid_coverage_reuse_decision "$project"
 
   if run_validation_step "$project" warn "$output"; then
-    pass "warn validation with invalid reuse_decision continues"
+    pass "warn validation with missing required candidate coverage continues"
   else
-    fail "warn validation with invalid reuse_decision continues" "command failed"
+    fail "warn validation with missing required candidate coverage continues" "command failed"
     return
   fi
 
   assert_contains "$output" "WARNING: REUSE_DECISION validation failed with exit 4; continuing because mode is warn" "warn invalid decision emits warning"
+  assert_contains "$output" "required reuse candidate" "warn invalid coverage reports missing required candidate"
   assert_future_artifacts_absent "$project" "warn invalid validation"
 }
 
@@ -516,7 +572,7 @@ run_gate_validation_invalid_decision_fixture() {
   local output="$WORK/validate-gate-invalid.out"
   local actual=0
   prepare_validation_project "$project" gate "$output" || return
-  write_invalid_reuse_decision "$project"
+  write_invalid_coverage_reuse_decision "$project"
 
   if run_validation_step "$project" gate "$output"; then
     actual=0
@@ -525,12 +581,35 @@ run_gate_validation_invalid_decision_fixture() {
   fi
 
   if [ "$actual" -eq 4 ]; then
-    pass "gate validation blocks invalid reuse_decision"
+    pass "gate validation blocks missing required candidate coverage"
   else
-    fail "gate validation blocks invalid reuse_decision" "expected exit 4, got $actual"
+    fail "gate validation blocks missing required candidate coverage" "expected exit 4, got $actual"
   fi
   assert_contains "$output" "Codebase Awareness gate mode blocks EXECUTE" "gate invalid decision emits blocking error"
+  assert_contains "$output" "required reuse candidate" "gate invalid coverage reports missing required candidate"
   assert_future_artifacts_absent "$project" "gate invalid validation"
+}
+
+run_gate_validation_invalid_json_fixture() {
+  local project="$WORK/validate-gate-invalid-json"
+  local output="$WORK/validate-gate-invalid-json.out"
+  local actual=0
+  prepare_validation_project "$project" gate "$output" || return
+  write_invalid_json_reuse_decision "$project"
+
+  if run_validation_step "$project" gate "$output"; then
+    actual=0
+  else
+    actual=$?
+  fi
+
+  if [ "$actual" -eq 3 ]; then
+    pass "gate validation blocks invalid JSON reuse_decision"
+  else
+    fail "gate validation blocks invalid JSON reuse_decision" "expected exit 3, got $actual"
+  fi
+  assert_contains "$output" "Invalid reuse_decision.json JSON" "gate invalid JSON reports parse failure"
+  assert_future_artifacts_absent "$project" "gate invalid JSON validation"
 }
 
 run_gate_validation_valid_decision_fixture() {
@@ -640,6 +719,7 @@ run_hint_validation_invalid_decision_fixture
 run_warn_validation_missing_decision_fixture
 run_warn_validation_invalid_decision_fixture
 run_gate_validation_missing_decision_fixture
+run_gate_validation_invalid_json_fixture
 run_gate_validation_invalid_decision_fixture
 run_gate_validation_valid_decision_fixture
 run_gate_validation_missing_artifacts_fixture

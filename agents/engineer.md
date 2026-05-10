@@ -67,7 +67,7 @@ When they exist:
 6. If creating a new helper, validator, wrapper, shared abstraction, or repeated logic, justify why existing candidates do not fit.
 7. Prefer the repository's existing test, error-handling, config, logging, and module-boundary conventions from `implementation_context.json`.
 
-In `hint` mode this is advisory. In `warn` and `gate` modes `reuse_decision.json` is required by the orchestrator.
+In `hint` mode this is advisory. In `warn` and `gate` modes `reuse_decision.json` is required by the orchestrator and must address top/strong candidates: the top 3 candidates plus candidates with high score or confidence. Every `reuse`, `adapt`, `follow-pattern`, or `respect-boundary` decision must include `candidateId`. `reject`, `defer`, and `inspect-only` decisions must include rationale. Do not use a generic "I looked at candidates" decision without binding it to relevant candidate IDs.
 
 ### Step 2.5: Execute removals (v3.8)
 
