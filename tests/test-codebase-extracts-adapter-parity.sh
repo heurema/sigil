@@ -410,6 +410,60 @@ def assert_python(index):
     )
 
 
+def assert_shell(index):
+    validation_path = "lib/json-output.sh"
+    emit = symbol(index, "emit_json_report", "function", validation_path)
+    write = symbol(index, "write_json_file", "function", validation_path)
+    require(
+        emit is not None and emit.get("exported") is True and emit.get("visibility") == "function",
+        "Shell emit_json_report helper missing",
+    )
+    require(
+        write is not None and write.get("exported") is True and write.get("visibility") == "function",
+        "Shell write_json_file helper missing",
+    )
+    require(has_boundary(index, validation_path, "shell-json-output"), "Shell JSON output boundary missing")
+    require(has_boundary(index, "scripts/run-policy-check.sh", "shell-executable-script"), "Shell executable boundary missing")
+    source_import = next(
+        (
+            item
+            for item in records(index, "imports")
+            if item.get("path") == "lib/policy-check.sh"
+            and item.get("imported") == "$ROOT_DIR/lib/json-output.sh"
+        ),
+        None,
+    )
+    require(source_import is not None and source_import.get("resolvedPath") == validation_path, "Shell source import did not resolve")
+    test_record = next(
+        (
+            item
+            for item in records(index, "tests")
+            if item.get("path") == "tests/test-policy-check.sh"
+        ),
+        None,
+    )
+    require(test_record is not None and test_record.get("framework") == "shell-test", "Shell test record missing")
+    require(test_record is not None and validation_path in test_record.get("targetPaths", []), "Shell test target path missing")
+    candidate = find(index, "sharedCandidates", path=validation_path)
+    require(candidate is not None, "Shell JSON helper shared candidate missing")
+    if candidate:
+        reasons = set(candidate.get("reasons", []))
+        require(
+            {"sourced-by-local-files", "json-output-pattern", "exported-symbols", "paired-test"} <= reasons,
+            "Shell JSON helper candidate lacks source, JSON, symbol, or paired-test evidence",
+        )
+        require(candidate.get("usageCount", 0) >= 2, "Shell JSON helper fan-in changed")
+        require("tests/test-policy-check.sh" in candidate.get("pairedTests", []), "Shell paired test changed")
+    require(
+        not any(item.get("path") == "lib/utils.sh" for item in records(index, "sharedCandidates")),
+        "Shell weak lib/utils path became shared candidate",
+    )
+    require(
+        not any(item.get("path") == "scripts/run-policy-check.sh" for item in records(index, "sharedCandidates")),
+        "Shell executable wrapper became shared candidate",
+    )
+
+
 if language == "go":
     assert_go(cached_index)
 elif language == "rust":
@@ -420,6 +474,8 @@ elif language == "typescript":
     assert_typescript(cached_index)
 elif language == "python":
     assert_python(cached_index)
+elif language == "shell":
+    assert_shell(cached_index)
 else:
     errors.append(f"unknown language: {language}")
 
@@ -475,6 +531,7 @@ run_case "rust-basic" "rust"
 run_case "csharp-basic" "csharp"
 run_case "typescript-basic" "typescript"
 run_case "python-basic" "python"
+run_case "shell-basic" "shell"
 
 printf 'Passed: %s\n' "$passed"
 printf 'Failed: %s\n' "$failed"
@@ -483,4 +540,4 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 
-echo "ok: Codebase Awareness extraction cache preserves Go, Rust, C#, TypeScript, and Python adapter-sensitive assembly"
+echo "ok: Codebase Awareness extraction cache preserves Go, Rust, C#, TypeScript, Python, and Shell adapter-sensitive assembly"

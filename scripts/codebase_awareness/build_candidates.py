@@ -49,10 +49,12 @@ STOPWORDS = {
 
 PATH_RE = re.compile(
     r"(?:[\w.@+-]+/)+[\w.@+-]+(?:\.[A-Za-z0-9]+)?|"
-    r"[\w.@+-]+\.(?:cjs|cs|csproj|cts|go|js|jsx|json|mjs|mts|py|rs|sh|sln|toml|ts|tsx|yaml|yml)"
+    r"[\w.@+-]+\.(?:bash|bats|cjs|cs|csproj|cts|go|js|jsx|json|mjs|mts|py|rs|sh|sln|toml|ts|tsx|yaml|yml|zsh)"
 )
 
 LANGUAGE_BY_SUFFIX = {
+    ".bash": "shell",
+    ".bats": "shell",
     ".cs": "csharp",
     ".csproj": "csharp",
     ".go": "go",
@@ -68,6 +70,7 @@ LANGUAGE_BY_SUFFIX = {
     ".tsx": "typescript",
     ".mts": "typescript",
     ".cts": "typescript",
+    ".zsh": "shell",
 }
 
 SUMMARY_KEYS = {"goal", "objective", "summary", "task", "title"}
@@ -91,6 +94,8 @@ GENERIC_DOMAIN_TOKENS = {
     "net",
     "python",
     "rust",
+    "bash",
+    "sh",
     "shell",
     "task",
     "typescript",
@@ -398,6 +403,8 @@ def is_test_path(path: str | None) -> bool:
         or "tests" in parts
         or "testdata" in parts
         or "__tests__" in parts
+        or name.endswith(".bats")
+        or (name.startswith("test-") and Path(path).suffix in {".bash", ".bats", ".sh", ".zsh"})
         or name.startswith("test_")
         or name.endswith("_test.go")
         or name.endswith("_test.py")
@@ -550,6 +557,54 @@ def add_draft(
                 risk = "Python private module is not a cross-package reuse default."
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
+            elif kind_value == "shell-lib-helper":
+                why = "lib/*.sh is a weak shell helper boundary until backed by functions, fan-in, or tests"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-sourced-helper":
+                why = "shell helper is sourced by local files"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-json-output":
+                why = "shell JSON-emitting checker pattern"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-json-validation":
+                why = "shell JSON validation convention"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-strict-mode":
+                why = "shell safety convention detected"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-tempdir-trap-cleanup":
+                why = "shell tempdir/trap cleanup convention detected"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-ci-annotation":
+                why = "GitHub Actions annotation emitter pattern"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-jq-convention":
+                why = "jq JSON convention detected lexically"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-exit-78":
+                why = "exit 78 neutral CI convention detected"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "shell-command-fragment":
+                risk = "Command fragments guide orchestration patterns, not reusable shell helper placement."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "shell-test-file":
+                risk = "Shell test files should guide tests, not production helper placement."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "shell-executable-script":
+                risk = "Executable shell scripts/CLI entrypoints are not generic helpers unless sourced or imported with fan-in evidence."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
             elif kind_value == "shared-name-weak":
                 why = "shared/common/utils/lib path name is weak evidence only"
                 if why not in draft["why"]:
@@ -617,6 +672,15 @@ def add_draft(
                     draft["risks"].append(risk)
             if record.get("kind") == "test":
                 risk = "Python test file should guide tests, not production helper placement"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+        if record_language == "shell":
+            if record.get("executableBoundary"):
+                risk = "Executable shell scripts/CLI entrypoints are not generic helpers unless sourced or imported with fan-in evidence"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("kind") == "test":
+                risk = "Shell test file should guide tests, not production helper placement"
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
         for risk in as_list(record.get("visibilityRisks")):
@@ -839,6 +903,7 @@ def build_drafts(codebase_index: dict[str, Any], style_profile: dict[str, Any]) 
         "validation": "local-pattern",
         "typescriptJavascriptConventions": "module-boundary",
         "pythonConventions": "module-boundary",
+        "shellConventions": "module-boundary",
     }
     for section, kind in style_sections.items():
         for record in as_list(style_profile.get(section)):
@@ -866,7 +931,9 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
             languages.add(language)
     token_map = {
         "javascript": ("javascript",),
+        "bash": ("shell",),
         "cargo": ("rust",),
+        "checker": ("shell",),
         "csharp": ("csharp",),
         "cs": ("csharp",),
         "dotnet": ("csharp",),
@@ -881,8 +948,13 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
         "pyproject": ("python",),
         "pytest": ("python",),
         "python": ("python",),
+        "jq": ("shell",),
+        "json": ("shell",),
         "rs": ("rust",),
         "rust": ("rust",),
+        "script": ("shell",),
+        "sh": ("shell",),
+        "shell": ("shell",),
         "ts": ("typescript",),
         "typescript": ("typescript",),
         "workspace": ("javascript", "typescript"),
@@ -1148,6 +1220,7 @@ def dominant_conventions(style_profile: dict[str, Any]) -> dict[str, list[str]]:
             for item in as_list(style_profile.get("typescriptJavascriptConventions"))
         ][:6],
         "python": [summarize_convention(item) for item in as_list(style_profile.get("pythonConventions"))][:6],
+        "shell": [summarize_convention(item) for item in as_list(style_profile.get("shellConventions"))][:6],
     }
 
 

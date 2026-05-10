@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from scripts.codebase_awareness.adapters import csharp, go, python, rust, typescript_js
+from scripts.codebase_awareness.adapters import csharp, go, python, rust, shell, typescript_js
 from scripts.codebase_awareness.adapters.common import (
     is_test_fixture_path,
     is_test_path,
@@ -79,6 +79,8 @@ GENERATED_MARKER_RE = re.compile(
 )
 
 LANGUAGE_BY_SUFFIX = {
+    ".bash": "shell",
+    ".bats": "shell",
     ".cjs": "javascript",
     ".cs": "csharp",
     ".csproj": "csharp",
@@ -100,10 +102,11 @@ LANGUAGE_BY_SUFFIX = {
     ".tsx": "typescript",
     ".yaml": "yaml",
     ".yml": "yaml",
+    ".zsh": "shell",
 }
 
 SOURCE_LANGUAGES = {"csharp", "go", "javascript", "python", "rust", "shell", "typescript"}
-LANGUAGE_ADAPTERS = (go, rust, csharp, typescript_js, python)
+LANGUAGE_ADAPTERS = (go, rust, csharp, typescript_js, python, shell)
 
 MANIFEST_NAMES = {
     "package-lock.json": "npm",
@@ -244,6 +247,12 @@ def language_for_path(rel: str) -> str | None:
             "npm": "json" if path.suffix == ".json" else "yaml",
             "python": "toml" if path.suffix == ".toml" else "python",
         }.get(manifest_kind)
+    for adapter in LANGUAGE_ADAPTERS:
+        adapter_language_for_source = getattr(adapter, "language_for_source", None)
+        if callable(adapter_language_for_source):
+            language = adapter_language_for_source(rel)
+            if language:
+                return language
     return LANGUAGE_BY_SUFFIX.get(path.suffix)
 
 
@@ -373,6 +382,10 @@ def build_scan(
             )
             continue
 
+        text = decode_text_for_extraction(data)
+        if language is None:
+            language = shell.language_for_text(rel, text)
+
         files_indexed += 1
         bytes_indexed += size_bytes
         files.append(
@@ -385,7 +398,7 @@ def build_scan(
                 sha256=digest,
                 indexed=True,
                 reason="indexed",
-                text=decode_text_for_extraction(data),
+                text=text,
             )
         )
 
@@ -442,6 +455,8 @@ def extract_file_text_signals(rel: str, language: str | None, text: str) -> dict
         signals.update(typescript_js.file_text_signals(rel, text, language))
     if language == "python":
         signals.update(python.file_text_signals(rel, text, language))
+    if language == "shell" or shell.is_command_fragment_path(rel) or shell.is_shell_config_path(rel):
+        signals.update(shell.file_text_signals(rel, text, language))
     return signals
 
 
@@ -451,7 +466,7 @@ def basic_module_record(rel: str, language: str | None, signals: dict[str, Any])
         "name": Path(rel).stem,
         "directory": Path(rel).parent.as_posix() if Path(rel).parent.as_posix() != "." else "",
         "language": language,
-        "kind": module_kind(rel),
+        "kind": module_kind(rel, language),
         "tokens": tokens_for_path(rel),
         "lineCount": int(signals.get("lineCount", 0)),
     }
@@ -474,6 +489,8 @@ def text_only_test_info(rel: str, text: str, language: str | None) -> dict[str, 
         return typescript_js.test_info(rel, text, language)
     if language == "python":
         return python.test_info(rel, text, language)
+    if language == "shell":
+        return shell.test_info(rel, text, language)
     return {
         "hasTests": is_test_path(rel),
         "framework": test_framework_for_path(rel, text, language) if is_test_path(rel) else None,
@@ -505,6 +522,8 @@ def cached_test_records(
         record["fixtures"] = test_info["fixtures"]
     if test_info.get("hasCfgTest"):
         record["inlineCfgTest"] = True
+    if test_info.get("targetPaths"):
+        record["targetPaths"] = test_info["targetPaths"]
     return [record]
 
 
@@ -520,7 +539,7 @@ def fresh_extraction_payload(scanned_file: ScanFile) -> dict[str, Any]:
         "reason": scanned_file.reason,
         "module": basic_module_record(scanned_file.rel, scanned_file.language, signals),
         "symbols": extract_symbols(scanned_file.rel, scanned_file.language, scanned_file.text),
-        "imports": extract_import_records(scanned_file.language, scanned_file.text),
+        "imports": extract_import_records(scanned_file.rel, scanned_file.language, scanned_file.text),
         "tests": cached_test_records(scanned_file.rel, scanned_file.language, signals, test_info),
         "manifest": manifest,
         "fileTextSignals": signals,
@@ -654,12 +673,12 @@ def build_extracts_cache(
     return cache
 
 
-def module_kind(rel: str) -> str:
+def module_kind(rel: str, language: str | None = None) -> str:
     if manifest_kind_for_path(rel):
         return "manifest"
     if is_test_path(rel):
         return "test"
-    if language_for_path(rel) in SOURCE_LANGUAGES:
+    if (language or language_for_path(rel)) in SOURCE_LANGUAGES:
         return "source"
     return "support"
 
@@ -675,14 +694,10 @@ def extract_symbols(rel: str, language: str | None, text: str) -> list[dict[str,
         return typescript_js.extract_symbols(rel, text)
     if language == "python" and Path(rel).suffix in python.SOURCE_EXTENSIONS:
         return python.extract_symbols(rel, text)
+    if language == "shell":
+        return shell.extract_symbols(rel, text)
 
     patterns: list[tuple[str, str, str]] = []
-    if language == "shell":
-        patterns = [
-            ("function", r"^\s*([A-Za-z_][\w-]*)\s*\(\)\s*\{", "local"),
-            ("function", r"^\s*function\s+([A-Za-z_][\w-]*)\b", "local"),
-        ]
-
     seen: set[tuple[str, str]] = set()
     symbols: list[dict[str, Any]] = []
     for line_number, line in enumerate(text.splitlines(), start=1):
@@ -733,7 +748,7 @@ def extract_import_specs(language: str | None, text: str) -> list[str]:
     return sorted(set(specs))
 
 
-def extract_import_records(language: str | None, text: str) -> list[dict[str, Any]]:
+def extract_import_records(rel: str, language: str | None, text: str) -> list[dict[str, Any]]:
     if language == "csharp":
         return csharp.extract_import_records(text)
     if language == "go":
@@ -744,6 +759,10 @@ def extract_import_records(language: str | None, text: str) -> list[dict[str, An
         return typescript_js.extract_import_records(text)
     if language == "python":
         return python.extract_import_records(text)
+    if language == "shell":
+        return shell.extract_import_records(rel, text)
+    if shell.is_command_fragment_path(rel):
+        return shell.extract_command_fragment_import_records(rel, text)
     return [
         {
             "imported": spec,
@@ -818,6 +837,10 @@ def resolve_import(
         if isinstance(python_context, dict):
             return python.resolve_import(source_rel, spec, known_files, python_context, import_record)
         return None
+    if language == "shell" or (
+        isinstance(import_record, dict) and import_record.get("kind") in {"shell-call", "source"}
+    ):
+        return shell.resolve_import(source_rel, spec, known_files)
     if not spec.startswith("."):
         return None
     base = (Path(source_rel).parent / spec).as_posix()
@@ -858,7 +881,7 @@ def test_framework_for_path(rel: str, text: str, language: str | None) -> str | 
     if language == "python":
         return python.test_info(rel, text, language).get("framework")
     if language == "shell":
-        return "shell"
+        return shell.test_info(rel, text, language).get("framework")
     if language == "rust":
         return rust.test_framework(text)
     return None
@@ -935,6 +958,10 @@ def build_style_profile(
             by_pattern[(language, "*_test.py")].append(path)
         elif language == "csharp" and name.endswith("Tests.cs"):
             by_pattern[(language, "*Tests.cs")].append(path)
+        elif language == "shell" and name.startswith("test-") and Path(path).suffix in shell.SOURCE_EXTENSIONS:
+            by_pattern[(language, "test-*.sh")].append(path)
+        elif language == "shell" and Path(path).suffix == ".bats":
+            by_pattern[(language, "*.bats")].append(path)
         elif "tests" in Path(path).parts:
             by_pattern[(language, "tests/ directory")].append(path)
     for rel, signals in sorted(file_text_signals.items()):
@@ -952,6 +979,7 @@ def build_style_profile(
     csharp_conventions: list[dict[str, Any]] = []
     tsjs_conventions: list[dict[str, Any]] = []
     python_conventions: list[dict[str, Any]] = []
+    shell_conventions: list[dict[str, Any]] = []
     rust_boundaries: list[dict[str, Any]] = []
     modules_by_path = {str(module.get("path")): module for module in modules}
     for rel, signals in sorted(file_text_signals.items()):
@@ -1008,6 +1036,36 @@ def build_style_profile(
                             "boundary",
                             str(hint.get("value") or hint.get("kind")),
                             "python",
+                            [rel],
+                        )
+                    )
+        if language == "shell":
+            framework = signals.get("testFramework")
+            if framework:
+                test_conventions.append(convention_entry("test-framework", str(framework), "shell", [rel]))
+                shell_conventions.append(convention_entry("test-framework", str(framework), "shell", [rel]))
+            shell_signal_map = (
+                ("shellStrictMode", "safety", "set -euo pipefail"),
+                ("shellTempdirTrapCleanup", "cleanup", "tempdir/trap cleanup"),
+                ("shellJsonOutputPattern", "json", "JSON-emitting checker pattern"),
+                ("shellJsonValidationPattern", "json", "JSON validation convention"),
+                ("shellCiAnnotationPattern", "ci-annotation", "GitHub Actions annotation emitter"),
+                ("shellExit78", "exit-code", "exit 78 neutral CI convention"),
+                ("shellUsesJq", "tool", "jq JSON convention"),
+            )
+            for signal_key, name, value in shell_signal_map:
+                if signals.get(signal_key):
+                    shell_conventions.append(convention_entry(name, value, "shell", [rel]))
+                    if name == "json":
+                        validation.append(convention_entry("validation", value, "shell", [rel]))
+            module = modules_by_path.get(rel, {})
+            for hint in module.get("boundaryHints", []):
+                if isinstance(hint, dict):
+                    shell_conventions.append(
+                        convention_entry(
+                            "boundary",
+                            str(hint.get("value") or hint.get("kind")),
+                            "shell",
                             [rel],
                         )
                     )
@@ -1152,9 +1210,10 @@ def build_style_profile(
     compact_csharp_conventions = compact_conventions(csharp_conventions)
     compact_tsjs_conventions = compact_conventions(tsjs_conventions)
     compact_python_conventions = compact_conventions(python_conventions)
+    compact_shell_conventions = compact_conventions(shell_conventions)
     compact_rust_boundaries = compact_conventions(rust_boundaries)
     confidence = 0.45
-    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_csharp_conventions, compact_tsjs_conventions, compact_python_conventions, compact_rust_boundaries):
+    for section in (test_conventions, compact_error_handling, compact_logging, compact_config, compact_validation, compact_go_conventions, compact_csharp_conventions, compact_tsjs_conventions, compact_python_conventions, compact_shell_conventions, compact_rust_boundaries):
         if section:
             confidence += 0.08
     if primary_languages:
@@ -1175,6 +1234,7 @@ def build_style_profile(
         "csharpConventions": compact_csharp_conventions,
         "typescriptJavascriptConventions": compact_tsjs_conventions,
         "pythonConventions": compact_python_conventions,
+        "shellConventions": compact_shell_conventions,
         "boundaries": compact_rust_boundaries,
     }
 
@@ -1301,9 +1361,12 @@ def build_index(
         payload = extractions.get(rel, {})
         signals = payload.get("fileTextSignals") if isinstance(payload.get("fileTextSignals"), dict) else {}
         file_text_signals[rel] = clone_jsonable(signals)
-        kind = module_kind(rel)
+        base_test_info = payload.get("testInfo") if isinstance(payload.get("testInfo"), dict) else {}
+        kind = module_kind(rel, language)
         csharp_project = csharp.project_for_path(rel, csharp_context) if language == "csharp" else None
         if language == "csharp" and Path(rel).suffix == ".cs" and csharp_project and csharp_project.get("isTestProject"):
+            kind = "test"
+        if language == "shell" and base_test_info.get("hasTests"):
             kind = "test"
         package_name = signals.get("packageName") if language == "go" else None
         boundary_hints = go.boundary_hints_for_path(rel) if language == "go" or is_test_fixture_path(rel) else []
@@ -1341,6 +1404,8 @@ def build_index(
             )
             if private_symbols:
                 module["privateSymbols"] = private_symbols
+        if language == "shell" or shell.is_command_fragment_path(rel):
+            module.update(shell.module_fields(rel, signals, base_test_info))
         if is_test_fixture_path(rel):
             module["testFixture"] = True
         modules.append(module)
@@ -1394,18 +1459,36 @@ def build_index(
                 test_entry["fixtures"] = test_info["fixtures"]
             if test_info.get("hasCfgTest"):
                 test_entry["inlineCfgTest"] = True
+            if test_info.get("targetPaths"):
+                test_entry["targetPaths"] = test_info["targetPaths"]
             if language == "csharp" and csharp_project:
                 test_entry["projectPath"] = csharp_project.get("path")
                 test_entry["projectName"] = csharp_project.get("projectName")
             tests.append(test_entry)
 
     importers_by_target: dict[str, list[str]] = defaultdict(list)
+    source_importers_by_target: dict[str, list[str]] = defaultdict(list)
+    shell_callers_by_target: dict[str, list[str]] = defaultdict(list)
+    command_fragment_callers_by_target: dict[str, list[str]] = defaultdict(list)
     for item in imports:
         resolved = item.get("resolvedPath")
         if isinstance(resolved, str) and resolved:
-            importers_by_target[resolved].append(str(item.get("path")))
+            source_path = str(item.get("path"))
+            importers_by_target[resolved].append(source_path)
+            if item.get("kind") == "source":
+                source_importers_by_target[resolved].append(source_path)
+            if item.get("kind") == "shell-call":
+                shell_callers_by_target[resolved].append(source_path)
+                if shell.is_command_fragment_path(source_path):
+                    command_fragment_callers_by_target[resolved].append(source_path)
 
     tests_by_path = {str(test.get("path")): test for test in tests}
+    tests_by_target: dict[str, list[str]] = defaultdict(list)
+    for test in tests:
+        test_path = str(test.get("path"))
+        for target in test.get("targetPaths", []):
+            if isinstance(target, str) and target:
+                tests_by_target[target].append(test_path)
     for module in modules:
         path = str(module.get("path"))
         imported_by = sorted(set(importers_by_target.get(path, [])))
@@ -1413,6 +1496,30 @@ def build_index(
             module["importedBy"] = imported_by
             module["importCount"] = len(imported_by)
         paired_tests = paired_tests_for(path, tests)
+        if module.get("language") == "shell":
+            source_importers = sorted(set(source_importers_by_target.get(path, [])))
+            shell_callers = sorted(set(shell_callers_by_target.get(path, [])))
+            command_fragment_callers = sorted(set(command_fragment_callers_by_target.get(path, [])))
+            if source_importers:
+                module["sourcedBy"] = source_importers
+                module["sourceImportCount"] = len(source_importers)
+                hints = [hint for hint in module.get("boundaryHints", []) if isinstance(hint, dict)]
+                if not any(hint.get("kind") == "shell-sourced-helper" for hint in hints):
+                    hints.append(shell.sourced_helper_hint(path))
+                    module["boundaryHints"] = hints
+                    module["boundaryKinds"] = sorted(str(hint.get("kind")) for hint in hints)
+            if shell_callers:
+                module["calledBy"] = shell_callers
+                module["callCount"] = len(shell_callers)
+            if command_fragment_callers:
+                module["commandFragmentCallers"] = command_fragment_callers
+            transitive_tests = {
+                test_path
+                for importer in imported_by
+                for test_path in tests_by_target.get(importer, [])
+            }
+            direct_target_tests = set(tests_by_target.get(path, []))
+            paired_tests = sorted(set(paired_tests) | transitive_tests | direct_target_tests)
         if paired_tests and (path not in tests_by_path or tests_by_path.get(path, {}).get("inlineCfgTest")):
             module["pairedTests"] = paired_tests
 
@@ -1481,6 +1588,25 @@ def build_index(
             reasons.append("tsconfig-path-reference")
         if module.get("language") == "python" and module.get("packageName"):
             reasons.append("python-package-boundary")
+        if module.get("language") == "shell":
+            if module.get("sourceImportCount", 0):
+                reasons.append("sourced-by-local-files")
+            if module.get("callCount", 0):
+                reasons.append("called-from-local-files")
+            if module.get("commandFragmentCallers"):
+                reasons.append("called-from-command-fragment")
+            if module.get("shellJsonOutputPattern"):
+                reasons.append("json-output-pattern")
+            if module.get("shellJsonValidationPattern"):
+                reasons.append("json-validation-pattern")
+            if module.get("shellCiAnnotationPattern"):
+                reasons.append("ci-annotation-pattern")
+            if module.get("shellStrictMode"):
+                reasons.append("strict-mode-convention")
+            if module.get("shellTempdirTrapCleanup"):
+                reasons.append("tempdir-trap-cleanup-convention")
+            if module.get("shellExit78"):
+                reasons.append("exit-78-convention")
         if module.get("importCount", 0):
             reasons.append("imported-by-local-files")
         if module.get("pairedTests"):
@@ -1536,6 +1662,22 @@ def build_index(
                 or module.get("importCount", 0)
                 or module.get("pairedTests")
                 or (module.get("kind") == "package" and module.get("packageName"))
+            )
+        elif module.get("language") == "shell":
+            if module.get("kind") == "test":
+                continue
+            if module.get("executableBoundary") and not (
+                module.get("sourceImportCount", 0)
+                or module.get("importCount", 0) > 1
+                or module.get("pairedTests")
+            ):
+                continue
+            has_primary_shared_signal = bool(
+                (exported_symbols and module.get("sourceImportCount", 0))
+                or (exported_symbols and module.get("importCount", 0) > 1)
+                or module.get("pairedTests")
+                or (exported_symbols and module.get("shellJsonOutputPattern"))
+                or (module.get("shellJsonValidationPattern") and module.get("importCount", 0))
             )
         else:
             has_primary_shared_signal = bool((parts & SHARED_DIR_HINTS) or module.get("importCount", 0) or module.get("pairedTests"))
@@ -1616,6 +1758,27 @@ def build_index(
                     candidate[key] = module.get(key)
             if module.get("privateSymbols") or module.get("privateModule"):
                 candidate["visibilityRisks"] = ["private Python helpers/modules are not cross-module reuse defaults"]
+        if module.get("language") == "shell":
+            for key in (
+                "boundaryHints",
+                "boundaryKinds",
+                "sourcedBy",
+                "sourceImportCount",
+                "calledBy",
+                "callCount",
+                "commandFragmentCallers",
+                "executableBoundary",
+                "shellStrictMode",
+                "shellTempdirTrapCleanup",
+                "shellUsesJq",
+                "shellExit78",
+                "shellJsonOutputPattern",
+                "shellJsonValidationPattern",
+                "shellCiAnnotationPattern",
+                "shellGithubAnnotations",
+            ):
+                if key in module:
+                    candidate[key] = module.get(key)
         shared_candidates.append(candidate)
 
     symbol_name_counts = Counter(str(symbol.get("name")) for symbol in symbols if symbol.get("name"))
@@ -1730,6 +1893,32 @@ def build_index(
             str(module.get("path"))
             for module in modules
             if module.get("language") == "python" and module.get("executableBoundary")
+        ),
+        "shellTestPaths": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "shell" and module.get("kind") == "test"
+        ),
+        "shellSourcedHelpers": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "shell" and module.get("sourceImportCount", 0)
+        ),
+        "shellCliEntrypoints": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "shell" and module.get("executableBoundary")
+        ),
+        "shellCommandFragments": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("orchestratorFragment")
+        ),
+        "shellJsonPatternPaths": sorted(
+            str(module.get("path"))
+            for module in modules
+            if module.get("language") == "shell"
+            and (module.get("shellJsonOutputPattern") or module.get("shellJsonValidationPattern"))
         ),
     }
     module_boundaries = collect_module_boundaries(modules)

@@ -9,6 +9,7 @@ GO_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/go-basic"
 CSHARP_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/csharp-basic"
 TYPESCRIPT_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/typescript-basic"
 PYTHON_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/python-basic"
+SHELL_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/shell-basic"
 CONTRACTS="$ROOT_DIR/tests/fixtures/codebase-awareness/contracts"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -71,6 +72,13 @@ setup_python_project() {
   cp -R "$PYTHON_FIXTURE" "$project"
   mkdir -p "$project/.signum/contracts/python-validation"
   cp "$CONTRACTS/python-validation-contract.json" "$project/.signum/contracts/python-validation/contract.json"
+}
+
+setup_shell_project() {
+  local project="$1"
+  cp -R "$SHELL_FIXTURE" "$project"
+  mkdir -p "$project/.signum/contracts/shell-json-checker"
+  cp "$CONTRACTS/shell-json-checker-contract.json" "$project/.signum/contracts/shell-json-checker/contract.json"
 }
 
 run_scanner() {
@@ -182,6 +190,22 @@ run_python_matcher() {
   )
 }
 
+run_shell_matcher() {
+  local project="$1"
+  (
+    cd "$project"
+    python3 "$MATCHER" \
+      --project-root "." \
+      --contract ".signum/contracts/shell-json-checker/contract.json" \
+      --codebase-index ".signum/cache/codebase-index-v1.json" \
+      --style-profile ".signum/cache/style-profile-v1.json" \
+      --output ".signum/contracts/shell-json-checker/reuse_candidates.json" \
+      --implementation-context ".signum/contracts/shell-json-checker/implementation_context.json" \
+      --max-candidates 12 \
+      --generated-at "2026-01-01T00:00:00Z"
+  )
+}
+
 PROJECT_A="$WORK/run-a/basic-mixed"
 PROJECT_B="$WORK/run-b/basic-mixed"
 mkdir -p "$(dirname "$PROJECT_A")" "$(dirname "$PROJECT_B")"
@@ -219,6 +243,11 @@ mkdir -p "$(dirname "$PROJECT_PYTHON")"
 setup_python_project "$PROJECT_PYTHON"
 PYTHON_REUSE="$PROJECT_PYTHON/.signum/contracts/python-validation/reuse_candidates.json"
 PYTHON_CONTEXT="$PROJECT_PYTHON/.signum/contracts/python-validation/implementation_context.json"
+PROJECT_SHELL="$WORK/shell/shell-basic"
+mkdir -p "$(dirname "$PROJECT_SHELL")"
+setup_shell_project "$PROJECT_SHELL"
+SHELL_REUSE="$PROJECT_SHELL/.signum/contracts/shell-json-checker/reuse_candidates.json"
+SHELL_CONTEXT="$PROJECT_SHELL/.signum/contracts/shell-json-checker/implementation_context.json"
 
 echo "=== Scanner prerequisite ==="
 if run_scanner "$PROJECT_A"; then
@@ -776,6 +805,79 @@ then
   pass "Python contract surfaces validation helper with non-path-only evidence"
 else
   fail "Python contract surfaces validation helper with non-path-only evidence" "Python assertion failed"
+fi
+
+echo ""
+echo "=== Shell contract ==="
+if run_scanner "$PROJECT_SHELL"; then
+  pass "Shell scanner prerequisite exits 0"
+else
+  fail "Shell scanner prerequisite exits 0" "command failed"
+fi
+if run_shell_matcher "$PROJECT_SHELL"; then
+  pass "matcher supports shell JSON checker contract"
+else
+  fail "matcher supports shell JSON checker contract" "command failed"
+fi
+
+if python3 - "$SHELL_REUSE" "$SHELL_CONTEXT" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+reuse = json.loads(Path(sys.argv[1]).read_text())
+context = json.loads(Path(sys.argv[2]).read_text())
+errors = []
+candidates = reuse.get("candidates", [])
+top_window = candidates[:8]
+helper = next(
+    (
+        candidate
+        for candidate in candidates
+        if candidate.get("path") == "lib/json-output.sh"
+        and candidate.get("symbol") == "emit_json_report"
+    ),
+    None,
+)
+if reuse.get("contractId") != "shell-json-checker-contract":
+    errors.append("shell contractId")
+if "lib/json-output.sh" not in [candidate.get("path") for candidate in top_window]:
+    errors.append("Shell JSON helper should be a top candidate")
+if not helper:
+    errors.append("emit_json_report helper candidate missing")
+else:
+    why = " ".join(helper.get("whyRelevant", [])).lower()
+    for term in ("json", "shared candidate", "imported", "paired test", "exported"):
+        if term not in why:
+            errors.append(f"missing Shell whyRelevant evidence: {term}")
+    if "weak" in why and not any(term in why for term in ("imported", "paired test", "multiple reuse signals")):
+        errors.append("Shell weak lib prior was not backed by strong evidence")
+if any(candidate.get("path") == "lib/utils.sh" for candidate in candidates):
+    errors.append("weak lib/utils shell path surfaced as candidate")
+if any(candidate.get("path") == "scripts/run-policy-check.sh" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates):
+    errors.append("Shell executable wrapper surfaced as helper")
+if any(candidate.get("path") == "commands/signum.fragments/90-phase-audit.md" and candidate.get("kind") in {"existing-helper", "shared-module"} for candidate in candidates):
+    errors.append("command fragment surfaced as shell helper")
+test_candidates = [candidate for candidate in candidates if candidate.get("path") == "tests/test-policy-check.sh"]
+for candidate in test_candidates:
+    risks = " ".join(candidate.get("risks", [])).lower()
+    if candidate.get("kind") != "test-pattern" and "guide tests" not in risks:
+        errors.append("Shell test candidate lacks guide-tests boundary risk")
+if "shell" not in context.get("primaryLanguages", []):
+    errors.append("Shell primary language missing")
+if not context.get("dominantConventions", {}).get("shell"):
+    errors.append("Shell conventions missing")
+if not context.get("moduleBoundaries"):
+    errors.append("Shell module boundaries missing")
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+  pass "Shell contract surfaces JSON checker helper with evidence-based ranking"
+else
+  fail "Shell contract surfaces JSON checker helper with evidence-based ranking" "Python assertion failed"
 fi
 
 echo ""

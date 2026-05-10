@@ -101,6 +101,7 @@ required_style = (
     "config",
     "validation",
     "typescriptJavascriptConventions",
+    "shellConventions",
 )
 for section in required_index:
     if section not in index:
