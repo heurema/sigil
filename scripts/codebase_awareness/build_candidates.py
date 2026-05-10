@@ -49,10 +49,12 @@ STOPWORDS = {
 
 PATH_RE = re.compile(
     r"(?:[\w.@+-]+/)+[\w.@+-]+(?:\.[A-Za-z0-9]+)?|"
-    r"[\w.@+-]+\.(?:cjs|cts|go|js|jsx|json|mjs|mts|py|rs|sh|toml|ts|tsx|yaml|yml)"
+    r"[\w.@+-]+\.(?:cjs|cs|csproj|cts|go|js|jsx|json|mjs|mts|py|rs|sh|sln|toml|ts|tsx|yaml|yml)"
 )
 
 LANGUAGE_BY_SUFFIX = {
+    ".cs": "csharp",
+    ".csproj": "csharp",
     ".go": "go",
     ".js": "javascript",
     ".jsx": "javascript",
@@ -61,6 +63,7 @@ LANGUAGE_BY_SUFFIX = {
     ".py": "python",
     ".rs": "rust",
     ".sh": "shell",
+    ".sln": "csharp",
     ".ts": "typescript",
     ".tsx": "typescript",
     ".mts": "typescript",
@@ -82,6 +85,10 @@ GENERIC_DOMAIN_TOKENS = {
     "helper",
     "helpers",
     "javascript",
+    "csharp",
+    "cs",
+    "dotnet",
+    "net",
     "python",
     "rust",
     "shell",
@@ -486,6 +493,26 @@ def add_draft(
                 risk = "Rust module contains crate-local visibility; inspect symbol visibility before cross-crate reuse."
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
+            elif kind_value == "dotnet-project":
+                why = "C# project/assembly boundary identified by scanner"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "dotnet-project-reference":
+                why = "C# project reference edge identified by scanner"
+                if why not in draft["why"]:
+                    draft["why"].append(why)
+            elif kind_value == "dotnet-internal-api":
+                risk = "C# internal symbols are assembly-local; verify project/assembly boundaries before reuse."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "dotnet-executable-project":
+                risk = "C# executable project is not a generic helper module."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif kind_value == "dotnet-test-project":
+                risk = "C# test project should guide tests, not production helper placement."
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
         boundary_risk = record.get("risk")
         if isinstance(boundary_risk, str) and boundary_risk and boundary_risk not in draft["risks"]:
             draft["risks"].append(boundary_risk)
@@ -498,6 +525,27 @@ def add_draft(
                     draft["risks"].append(risk)
             elif visibility == "private" and kind == "existing-helper":
                 risk = "Rust private symbol is not reusable outside its module without changing visibility"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+        if record_language == "csharp":
+            if visibility == "internal":
+                risk = "C# internal symbol is assembly-local and may not be reusable across project boundaries"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif visibility in {"protected", "protected internal", "private protected"}:
+                risk = f"C# {visibility} symbol has inheritance or assembly boundary constraints"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            elif visibility == "private" and kind == "existing-helper":
+                risk = "C# private symbol is not reusable outside its containing type without changing visibility"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("isTestProject") or record.get("testProject"):
+                risk = "C# test project should guide tests, not production helper placement"
+                if risk not in draft["risks"]:
+                    draft["risks"].append(risk)
+            if record.get("executableBoundary"):
+                risk = "C# executable project is not a generic helper module"
                 if risk not in draft["risks"]:
                     draft["risks"].append(risk)
         for risk in as_list(record.get("visibilityRisks")):
@@ -739,9 +787,13 @@ def desired_languages(task_intent: dict[str, Any], codebase_index: dict[str, Any
     token_map = {
         "javascript": "javascript",
         "cargo": "rust",
+        "csharp": "csharp",
+        "cs": "csharp",
+        "dotnet": "csharp",
         "go": "go",
         "golang": "go",
         "js": "javascript",
+        "net": "csharp",
         "py": "python",
         "python": "python",
         "rs": "rust",
@@ -785,8 +837,6 @@ def validation_symbol_tokens(draft: dict[str, Any], symbol_text: str, candidate_
     if tokens:
         if tokens & VALIDATION_TOKENS:
             return tokens
-        if candidate_tokens & VALIDATION_TOKENS:
-            return tokens | (candidate_tokens & VALIDATION_TOKENS)
         return set()
 
     helper_tokens: set[str] = set()
@@ -876,6 +926,11 @@ def score_draft(draft: dict[str, Any], task_intent: dict[str, Any], languages: s
         why.append("paired test exists")
         score += 0.07
         confidence += 0.06
+
+    if kind in {"existing-helper", "shared-module"} and usage > 1 and draft.get("pairedTests") and draft.get("exported"):
+        why.append("multiple reuse signals: imports, exported API, and tests")
+        score += 0.09
+        confidence += 0.04
 
     if draft.get("sharedDir"):
         why.append("shared/common directory hint")
@@ -1001,6 +1056,7 @@ def dominant_conventions(style_profile: dict[str, Any]) -> dict[str, list[str]]:
         "config": [summarize_convention(item) for item in as_list(style_profile.get("config"))][:6],
         "validation": [summarize_convention(item) for item in as_list(style_profile.get("validation"))][:6],
         "go": [summarize_convention(item) for item in as_list(style_profile.get("goConventions"))][:6],
+        "csharp": [summarize_convention(item) for item in as_list(style_profile.get("csharpConventions"))][:6],
     }
 
 

@@ -6,6 +6,7 @@ SCANNER="$ROOT_DIR/scripts/build_codebase_index.py"
 MATCHER="$ROOT_DIR/scripts/build_reuse_candidates.py"
 FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/basic-mixed"
 GO_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/go-basic"
+CSHARP_FIXTURE="$ROOT_DIR/tests/fixtures/codebase-awareness/csharp-basic"
 CONTRACTS="$ROOT_DIR/tests/fixtures/codebase-awareness/contracts"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -47,6 +48,13 @@ setup_go_project() {
   mkdir -p "$project/.signum/contracts/go-validation" "$project/.signum/contracts/go-token-validation"
   cp "$CONTRACTS/go-validation-contract.json" "$project/.signum/contracts/go-validation/contract.json"
   cp "$CONTRACTS/go-token-validation-contract.json" "$project/.signum/contracts/go-token-validation/contract.json"
+}
+
+setup_csharp_project() {
+  local project="$1"
+  cp -R "$CSHARP_FIXTURE" "$project"
+  mkdir -p "$project/.signum/contracts/csharp-validation"
+  cp "$CONTRACTS/csharp-validation-contract.json" "$project/.signum/contracts/csharp-validation/contract.json"
 }
 
 run_scanner() {
@@ -110,6 +118,22 @@ run_go_token_matcher() {
   )
 }
 
+run_csharp_matcher() {
+  local project="$1"
+  (
+    cd "$project"
+    python3 "$MATCHER" \
+      --project-root "." \
+      --contract ".signum/contracts/csharp-validation/contract.json" \
+      --codebase-index ".signum/cache/codebase-index-v1.json" \
+      --style-profile ".signum/cache/style-profile-v1.json" \
+      --output ".signum/contracts/csharp-validation/reuse_candidates.json" \
+      --implementation-context ".signum/contracts/csharp-validation/implementation_context.json" \
+      --max-candidates 8 \
+      --generated-at "2026-01-01T00:00:00Z"
+  )
+}
+
 PROJECT_A="$WORK/run-a/basic-mixed"
 PROJECT_B="$WORK/run-b/basic-mixed"
 mkdir -p "$(dirname "$PROJECT_A")" "$(dirname "$PROJECT_B")"
@@ -132,6 +156,11 @@ setup_go_project "$PROJECT_GO"
 GO_REUSE="$PROJECT_GO/.signum/contracts/go-validation/reuse_candidates.json"
 GO_CONTEXT="$PROJECT_GO/.signum/contracts/go-validation/implementation_context.json"
 GO_TOKEN_REUSE="$PROJECT_GO/.signum/contracts/go-token-validation/reuse_candidates.json"
+PROJECT_CSHARP="$WORK/csharp/csharp-basic"
+mkdir -p "$(dirname "$PROJECT_CSHARP")"
+setup_csharp_project "$PROJECT_CSHARP"
+CSHARP_REUSE="$PROJECT_CSHARP/.signum/contracts/csharp-validation/reuse_candidates.json"
+CSHARP_CONTEXT="$PROJECT_CSHARP/.signum/contracts/csharp-validation/implementation_context.json"
 
 echo "=== Scanner prerequisite ==="
 if run_scanner "$PROJECT_A"; then
@@ -476,6 +505,66 @@ then
   pass "generic validation scoring works without hard-coded domain literals"
 else
   fail "generic validation scoring works without hard-coded domain literals" "Python assertion failed"
+fi
+
+echo ""
+echo "=== C# contract ==="
+if run_scanner "$PROJECT_CSHARP"; then
+  pass "C# scanner prerequisite exits 0"
+else
+  fail "C# scanner prerequisite exits 0" "command failed"
+fi
+if run_csharp_matcher "$PROJECT_CSHARP"; then
+  pass "matcher supports C# validation contract"
+else
+  fail "matcher supports C# validation contract" "command failed"
+fi
+
+if python3 - "$CSHARP_REUSE" "$CSHARP_CONTEXT" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+reuse = json.loads(Path(sys.argv[1]).read_text())
+context = json.loads(Path(sys.argv[2]).read_text())
+errors = []
+candidates = reuse.get("candidates", [])
+top = candidates[0] if candidates else {}
+if reuse.get("contractId") != "csharp-validation-contract":
+    errors.append("csharp contractId")
+if top.get("path") not in {"src/Common", "src/Common/EmailValidator.cs"}:
+    errors.append("top C# candidate should be existing Common validation helper")
+if top.get("kind") not in {"existing-helper", "shared-module"}:
+    errors.append("top C# candidate kind")
+why = " ".join(top.get("whyRelevant", [])).lower()
+for term in ("validation", "shared candidate", "imported", "paired test"):
+    if term not in why:
+        errors.append(f"missing C# whyRelevant evidence: {term}")
+if "domain terms matched validation helper:" not in why:
+    errors.append("generic C# domain overlap explanation missing")
+internal = [candidate for candidate in candidates if candidate.get("symbol") == "NormalizeEmail"]
+if internal:
+    if not any("internal" in " ".join(candidate.get("risks", [])).lower() for candidate in internal):
+        errors.append("internal C# boundary risk missing")
+elif not any(candidate.get("path") == "src/Common" and "internal" in " ".join(candidate.get("risks", [])).lower() for candidate in candidates):
+    errors.append("internal C# boundary risk missing from shared candidate")
+if any(candidate.get("path") == "tests/App.Tests" and candidate.get("kind") == "shared-module" for candidate in candidates):
+    errors.append("C# test project should not be a shared production module")
+if "csharp" not in context.get("primaryLanguages", []):
+    errors.append("C# primary language missing")
+if not context.get("dominantConventions", {}).get("csharp"):
+    errors.append("C# conventions missing")
+if not context.get("moduleBoundaries"):
+    errors.append("C# module boundaries missing")
+if errors:
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+PY
+then
+  pass "C# contract surfaces validation helper with non-name-only evidence"
+else
+  fail "C# contract surfaces validation helper with non-name-only evidence" "Python assertion failed"
 fi
 
 echo ""

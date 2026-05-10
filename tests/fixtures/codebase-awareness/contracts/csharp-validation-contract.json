@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "contractId": "csharp-validation-contract",
+  "goal": "Add email validation to C# signup flow",
+  "riskLevel": "low",
+  "inScope": [
+    "src/App/SignupService.cs"
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "description": "Signup rejects malformed email values before creating a user DTO."
+    },
+    {
+      "id": "AC-2",
+      "description": "Reuse an existing C# validation helper when scanner evidence shows one is already available."
+    }
+  ],
+  "openQuestions": [],
+  "requiredInputsProvided": true
+}
