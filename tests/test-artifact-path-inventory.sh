@@ -2,6 +2,8 @@
 # test-artifact-path-inventory.sh -- guard classified root .signum usages
 set -euo pipefail
 
+export CDPATH=
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -44,6 +46,7 @@ def live_files():
         repo_root / "commands" / "signum.md",
         repo_root / "platforms" / "claude-code" / "commands" / "signum.md",
         repo_root / "README.md",
+        repo_root / "docs" / "migration-notes.md",
         repo_root / "docs" / "how-it-works.md",
         repo_root / "platforms" / "claude-code" / "docs" / "how-it-works.md",
     ]

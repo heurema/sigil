@@ -43,6 +43,8 @@ legacy-scan-fallback|lib/contract-injection-scan.sh|2|.signum/contract.json
 project-bootstrap-input|scripts/init_scanner.py|1|.signum/project.glossary.json
 project-bootstrap-input|scripts/init_scanner.py|1|.signum/project.intent.md
 docs-legacy-note|README.md|1|.signum/contract.json
+docs-legacy-note|docs/migration-notes.md|2|.signum/*
+docs-legacy-note|docs/migration-notes.md|1|.signum/contract.json
 project-metrics|lib/metric-ratchet.sh|1|.signum/metrics
 project-metrics|lib/metric-ratchet.sh|1|.signum/metrics/ratchet-report.json
 project-metrics|lib/metric-ratchet.sh|1|.signum/proofpack-index.jsonl
