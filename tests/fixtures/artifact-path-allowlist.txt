@@ -42,6 +42,7 @@ legacy-compat-helper|lib/contract-dir.sh|4|.signum/${rel}
 legacy-scan-fallback|lib/contract-injection-scan.sh|2|.signum/contract.json
 project-bootstrap-input|scripts/init_scanner.py|1|.signum/project.glossary.json
 project-bootstrap-input|scripts/init_scanner.py|1|.signum/project.intent.md
+docs-legacy-note|README.md|1|.signum/contract.json
 project-metrics|lib/metric-ratchet.sh|1|.signum/metrics
 project-metrics|lib/metric-ratchet.sh|1|.signum/metrics/ratchet-report.json
 project-metrics|lib/metric-ratchet.sh|1|.signum/proofpack-index.jsonl
@@ -93,5 +94,3 @@ project-bootstrap-input|platforms/claude-code/scripts/init_scanner.py|1|.signum/
 project-bootstrap-input|platforms/claude-code/scripts/init_scanner.py|1|.signum/project.intent.md
 project-metrics|platforms/claude-code/lib/pack-anti-entropy.sh|3|.signum/metrics/ratchet-report.json
 ci-legacy-fallback|platforms/claude-code/lib/signum-ci.sh|2|.signum/proofpack.json
-docs-legacy-note|README.md|1|.signum/contract.json
-docs-legacy-note|README.md|1|.signum/reviews/
