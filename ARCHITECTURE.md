@@ -38,7 +38,7 @@ review_cadence: quarterly
 5. PACK assembles `proofpack.json` under the active contract artifact root.
 
 ### 2. Project-context bootstrap flow
-1. User runs `/signum init`.
+1. User runs `/signum:init`.
 2. `lib/init-scanner.sh` extracts deterministic repo signals.
 3. `agents/init-synthesizer.md` turns those signals into `project.intent.md` and `project.glossary.json`.
 4. Optional `--harness` mode adds deterministic repo-level docs through `lib/init-harness-scaffold.sh`.
@@ -49,7 +49,8 @@ review_cadence: quarterly
 3. `lib/doc-parity-check.sh` validates parity assumptions and emits warnings in CI.
 
 ## State and Data
-- `.signum/` is the runtime workspace for contracts, patches, mechanic reports, reviews, and proofpacks.
+- `.signum/contracts/<contractId>/` is the active contract artifact root for run/pipeline artifacts such as contracts, patches, mechanic reports, reviews, and proofpacks.
+- Root `.signum/` is the registry/state/archive/compatibility namespace, not the canonical per-run artifact root.
 - `project.intent.md` and `project.glossary.json` are project-level upstream context inputs that can affect contract generation.
 - `modules.yaml` is the repo’s lightweight module inventory and lifecycle manifest.
 - `docs/plans/*.md` and `docs/research/*.md` hold planning and research context, but are derived documentation, not runtime state.

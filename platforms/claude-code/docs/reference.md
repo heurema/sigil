@@ -292,37 +292,52 @@ Iteration artifacts are stored under the active contract artifact root, for exam
 
 The proofpack includes an `iterativeAudit` section when >1 iteration was used, with per-iteration summaries, resolved/remaining findings, and the best iteration number.
 
-### proofpack.json fields (v4.6)
+### proofpack.json fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `schemaVersion` | `"4.6"` | Schema version (v4.6 adds iterativeAudit, ciContext, baselineComparison, contractSource) |
-| `signumVersion` | string | Signum version that generated this proofpack |
-| `createdAt` | string | ISO 8601 timestamp of proofpack creation |
-| `runId` | string | `signum-YYYY-MM-DD-XXXXXX` |
-| `decision` | `AUTO_OK\|AUTO_BLOCK\|HUMAN_REVIEW` | Final verdict |
-| `summary` | string | One-line human-readable summary |
-| `confidence` | object | `{ overall: 0-100 }` — weighted confidence score |
-| `auditChain` | object | `{ contractSha256, approvedAt, baseCommit }` — immutable audit anchors |
-| `contract` | envelope | Redacted contract (holdouts stripped), `fullSha256` for original |
-| `diff` | envelope | Patch content (omitted if >100KB) |
-| `baseline` | envelope | Pre-change lint/typecheck/test results |
-| `executeLog` | envelope | Attempt history and check results |
-| `checks.mechanic` | envelope | Lint, typecheck, test with regression flags |
-| `checks.holdout` | envelope | Holdout scenario pass/fail (if applicable) |
-| `checks.reviews.*` | envelope | Per-provider review (dynamic keys) |
-| `checks.auditSummary` | envelope | Synthesized decision with confidence |
-| `iterativeAudit` | object | Iteration metadata (v4.6+, present only when >1 iteration) |
-| `iterativeAudit.iterationsUsed` | integer | Total iterations run |
-| `iterativeAudit.bestIteration` | integer | Iteration with best score |
-| `iterativeAudit.auditIterations` | array | Per-iteration summaries (score, findings count, decision) |
-| `iterativeAudit.resolvedFindings` | array | Findings fixed during iterations |
-| `iterativeAudit.remainingFindings` | array | Findings still present after all iterations |
+Proofpack shape is defined by two current sources of truth:
 
-Each artifact uses the **envelope format**: `{ content, sha256, sizeBytes, status, omitReason? }`.
-- `status: present` — content embedded
-- `status: omitted` — content null, validate by sha256
-- `status: error` — generation failed, see omitReason
+- `lib/schemas/proofpack.schema.json` defines the documented JSON Schema surface.
+- `scripts/validate_proofpack.py` is the deterministic validator for the proofpack shape Signum currently emits.
+
+The runtime PACK phase writes the proofpack to the active contract artifact root as `.signum/contracts/<contractId>/proofpack.json`.
+
+| Field | Required by current validator | Type / allowed values | Description |
+|-------|-------------------------------|-----------------------|-------------|
+| `schemaVersion` | Yes | string; schema enum `"4.0"` through `"4.8"`; current runtime emits `"4.8"` | Proofpack schema version. The validator checks it against the runtime source of truth. |
+| `signumVersion` | Yes | string | Signum version that generated this proofpack. |
+| `createdAt` | Yes | string | Proofpack creation timestamp. |
+| `runId` | Yes | string starting with `signum-` | Runtime run identifier. |
+| `contractId` | Yes | string starting with `sig-` | Links the proofpack to its source contract and canonical artifact root. |
+| `decision` | Yes | `AUTO_OK\|AUTO_BLOCK\|HUMAN_REVIEW` | Final Signum decision. `checks.auditSummary.content.decision`, when embedded, must match this value. |
+| `releaseVerdict` | Yes | string | Release verdict copied from `audit_summary.json`; current PACK defaults to `HOLD` when absent. |
+| `riskLevel` | Yes | string | Contract risk level copied from `contract.json`; current PACK defaults to `low` when absent. |
+| `summary` | Yes | string | Human-readable run summary. |
+| `confidence` | Yes | object with numeric `overall` from 0 to 100 | Weighted confidence score. |
+| `timing` | Yes | object | Runtime timing metadata. If present, `startedAt` and `completedAt` must be strings and `durationMs` must be numeric. Current PACK emits all three. |
+| `reviewCoverage` | Yes | object | Review coverage metadata. If `availableReviews` is present, it must be an integer. Current PACK emits `availableReviews`. |
+| `contractSource` | Yes | `interactive\|file\|template` | How the contract was provided. |
+| `auditChain` | Yes | object | Audit anchors such as `contractSha256`, `approvedAt`, and `baseCommit`. |
+| `contract` | Yes | envelope with `fullSha256` | Redacted contract evidence. The validator requires `fullSha256` to be lowercase SHA-256 hex. |
+| `diff` | Yes | envelope | Patch evidence. |
+| `baseline` | Yes | envelope | Pre-change check evidence. |
+| `executeLog` | Yes | envelope | Execution attempt evidence. |
+| `approval` | Yes | envelope | Approval-gate evidence. |
+| `checks.mechanic` | Yes | envelope | Mechanic check evidence. |
+| `checks.holdout` | Yes | envelope | Holdout check evidence. |
+| `checks.policy_scan` | Yes | envelope | Deterministic policy-scan evidence from `policy_scan.json`. |
+| `checks.reviews` | Yes | object of provider-name to envelope | Per-provider review evidence. Provider names must be non-empty strings. |
+| `checks.auditSummary` | Yes | envelope | Synthesized audit summary evidence. |
+| `ciContext` | Optional | object; `provider` is `github-actions\|gitlab-ci\|circleci\|local` when present | CI metadata. `runUrl` is a URI; `prNumber` is an integer; `triggerEvent` is a string. |
+| `baselineComparison` | Optional | object | Previous-run comparison metadata. Numeric confidence fields are 0-100 where constrained by schema; finding counts are non-negative integers. |
+| `iterativeAudit` | Optional | object | Iteration metadata, present only when AUDIT used more than one iteration. |
+| `removalEvidence` | Optional | object | Removal and cleanup-obligation evidence. `removals[].id` must match `RM<number>`, paths must be safe relative paths, `removed` must be boolean, and optional `type` is `file` or `directory`. `obligations[].id` must match `CO<number>` and `fulfilled` must be boolean. |
+
+Each artifact envelope uses this format: `{ content, sha256, sizeBytes, status, omitReason? }`.
+- `status: present` — content embedded; `sha256` must be lowercase SHA-256 hex.
+- `status: omitted` — content is omitted, with checksum metadata retained when available.
+- `status: error` — generation failed, see `omitReason`.
+
+Any artifact references in proofpacks must be safe relative paths. When the validator can resolve the contract root, referenced artifacts must stay inside `.signum/contracts/<contractId>/` and exist there.
 
 ### Confidence scoring
 
