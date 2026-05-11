@@ -26,5 +26,6 @@ Run a CONTRACT → EXECUTE → AUDIT → PACK pipeline for any implementation ta
 - Do not start implementation before a contract exists
 - If the contract is vague, stop and improve it
 - Check against deterministic criteria, not just model opinion
-- Keep all artifacts in `.signum/`
+- Keep active run/pipeline artifacts under `.signum/contracts/<contractId>/`
+- Treat root `.signum/` as the registry/state/archive/compatibility namespace, not the canonical per-run artifact root
 - If reduced audit coverage on medium/high-risk task → HUMAN_REVIEW, not AUTO_OK
