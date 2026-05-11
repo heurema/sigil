@@ -191,7 +191,7 @@ CONTRACT_HITS="$(
     '!lib/proofpack-index.sh'
 )"
 
-EXPECTED_CONTRACT_HITS=$'./README.md\n./agents/contractor.md\n./docs/reference.md\n./platforms/claude-code/agents/contractor.md\n./platforms/claude-code/docs/reference.md'
+EXPECTED_CONTRACT_HITS=$'./README.md\n./agents/contractor.md\n./docs/migration-notes.md\n./docs/reference.md\n./platforms/claude-code/agents/contractor.md\n./platforms/claude-code/docs/reference.md'
 
 assert_exact_file_set \
   "only intentional non-test root contract mentions remain" \
@@ -204,6 +204,9 @@ assert_contains "$ROOT_DIR/README.md" \
 assert_contains "$ROOT_DIR/docs/reference.md" \
   'Root `.signum/contract.json` is only a legacy import signal' \
   "reference doc frames root contract path as legacy import signal"
+assert_contains "$ROOT_DIR/docs/migration-notes.md" \
+  'Root `.signum/contract.json` is only a legacy import or resume signal' \
+  "migration notes frame root contract path as legacy import/resume signal"
 assert_contains "$ROOT_DIR/platforms/claude-code/docs/reference.md" \
   'Root `.signum/contract.json` is only a legacy import signal' \
   "overlay reference doc frames root contract path as legacy import signal"
