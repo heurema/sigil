@@ -117,6 +117,7 @@ The template uploads proofpack artifacts and comments the decision on pull reque
 
 ## Documentation
 
+- `docs/README.md` — documentation index separating runtime references, maintainer docs, and historical context.
 - `QUICKSTART.md` — setup and first-run walkthrough.
 - `docs/how-it-works.md` — pipeline narrative and phase details.
 - `docs/reference.md` — canonical reference for behavior, artifacts, and schemas.
