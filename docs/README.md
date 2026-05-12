@@ -6,6 +6,7 @@ This index points to current Signum documentation. It separates runtime referenc
 
 - `../README.md` - short onboarding entry point.
 - `../QUICKSTART.md` - setup and first-run walkthrough.
+- `../examples/README.md` - small, validator-backed examples.
 - `how-it-works.md` - pipeline narrative and phase details.
 - `reference.md` - current behavior, artifacts, schemas, and reference details.
 

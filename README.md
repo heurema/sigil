@@ -119,6 +119,7 @@ The template uploads proofpack artifacts and comments the decision on pull reque
 
 - `docs/README.md` — documentation index separating runtime references, maintainer docs, and historical context.
 - `QUICKSTART.md` — setup and first-run walkthrough.
+- `examples/README.md` — small, validator-backed examples for proofpacks, CI gating, and contract shape.
 - `docs/how-it-works.md` — pipeline narrative and phase details.
 - `docs/reference.md` — canonical reference for behavior, artifacts, and schemas.
 - `docs/migration-notes.md` — compatibility notes for historical artifact roots, proofpack schema versions, and init command naming.

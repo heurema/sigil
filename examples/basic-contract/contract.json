@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "3.8",
+  "contractId": "sig-basic-contract-example-001",
+  "goal": "Add a minimal examples directory with validator-backed documentation fixtures",
+  "inScope": [
+    "examples/",
+    "tests/test-examples.sh"
+  ],
+  "outOfScope": [
+    "Changing Signum runtime behavior",
+    "Rewriting canonical command or reference documentation"
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "description": "The examples index links to proofpack validation, CI gate, and basic contract examples.",
+      "verify": {
+        "type": "command",
+        "value": "bash tests/test-examples.sh"
+      }
+    },
+    {
+      "id": "AC2",
+      "description": "The proofpack example validates with the repository proofpack validator.",
+      "verify": {
+        "type": "command",
+        "value": "python3 scripts/validate_proofpack.py examples/proofpack-validation/valid-proofpack.json --repo-root ."
+      }
+    }
+  ],
+  "riskLevel": "low",
+  "riskSignals": [
+    "Documentation fixture only",
+    "No runtime behavior changes"
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "text": "The repository root provides the current Signum validator and version metadata."
+    }
+  ],
+  "openQuestions": [],
+  "requiredInputsProvided": true
+}
