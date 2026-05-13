@@ -50,6 +50,7 @@ required = {
     "externalReviewDegradationFailures",
     "proofpackConsistencyFailures",
     "scopePolicyFailures",
+    "testPlanFailures",
     "hardGatePassed",
 }
 missing = sorted(required - set(summary))

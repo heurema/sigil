@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-test-plan-cli-missing/", "artifactRefs": [".signum/contracts/cp-test-plan-cli-missing/contract.json", ".signum/contracts/cp-test-plan-cli-missing/audit_summary.json", ".signum/contracts/cp-test-plan-cli-missing/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-test-plan-cli-missing", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-test-plan-cli-missing/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-test-plan-cli-missing/contract.json", ".signum/contracts/cp-test-plan-cli-missing/audit_summary.json", ".signum/contracts/cp-test-plan-cli-missing/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"},
+    "testPlan": {"adversarialChecks": [], "changeType": "cli_tooling", "coveredCoverageClasses": [], "happyPathChecks": [{"description": "normal generate leaderboard export works", "id": "HP-1", "verify": {"type": "exec", "value": "bash tests/test-signum-evolve-v0.sh"}}], "missingCoverageClasses": ["boundary_value", "idempotency", "path_handling", "config_source_of_truth", "generated_output_isolation"], "requiredCoverageClasses": ["boundary_value", "idempotency", "path_handling", "config_source_of_truth", "generated_output_isolation"], "riskLevel": "medium", "schemaVersion": "1.0"}
+  },
+  "caseId": "test-plan-cli-tooling-happy-path-only-auto-ok-violation",
+  "category": "test_plan",
+  "changeType": "cli_tooling",
+  "description": "Medium-risk CLI tooling change with only happy-path checks must not land on AUTO_OK.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["test_plan.missing_adversarial_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-test-plan-scanner-policy/", "artifactRefs": [".signum/contracts/cp-test-plan-scanner-policy/contract.json", ".signum/contracts/cp-test-plan-scanner-policy/audit_summary.json", ".signum/contracts/cp-test-plan-scanner-policy/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-test-plan-scanner-policy", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-test-plan-scanner-policy/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-test-plan-scanner-policy/contract.json", ".signum/contracts/cp-test-plan-scanner-policy/audit_summary.json", ".signum/contracts/cp-test-plan-scanner-policy/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"},
+    "testPlan": {"adversarialChecks": [{"class": "false_positive_budget", "description": "false-positive budget comparison is checked", "id": "ADV-1", "verify": {"type": "exec", "value": "bash tests/test-policy-scanner-eval-compare.sh"}}, {"class": "severity_accuracy", "description": "severity mismatches are checked", "id": "ADV-2", "verify": {"type": "exec", "value": "bash tests/test-policy-scanner-evals.sh"}}, {"class": "runtime_budget", "description": "runtime p95 budget is checked", "id": "ADV-3", "verify": {"type": "exec", "value": "bash tests/test-policy-scanner-eval-compare.sh"}}], "changeType": "scanner_policy", "coveredCoverageClasses": ["false_positive_budget", "severity_accuracy", "runtime_budget"], "happyPathChecks": [{"description": "policy scanner eval passes", "id": "HP-1", "verify": {"type": "exec", "value": "bash tests/test-policy-scanner-evals.sh"}}], "missingCoverageClasses": ["critical_false_negative", "suppression_semantics"], "requiredCoverageClasses": ["critical_false_negative", "false_positive_budget", "suppression_semantics", "severity_accuracy", "runtime_budget"], "riskLevel": "medium", "schemaVersion": "1.0"}
+  },
+  "caseId": "test-plan-scanner-policy-requires-suppression-and-critical-fn-coverage",
+  "category": "test_plan",
+  "changeType": "scanner_policy",
+  "description": "Scanner policy changes need critical false-negative and suppression adversarial coverage before AUTO_OK.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["test_plan.missing_adversarial_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

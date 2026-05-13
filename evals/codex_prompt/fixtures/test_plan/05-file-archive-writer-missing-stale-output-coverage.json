@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-test-plan-archive-writer/", "artifactRefs": [".signum/contracts/cp-test-plan-archive-writer/contract.json", ".signum/contracts/cp-test-plan-archive-writer/audit_summary.json", ".signum/contracts/cp-test-plan-archive-writer/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-test-plan-archive-writer", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-test-plan-archive-writer/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-test-plan-archive-writer/contract.json", ".signum/contracts/cp-test-plan-archive-writer/audit_summary.json", ".signum/contracts/cp-test-plan-archive-writer/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"},
+    "testPlan": {"adversarialChecks": [{"class": "cleanup", "description": "cleanup removes generated output safely", "id": "ADV-1", "verify": {"type": "exec", "value": "bash tests/test-signum-evolve-v0.sh"}}, {"class": "generated_output_isolation", "description": "generated output stays ignored", "id": "ADV-2", "verify": {"type": "exec", "value": "bash tests/test-signum-evolve-v0.sh"}}], "changeType": "file_archive_writer", "coveredCoverageClasses": ["cleanup", "generated_output_isolation"], "happyPathChecks": [{"description": "archive writer creates expected files", "id": "HP-1", "verify": {"type": "exec", "value": "bash tests/test-signum-evolve-v0.sh"}}], "missingCoverageClasses": ["overwrite_behavior", "stale_output", "relative_absolute_paths"], "requiredCoverageClasses": ["overwrite_behavior", "stale_output", "cleanup", "relative_absolute_paths", "generated_output_isolation"], "riskLevel": "medium", "schemaVersion": "1.0"}
+  },
+  "caseId": "test-plan-file-archive-writer-missing-stale-output-coverage",
+  "category": "test_plan",
+  "changeType": "file_archive_writer",
+  "description": "Archive writers need stale-output and overwrite adversarial coverage before AUTO_OK.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["test_plan.missing_adversarial_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

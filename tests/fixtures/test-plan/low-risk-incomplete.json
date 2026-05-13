@@ -1,0 +1,31 @@
+{
+  "adversarialChecks": [],
+  "changeType": "cli_tooling",
+  "coveredCoverageClasses": [],
+  "happyPathChecks": [
+    {
+      "description": "normal low-risk command path works",
+      "id": "HP-1",
+      "verify": {
+        "type": "exec",
+        "value": "true"
+      }
+    }
+  ],
+  "missingCoverageClasses": [
+    "boundary_value",
+    "idempotency",
+    "path_handling",
+    "config_source_of_truth",
+    "generated_output_isolation"
+  ],
+  "requiredCoverageClasses": [
+    "boundary_value",
+    "idempotency",
+    "path_handling",
+    "config_source_of_truth",
+    "generated_output_isolation"
+  ],
+  "riskLevel": "low",
+  "schemaVersion": "1.0"
+}
