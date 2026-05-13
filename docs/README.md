@@ -18,6 +18,7 @@ This index points to current Signum documentation. It separates runtime referenc
 ## Runtime and integration reference
 
 - `reference.md`
+- `api-reference.md`
 - `artifact-path-inventory.md`
 - `migration-notes.md`
 - `init-scanner-behavior.md`

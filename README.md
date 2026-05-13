@@ -122,6 +122,7 @@ The template uploads proofpack artifacts and comments the decision on pull reque
 - `examples/README.md` — small, validator-backed examples for proofpacks, CI gating, and contract shape.
 - `docs/how-it-works.md` — pipeline narrative and phase details.
 - `docs/reference.md` — canonical reference for behavior, artifacts, and schemas.
+- `docs/api-reference.md` — concise integration index for schemas and deterministic scripts.
 - `docs/migration-notes.md` — compatibility notes for historical artifact roots, proofpack schema versions, and init command naming.
 - `docs/RELIABILITY.md` — reliability notes and critical journeys.
 - `docs/SECURITY.md` — trust boundaries and security review triggers.
