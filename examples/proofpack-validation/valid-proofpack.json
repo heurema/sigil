@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "4.8",
+  "signumVersion": "4.21.7",
+  "createdAt": "2026-04-26T00:00:00Z",
+  "runId": "signum-2026-04-26-example01",
+  "contractId": "sig-proofpack-example-001",
+  "decision": "AUTO_OK",
+  "releaseVerdict": "HOLD",
+  "riskLevel": "low",
+  "summary": "Goal: validate example proofpack | Risk: low | Decision: AUTO_OK",
+  "confidence": {
+    "overall": 91
+  },
+  "timing": {
+    "startedAt": "2026-04-26T00:00:00Z",
+    "completedAt": "2026-04-26T00:00:01Z",
+    "durationMs": 1000
+  },
+  "reviewCoverage": {
+    "availableReviews": 1
+  },
+  "contractSource": "file",
+  "auditChain": {
+    "contractSha256": "unavailable",
+    "approvedAt": "unavailable",
+    "baseCommit": "unavailable"
+  },
+  "contract": {
+    "content": {
+      "schemaVersion": "3.8",
+      "goal": "Validate a minimal example proofpack",
+      "riskLevel": "low"
+    },
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sizeBytes": 91,
+    "status": "present",
+    "fullSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "diff": {
+    "content": "diff --git a/example b/example\n",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sizeBytes": 31,
+    "status": "present"
+  },
+  "baseline": {
+    "content": null,
+    "sha256": null,
+    "sizeBytes": 0,
+    "status": "error",
+    "omitReason": "file not found"
+  },
+  "executeLog": {
+    "content": {
+      "totalAttempts": 1
+    },
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "sizeBytes": 19,
+    "status": "present"
+  },
+  "approval": {
+    "content": null,
+    "sha256": null,
+    "sizeBytes": 0,
+    "status": "error",
+    "omitReason": "file not found"
+  },
+  "checks": {
+    "mechanic": {
+      "content": {
+        "mechanic": "PASS"
+      },
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sizeBytes": 19,
+      "status": "present"
+    },
+    "holdout": {
+      "content": {
+        "status": "PASS"
+      },
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sizeBytes": 17,
+      "status": "present"
+    },
+    "policy_scan": {
+      "content": {
+        "findings": []
+      },
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sizeBytes": 15,
+      "status": "present"
+    },
+    "reviews": {
+      "claude": {
+        "content": {
+          "provider": "claude",
+          "findings": []
+        },
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sizeBytes": 35,
+        "status": "present"
+      }
+    },
+    "auditSummary": {
+      "content": {
+        "decision": "AUTO_OK",
+        "confidence": {
+          "overall": 91
+        }
+      },
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sizeBytes": 50,
+      "status": "present"
+    }
+  }
+}
