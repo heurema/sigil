@@ -19,7 +19,7 @@ CONTRACT -> EXECUTE -> AUDIT -> PACK
 
 ## External Audit Providers
 
-When AUDIT uses external reviewers such as `claude` or `gemini`, treat them as optional evidence sources, not as required trust anchors.
+When AUDIT uses external reviewers such as `claude` or `gemini`, treat them as optional evidence sources, not as required trust anchors. Internal agent review coverage is still part of AUDIT; final human PR review is not a substitute for agent review evidence inside the Signum run.
 
 Before invoking any external reviewer in the current execution context:
 
@@ -282,7 +282,7 @@ Critical policy findings are deterministic block signals. Continue through synth
 
 ### `review`
 
-Optional multi-model review if external providers are available.
+Agent review is an AUDIT layer, not a post-run human-review placeholder.
 
 Recommended roles:
 
@@ -294,13 +294,15 @@ External reviewers should get only the minimum context needed.
 
 For risk-proportional review:
 
-- low risk: deterministic audit plus one available semantic/local review is enough
-- medium risk: use available external reviewers when ready, but degrade gracefully
-- high risk: reduced external coverage should normally produce `HUMAN_REVIEW`, not `AUTO_OK`
+- low risk: deterministic audit plus one available semantic/local agent review is enough
+- medium risk: produce agent review artifacts and use available external reviewers when ready; if review coverage is materially reduced, do not claim `AUTO_OK`
+- high risk: produce agent review artifacts and use multiple available agent reviewers when ready; reduced review coverage should normally block `AUTO_OK`
 
 Build `review_context.json` from changed-file history and issue references when available. Keep external Codex/Gemini-style prompts diff-focused; do not send hidden holdout details.
 
-If provider CLIs are unavailable, continue with deterministic audit and Codex-only analysis.
+For medium/high risk work, record `agentReviewCoverage` and `agentReviewArtifacts` in `audit_summary.json`. `AUTO_OK` requires at least one ready agent reviewer plus a concrete review artifact under `reviews/`.
+
+If provider CLIs are unavailable, continue with deterministic audit and Codex-only analysis, record degraded coverage, and avoid `AUTO_OK` for medium/high risk work when agent review evidence is missing or materially reduced.
 If the current execution context has no usable outbound network or DNS, classify external reviewers as `network_error` and skip them immediately instead of waiting for long timeouts.
 If a provider returns a transient upstream failure, retry once with a short backoff, then mark reduced coverage.
 If a provider returns `auth_error`, do not retry automatically.
@@ -322,6 +324,8 @@ At minimum include:
 - `confidence`
 - `availableReviews`
 - `reviewCoverage`
+- `agentReviewCoverage`
+- `agentReviewArtifacts`
 - mechanic, policy, holdout, and review summaries
 - reduced-coverage notes when external reviewers were skipped or failed
 
@@ -329,6 +333,7 @@ Synthesis rules:
 
 - new mechanic regressions, failed boundary checks, critical policy findings, or CRITICAL review findings => `AUTO_BLOCK`
 - MAJOR remaining findings, failed holdouts, mixed evidence, or materially reduced coverage on medium/high risk => `HUMAN_REVIEW`
+- missing agent review coverage or missing review artifacts on medium/high risk => not `AUTO_OK`
 - all deterministic checks pass, holdouts pass or were legitimately omitted, and no serious findings remain => `AUTO_OK`
 
 ### `iterative repair`
@@ -391,6 +396,8 @@ Guidance:
 - deterministic checks pass and no serious findings => `AUTO_OK`
 
 Do not upgrade to `AUTO_OK` if the audit coverage was materially reduced by external-review failures and the task risk is medium or high. In that case prefer `HUMAN_REVIEW`.
+
+Do not use final human PR review as a replacement for Signum AUDIT review. For medium/high risk work, `AUTO_OK` requires recorded agent review coverage and concrete review artifacts.
 
 After proofpack assembly, write `anti_entropy_report.json` as a report-only follow-up artifact when the local helper is available. It must not change the pipeline decision.
 

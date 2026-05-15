@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-agent-low-local/", "artifactRefs": [".signum/contracts/cp-agent-low-local/contract.json", ".signum/contracts/cp-agent-low-local/audit_summary.json", ".signum/contracts/cp-agent-low-local/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-agent-low-local", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-agent-low-local/proofpack.json"]},
+    "auditSummary": {"agentReviewArtifacts": [".signum/contracts/cp-agent-low-local/reviews/codex.json"], "agentReviewCoverage": {"codex": "ready"}, "criticalFindings": [], "externalAuditCoverage": {"codex": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-agent-low-local/contract.json", ".signum/contracts/cp-agent-low-local/audit_summary.json", ".signum/contracts/cp-agent-low-local/mechanic_report.json", ".signum/contracts/cp-agent-low-local/reviews/codex.json"], "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK", "reviewCoverage": {"codex": "ready"}}
+  },
+  "caseId": "agent-review-low-risk-local-review-auto-ok",
+  "category": "agent_review_coverage",
+  "description": "Low-risk work may land on AUTO_OK with local Codex agent review evidence.",
+  "expected": {"allowedVerdicts": ["AUTO_OK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "low"
+}

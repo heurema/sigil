@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-agent-medium-missing/", "artifactRefs": [".signum/contracts/cp-agent-medium-missing/contract.json", ".signum/contracts/cp-agent-medium-missing/audit_summary.json", ".signum/contracts/cp-agent-medium-missing/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-agent-medium-missing", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-agent-medium-missing/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-agent-medium-missing/contract.json", ".signum/contracts/cp-agent-medium-missing/audit_summary.json", ".signum/contracts/cp-agent-medium-missing/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"}
+  },
+  "caseId": "agent-review-medium-risk-missing-auto-ok-violation",
+  "category": "agent_review_coverage",
+  "description": "Medium-risk work must not claim AUTO_OK without agent review artifacts.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["agent_review.missing_for_auto_ok"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

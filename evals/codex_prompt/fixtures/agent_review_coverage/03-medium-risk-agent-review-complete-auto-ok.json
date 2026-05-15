@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-agent-medium-complete/", "artifactRefs": [".signum/contracts/cp-agent-medium-complete/contract.json", ".signum/contracts/cp-agent-medium-complete/audit_summary.json", ".signum/contracts/cp-agent-medium-complete/mechanic_report.json", ".signum/contracts/cp-agent-medium-complete/reviews/codex.json", ".signum/contracts/cp-agent-medium-complete/reviews/claude.json"], "completedRunOverwritten": false, "contractId": "cp-agent-medium-complete", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-agent-medium-complete/proofpack.json"]},
+    "auditSummary": {"agentReviewArtifacts": [".signum/contracts/cp-agent-medium-complete/reviews/codex.json", ".signum/contracts/cp-agent-medium-complete/reviews/claude.json"], "agentReviewCoverage": {"claude": "ready", "codex": "ready"}, "criticalFindings": [], "externalAuditCoverage": {"claude": "ready", "codex": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-agent-medium-complete/contract.json", ".signum/contracts/cp-agent-medium-complete/audit_summary.json", ".signum/contracts/cp-agent-medium-complete/mechanic_report.json", ".signum/contracts/cp-agent-medium-complete/reviews/codex.json", ".signum/contracts/cp-agent-medium-complete/reviews/claude.json"], "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK", "reviewCoverage": {"claude": "ready", "codex": "ready"}}
+  },
+  "caseId": "agent-review-medium-risk-complete-auto-ok",
+  "category": "agent_review_coverage",
+  "description": "Medium-risk work can claim AUTO_OK when agent review coverage and artifacts are present.",
+  "expected": {"allowedVerdicts": ["AUTO_OK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

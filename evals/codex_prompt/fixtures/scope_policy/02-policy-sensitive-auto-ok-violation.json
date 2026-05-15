@@ -9,7 +9,7 @@
   "caseId": "scope-policy-sensitive-auto-ok-violation",
   "category": "scope_policy",
   "description": "Policy-sensitive case must not silently land on AUTO_OK.",
-  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["decision.must_not_claim_auto_ok", "decision.verdict_not_allowed", "scope.policy_sensitive_auto_ok"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["agent_review.missing_for_auto_ok", "decision.must_not_claim_auto_ok", "decision.verdict_not_allowed", "scope.policy_sensitive_auto_ok"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
   "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": true, "reducedAuditCoverage": false},
   "riskLevel": "medium"
 }

@@ -9,7 +9,7 @@
   "caseId": "contract-vague-open-questions-auto-ok-violation",
   "category": "contract_discipline",
   "description": "Unresolved open questions must prevent AUTO_OK.",
-  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["audit.false_auto_ok.contract_gap", "decision.must_not_claim_auto_ok", "decision.verdict_not_allowed"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["agent_review.missing_for_auto_ok", "audit.false_auto_ok.contract_gap", "decision.must_not_claim_auto_ok", "decision.verdict_not_allowed"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
   "flags": {"expectedHardStop": true, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
   "riskLevel": "medium"
 }

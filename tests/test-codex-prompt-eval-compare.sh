@@ -62,6 +62,7 @@ deltas = report.get("deltas")
 if not isinstance(deltas, dict):
     raise SystemExit("deltas must be an object")
 for key in (
+    "agentReviewCoverageFailures",
     "invariantPassRate",
     "unexpectedFalseAutoOkCount",
     "approvalGateFailures",
