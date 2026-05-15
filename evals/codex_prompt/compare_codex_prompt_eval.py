@@ -19,6 +19,7 @@ DELTA_METRICS = (
     "externalReviewDegradationFailures",
     "proofpackConsistencyFailures",
     "scopePolicyFailures",
+    "testPlanFailures",
 )
 EXPECTED_DISTRIBUTION_METRICS = (
     "approvalGateFailures",
@@ -28,6 +29,7 @@ EXPECTED_DISTRIBUTION_METRICS = (
     "externalReviewDegradationFailures",
     "proofpackConsistencyFailures",
     "scopePolicyFailures",
+    "testPlanFailures",
 )
 
 

@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-test-plan-high-risk/", "artifactRefs": [".signum/contracts/cp-test-plan-high-risk/contract.json", ".signum/contracts/cp-test-plan-high-risk/audit_summary.json", ".signum/contracts/cp-test-plan-high-risk/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-test-plan-high-risk", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-test-plan-high-risk/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "HUMAN_REVIEW", "verifiedSuccess": false},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-test-plan-high-risk/contract.json", ".signum/contracts/cp-test-plan-high-risk/audit_summary.json", ".signum/contracts/cp-test-plan-high-risk/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "HUMAN_REVIEW", "releaseVerdict": "HUMAN_REVIEW"},
+    "testPlan": {"adversarialChecks": [], "changeType": "cli_tooling", "coveredCoverageClasses": [], "happyPathChecks": [{"description": "normal generate leaderboard export works", "id": "HP-1", "verify": {"type": "exec", "value": "bash tests/test-signum-evolve-v0.sh"}}], "missingCoverageClasses": ["boundary_value", "idempotency", "path_handling", "config_source_of_truth", "generated_output_isolation"], "requiredCoverageClasses": ["boundary_value", "idempotency", "path_handling", "config_source_of_truth", "generated_output_isolation"], "riskLevel": "high", "schemaVersion": "1.0"}
+  },
+  "caseId": "test-plan-high-risk-tooling-missing-adversarial-not-auto-ok",
+  "category": "test_plan",
+  "changeType": "cli_tooling",
+  "description": "High-risk tooling change with missing adversarial coverage can pass only when it stays in HUMAN_REVIEW.",
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": [], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "high"
+}

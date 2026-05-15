@@ -1,0 +1,19 @@
+{
+  "adversarialChecks": [],
+  "changeType": "unknown_tool",
+  "coveredCoverageClasses": [],
+  "happyPathChecks": [
+    {
+      "description": "unknown change type fixture",
+      "id": "HP-1",
+      "verify": {
+        "type": "exec",
+        "value": "true"
+      }
+    }
+  ],
+  "missingCoverageClasses": [],
+  "requiredCoverageClasses": [],
+  "riskLevel": "medium",
+  "schemaVersion": "1.0"
+}

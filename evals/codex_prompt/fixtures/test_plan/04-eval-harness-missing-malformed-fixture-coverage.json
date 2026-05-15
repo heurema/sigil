@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-test-plan-eval-harness/", "artifactRefs": [".signum/contracts/cp-test-plan-eval-harness/contract.json", ".signum/contracts/cp-test-plan-eval-harness/audit_summary.json", ".signum/contracts/cp-test-plan-eval-harness/mechanic_report.json"], "completedRunOverwritten": false, "contractId": "cp-test-plan-eval-harness", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-test-plan-eval-harness/proofpack.json"]},
+    "auditSummary": {"criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": false, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-test-plan-eval-harness/contract.json", ".signum/contracts/cp-test-plan-eval-harness/audit_summary.json", ".signum/contracts/cp-test-plan-eval-harness/mechanic_report.json"], "externalAuditCoverage": {"codex": "ready", "gemini": "ready"}, "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK"},
+    "testPlan": {"adversarialChecks": [{"class": "baseline_mismatch", "description": "candidate baseline comparison handles mismatch", "id": "ADV-1", "verify": {"type": "exec", "value": "bash tests/test-codex-prompt-eval-compare.sh"}}, {"class": "deterministic_output", "description": "report output is stable JSON", "id": "ADV-2", "verify": {"type": "exec", "value": "bash tests/test-codex-prompt-evals.sh"}}], "changeType": "eval_harness", "coveredCoverageClasses": ["baseline_mismatch", "deterministic_output"], "happyPathChecks": [{"description": "eval harness runs on valid fixtures", "id": "HP-1", "verify": {"type": "exec", "value": "bash tests/test-codex-prompt-evals.sh"}}], "missingCoverageClasses": ["malformed_fixture", "expected_violation_logic", "fixture_count_change"], "requiredCoverageClasses": ["malformed_fixture", "expected_violation_logic", "baseline_mismatch", "fixture_count_change", "deterministic_output"], "riskLevel": "medium", "schemaVersion": "1.0"}
+  },
+  "caseId": "test-plan-eval-harness-missing-malformed-fixture-coverage",
+  "category": "test_plan",
+  "changeType": "eval_harness",
+  "description": "Eval harness changes need malformed fixture and expected-violation adversarial coverage before AUTO_OK.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["test_plan.missing_adversarial_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": false},
+  "riskLevel": "medium"
+}

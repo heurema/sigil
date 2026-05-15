@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "adversarialChecks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "class": {
+            "type": "string"
+          },
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "verify": {
+            "$ref": "#/definitions/verify"
+          }
+        },
+        "required": [
+          "id",
+          "class",
+          "description",
+          "verify"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "changeType": {
+      "enum": [
+        "cli_tooling",
+        "eval_harness",
+        "file_archive_writer",
+        "prompt_orchestration",
+        "scanner_policy"
+      ],
+      "type": "string"
+    },
+    "coveredCoverageClasses": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "happyPathChecks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "verify": {
+            "$ref": "#/definitions/verify"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "verify"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "missingCoverageClasses": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "requiredCoverageClasses": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "riskLevel": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "changeType",
+    "riskLevel",
+    "happyPathChecks",
+    "adversarialChecks",
+    "requiredCoverageClasses",
+    "coveredCoverageClasses",
+    "missingCoverageClasses"
+  ],
+  "title": "Signum test plan",
+  "type": "object",
+  "definitions": {
+    "verify": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "exec",
+            "manual",
+            "test"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "value"
+      ],
+      "type": "object"
+    }
+  }
+}

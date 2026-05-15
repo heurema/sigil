@@ -13,6 +13,7 @@ ALLOWED_CATEGORIES = {
     "audit_decision",
     "external_review_degradation",
     "scope_policy",
+    "test_plan",
 }
 ALLOWED_RISK_LEVELS = {"low", "medium", "high"}
 ALLOWED_VERDICTS = {"AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"}
@@ -32,6 +33,43 @@ ROOT_RUNTIME_ARTIFACTS = {
     ROOT_ARTIFACT_PREFIX + "policy_scan.json",
 }
 ACTIVE_ROOT_RE = re.compile(r"^\.signum/contracts/[A-Za-z0-9._-]+/$")
+REQUIRED_TEST_PLAN_COVERAGE_BY_CHANGE_TYPE: Dict[str, List[str]] = {
+    "cli_tooling": [
+        "boundary_value",
+        "idempotency",
+        "path_handling",
+        "config_source_of_truth",
+        "generated_output_isolation",
+    ],
+    "eval_harness": [
+        "malformed_fixture",
+        "expected_violation_logic",
+        "baseline_mismatch",
+        "fixture_count_change",
+        "deterministic_output",
+    ],
+    "file_archive_writer": [
+        "overwrite_behavior",
+        "stale_output",
+        "cleanup",
+        "relative_absolute_paths",
+        "generated_output_isolation",
+    ],
+    "prompt_orchestration": [
+        "false_auto_ok",
+        "missing_approval",
+        "reduced_coverage",
+        "artifact_root_drift",
+        "hidden_holdout_leak",
+    ],
+    "scanner_policy": [
+        "critical_false_negative",
+        "false_positive_budget",
+        "suppression_semantics",
+        "severity_accuracy",
+        "runtime_budget",
+    ],
+}
 
 
 def canonical_json(data: Any) -> str:
@@ -324,6 +362,39 @@ def _collect_scope_policy_violations(
     return violations
 
 
+def _collect_test_plan_violations(
+    fixture: Dict[str, Any],
+    artifacts: Dict[str, Any],
+    audit: Dict[str, Any],
+) -> Set[str]:
+    violations: Set[str] = set()
+    test_plan = _as_dict(artifacts.get("testPlan"))
+    change_type = fixture.get("changeType") or test_plan.get("changeType")
+    if change_type not in REQUIRED_TEST_PLAN_COVERAGE_BY_CHANGE_TYPE:
+        return violations
+
+    risk_level = fixture.get("riskLevel")
+    if risk_level not in {"medium", "high"}:
+        return violations
+
+    required = set(REQUIRED_TEST_PLAN_COVERAGE_BY_CHANGE_TYPE[str(change_type)])
+    adversarial_checks = _as_list(test_plan.get("adversarialChecks"))
+    covered_from_checks = {
+        item.get("class")
+        for item in adversarial_checks
+        if isinstance(item, dict) and isinstance(item.get("class"), str)
+    }
+    covered = covered_from_checks
+    missing = sorted(required - covered)
+
+    _add(
+        violations,
+        bool(missing) and audit.get("verdict") == "AUTO_OK",
+        "test_plan.missing_adversarial_coverage",
+    )
+    return violations
+
+
 def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
     """Evaluate one Codex prompt fixture and compare observed vs expected violations."""
     schema_violations = _schema_violations(fixture)
@@ -341,6 +412,7 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
         violations.update(_collect_external_review_violations(fixture, audit))
         violations.update(_collect_proofpack_violations(artifacts, audit))
         violations.update(_collect_scope_policy_violations(fixture, artifacts, audit, expected))
+        violations.update(_collect_test_plan_violations(fixture, artifacts, audit))
 
     expected_violations = _expected_violations(fixture)
     observed_violations = sorted(violations)
@@ -350,6 +422,17 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
 
     coverage = audit.get("externalAuditCoverage") if isinstance(audit.get("externalAuditCoverage"), dict) else {}
     degraded_providers = sorted(provider for provider, state in coverage.items() if state != "ready")
+    test_plan = _as_dict(artifacts.get("testPlan"))
+    change_type = fixture.get("changeType") or test_plan.get("changeType")
+    required_test_plan_coverage = REQUIRED_TEST_PLAN_COVERAGE_BY_CHANGE_TYPE.get(str(change_type), [])
+    adversarial_checks = _as_list(test_plan.get("adversarialChecks"))
+    covered_test_plan_coverage = sorted(
+        {
+            item.get("class")
+            for item in adversarial_checks
+            if isinstance(item, dict) and item.get("class") in required_test_plan_coverage
+        }
+    )
 
     return {
         "caseId": fixture.get("caseId"),
@@ -370,6 +453,7 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
         },
         "diagnostics": {
             "degradedProviders": degraded_providers,
+            "missingAdversarialCoverage": sorted(set(required_test_plan_coverage) - set(covered_test_plan_coverage)),
             "policySensitive": flags.get("policySensitive") is True,
             "reducedAuditCoverage": audit.get("reducedAuditCoverage") is True,
         },

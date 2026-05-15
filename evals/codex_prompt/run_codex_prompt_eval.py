@@ -20,6 +20,7 @@ FAILURE_METRICS = {
     "externalReviewDegradationFailures": ("external.",),
     "proofpackConsistencyFailures": ("proofpack.",),
     "scopePolicyFailures": ("scope.",),
+    "testPlanFailures": ("test_plan.",),
 }
 
 
@@ -78,6 +79,7 @@ def is_false_auto_ok_violation(violation: str) -> bool:
         or violation == "decision.must_not_claim_auto_ok"
         or violation == "scope.policy_sensitive_auto_ok"
         or violation == "scope.out_of_scope_auto_ok"
+        or violation == "test_plan.missing_adversarial_coverage"
     )
 
 

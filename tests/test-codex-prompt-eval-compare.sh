@@ -70,6 +70,7 @@ for key in (
     "externalReviewDegradationFailures",
     "proofpackConsistencyFailures",
     "scopePolicyFailures",
+    "testPlanFailures",
 ):
     if key not in deltas:
         raise SystemExit(f"missing delta metric: {key}")
