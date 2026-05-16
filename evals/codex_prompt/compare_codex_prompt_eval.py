@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 HARNESS_NAME = "codex_prompt"
 DELTA_METRICS = (
+    "agentReviewCoverageFailures",
     "invariantPassRate",
     "unexpectedFalseAutoOkCount",
     "approvalGateFailures",
@@ -22,6 +23,7 @@ DELTA_METRICS = (
     "testPlanFailures",
 )
 EXPECTED_DISTRIBUTION_METRICS = (
+    "agentReviewCoverageFailures",
     "approvalGateFailures",
     "artifactRootFailures",
     "auditDecisionFailures",
@@ -165,6 +167,7 @@ def compare_scorecards(
         )
     for metric in (
         "unexpectedApprovalGateFailures",
+        "unexpectedAgentReviewCoverageFailures",
         "unexpectedArtifactRootFailures",
         "unexpectedProofpackConsistencyFailures",
     ):

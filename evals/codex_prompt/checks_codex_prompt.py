@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Set
 
 
 ALLOWED_CATEGORIES = {
+    "agent_review_coverage",
     "contract_discipline",
     "artifact_discipline",
     "audit_decision",
@@ -297,6 +298,63 @@ def _collect_external_review_violations(fixture: Dict[str, Any], audit: Dict[str
     return violations
 
 
+def _valid_agent_review_artifact_paths(artifacts: Dict[str, Any], audit: Dict[str, Any]) -> List[str]:
+    layout = _as_dict(artifacts.get("artifactLayout"))
+    active_root = layout.get("activeContractRoot")
+    review_root = active_root + "reviews/" if isinstance(active_root, str) else None
+    artifact_refs = {ref for ref in _as_list(layout.get("artifactRefs")) if isinstance(ref, str)}
+    valid_paths: List[str] = []
+    for path in _as_list(audit.get("agentReviewArtifacts")):
+        if not isinstance(path, str) or not path:
+            continue
+        if not isinstance(review_root, str) or not path.startswith(review_root):
+            continue
+        if path not in artifact_refs:
+            continue
+        valid_paths.append(path)
+    return sorted(set(valid_paths))
+
+
+def _collect_agent_review_violations(artifacts: Dict[str, Any], audit: Dict[str, Any], risk_level: Any) -> Set[str]:
+    violations: Set[str] = set()
+    coverage = audit.get("agentReviewCoverage")
+    valid_review_artifacts = _valid_agent_review_artifact_paths(artifacts, audit)
+    verdict = audit.get("verdict")
+    degraded_providers: List[str] = []
+
+    if isinstance(coverage, dict):
+        _add(
+            violations,
+            any(state not in ALLOWED_EXTERNAL_STATES for state in coverage.values()),
+            "agent_review.invalid_state",
+        )
+        degraded_providers = sorted(
+            provider
+            for provider, state in coverage.items()
+            if isinstance(provider, str) and provider and state != "ready"
+        )
+
+    if risk_level not in {"medium", "high"} or verdict != "AUTO_OK":
+        return violations
+
+    ready_provider_exists = isinstance(coverage, dict) and any(
+        isinstance(provider, str) and bool(provider.strip()) and state == "ready"
+        for provider, state in coverage.items()
+    )
+    artifact_exists = bool(valid_review_artifacts)
+    _add(
+        violations,
+        not ready_provider_exists or not artifact_exists,
+        "agent_review.missing_for_auto_ok",
+    )
+    _add(
+        violations,
+        audit.get("reducedAuditCoverage") is True or bool(degraded_providers),
+        "agent_review.reduced_coverage_auto_ok",
+    )
+    return violations
+
+
 def _collect_proofpack_violations(artifacts: Dict[str, Any], audit: Dict[str, Any]) -> Set[str]:
     violations: Set[str] = set()
     proofpack = artifacts.get("proofpack")
@@ -410,6 +468,7 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
         violations.update(_collect_artifact_violations(artifacts, expected))
         violations.update(_collect_audit_violations(fixture, audit, expected))
         violations.update(_collect_external_review_violations(fixture, audit))
+        violations.update(_collect_agent_review_violations(artifacts, audit, fixture.get("riskLevel")))
         violations.update(_collect_proofpack_violations(artifacts, audit))
         violations.update(_collect_scope_policy_violations(fixture, artifacts, audit, expected))
         violations.update(_collect_test_plan_violations(fixture, artifacts, audit))
@@ -422,6 +481,10 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
 
     coverage = audit.get("externalAuditCoverage") if isinstance(audit.get("externalAuditCoverage"), dict) else {}
     degraded_providers = sorted(provider for provider, state in coverage.items() if state != "ready")
+    agent_review_coverage = audit.get("agentReviewCoverage") if isinstance(audit.get("agentReviewCoverage"), dict) else {}
+    degraded_agent_review_providers = sorted(
+        provider for provider, state in agent_review_coverage.items() if state != "ready"
+    )
     test_plan = _as_dict(artifacts.get("testPlan"))
     change_type = fixture.get("changeType") or test_plan.get("changeType")
     required_test_plan_coverage = REQUIRED_TEST_PLAN_COVERAGE_BY_CHANGE_TYPE.get(str(change_type), [])
@@ -452,6 +515,12 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
             "unexpected": len(unexpected),
         },
         "diagnostics": {
+            "agentReviewArtifactCount": len(
+                [path for path in _as_list(audit.get("agentReviewArtifacts")) if isinstance(path, str) and path]
+            ),
+            "agentReviewValidArtifactCount": len(_valid_agent_review_artifact_paths(artifacts, audit)),
+            "agentReviewCoverage": dict(sorted(agent_review_coverage.items())),
+            "degradedAgentReviewProviders": degraded_agent_review_providers,
             "degradedProviders": degraded_providers,
             "missingAdversarialCoverage": sorted(set(required_test_plan_coverage) - set(covered_test_plan_coverage)),
             "policySensitive": flags.get("policySensitive") is True,

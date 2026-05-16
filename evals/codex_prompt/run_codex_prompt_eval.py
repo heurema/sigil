@@ -13,6 +13,7 @@ from checks_codex_prompt import canonical_json, evaluate_fixture
 
 
 FAILURE_METRICS = {
+    "agentReviewCoverageFailures": ("agent_review.",),
     "approvalGateFailures": ("approval.",),
     "artifactRootFailures": ("artifact.",),
     "auditDecisionFailures": ("audit.", "decision."),
@@ -80,6 +81,8 @@ def is_false_auto_ok_violation(violation: str) -> bool:
         or violation == "scope.policy_sensitive_auto_ok"
         or violation == "scope.out_of_scope_auto_ok"
         or violation == "test_plan.missing_adversarial_coverage"
+        or violation == "agent_review.missing_for_auto_ok"
+        or violation == "agent_review.reduced_coverage_auto_ok"
     )
 
 

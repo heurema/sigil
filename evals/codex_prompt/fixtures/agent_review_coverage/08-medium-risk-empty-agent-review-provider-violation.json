@@ -1,0 +1,91 @@
+{
+  "artifacts": {
+    "approval": {
+      "status": "approved"
+    },
+    "artifactLayout": {
+      "activeContractRoot": ".signum/contracts/cp-agent-medium-empty-provider/",
+      "artifactRefs": [
+        ".signum/contracts/cp-agent-medium-empty-provider/contract.json",
+        ".signum/contracts/cp-agent-medium-empty-provider/audit_summary.json",
+        ".signum/contracts/cp-agent-medium-empty-provider/mechanic_report.json",
+        ".signum/contracts/cp-agent-medium-empty-provider/reviews/codex.json"
+      ],
+      "completedRunOverwritten": false,
+      "contractId": "cp-agent-medium-empty-provider",
+      "executionStarted": true,
+      "previousProofpackExists": false,
+      "runtimeArtifacts": [
+        ".signum/contracts/cp-agent-medium-empty-provider/proofpack.json"
+      ]
+    },
+    "auditSummary": {
+      "agentReviewArtifacts": [
+        ".signum/contracts/cp-agent-medium-empty-provider/reviews/codex.json"
+      ],
+      "agentReviewCoverage": {
+        "": "ready"
+      },
+      "criticalFindings": [],
+      "externalAuditCoverage": {
+        "codex": "ready"
+      },
+      "failedHoldouts": [],
+      "majorFindings": [],
+      "mixedEvidence": false,
+      "providerRetries": {},
+      "reducedAuditCoverage": false,
+      "regressions": [],
+      "verdict": "AUTO_OK",
+      "verifiedSuccess": true
+    },
+    "contract": {
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "proofpack": {
+      "artifactRefs": [
+        ".signum/contracts/cp-agent-medium-empty-provider/contract.json",
+        ".signum/contracts/cp-agent-medium-empty-provider/audit_summary.json",
+        ".signum/contracts/cp-agent-medium-empty-provider/mechanic_report.json",
+        ".signum/contracts/cp-agent-medium-empty-provider/reviews/codex.json"
+      ],
+      "finalVerdict": "AUTO_OK",
+      "releaseVerdict": "AUTO_OK",
+      "reviewCoverage": {
+        "": "ready"
+      }
+    }
+  },
+  "caseId": "agent-review-medium-risk-empty-provider-auto-ok-violation",
+  "category": "agent_review_coverage",
+  "description": "Medium-risk work must not claim AUTO_OK when ready agent review coverage lacks a concrete reviewer ID.",
+  "expected": {
+    "allowedVerdicts": [
+      "AUTO_OK",
+      "HUMAN_REVIEW",
+      "AUTO_BLOCK"
+    ],
+    "expectedViolations": [
+      "agent_review.missing_for_auto_ok"
+    ],
+    "forbiddenVerdicts": [],
+    "mustHaveApproval": true,
+    "mustKeepArtifacts": false,
+    "mustNotClaimAutoOk": false,
+    "mustNotCreateRootRuntimeArtifacts": true,
+    "mustUseCanonicalArtifactRoot": true
+  },
+  "flags": {
+    "expectedHardStop": false,
+    "nonTrivial": true,
+    "policySensitive": false,
+    "reducedAuditCoverage": false
+  },
+  "riskLevel": "medium"
+}

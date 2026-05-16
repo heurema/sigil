@@ -9,7 +9,7 @@
   "caseId": "external-high-risk-reduced-coverage-auto-ok-violation",
   "category": "external_review_degradation",
   "description": "High-risk reduced coverage must not claim AUTO_OK.",
-  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["decision.must_not_claim_auto_ok", "decision.verdict_not_allowed", "external.false_auto_ok.high_risk_reduced_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "expected": {"allowedVerdicts": ["HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["agent_review.missing_for_auto_ok", "agent_review.reduced_coverage_auto_ok", "decision.must_not_claim_auto_ok", "decision.verdict_not_allowed", "external.false_auto_ok.high_risk_reduced_coverage"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": true, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
   "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
   "riskLevel": "high"
 }

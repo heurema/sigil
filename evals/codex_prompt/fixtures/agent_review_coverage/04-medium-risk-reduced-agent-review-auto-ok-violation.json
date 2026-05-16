@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "approval": {"status": "approved"},
+    "artifactLayout": {"activeContractRoot": ".signum/contracts/cp-agent-medium-reduced/", "artifactRefs": [".signum/contracts/cp-agent-medium-reduced/contract.json", ".signum/contracts/cp-agent-medium-reduced/audit_summary.json", ".signum/contracts/cp-agent-medium-reduced/mechanic_report.json", ".signum/contracts/cp-agent-medium-reduced/reviews/codex.json"], "completedRunOverwritten": false, "contractId": "cp-agent-medium-reduced", "executionStarted": true, "previousProofpackExists": false, "runtimeArtifacts": [".signum/contracts/cp-agent-medium-reduced/proofpack.json"]},
+    "auditSummary": {"agentReviewArtifacts": [".signum/contracts/cp-agent-medium-reduced/reviews/codex.json"], "agentReviewCoverage": {"codex": "ready", "gemini": "timeout"}, "criticalFindings": [], "externalAuditCoverage": {"codex": "ready", "gemini": "timeout"}, "failedHoldouts": [], "majorFindings": [], "mixedEvidence": false, "providerRetries": {}, "reducedAuditCoverage": true, "regressions": [], "verdict": "AUTO_OK", "verifiedSuccess": true},
+    "contract": {"acceptanceCriteria": [{"id": "AC-1"}], "openQuestions": [], "requiredInputsProvided": true},
+    "proofpack": {"artifactRefs": [".signum/contracts/cp-agent-medium-reduced/contract.json", ".signum/contracts/cp-agent-medium-reduced/audit_summary.json", ".signum/contracts/cp-agent-medium-reduced/mechanic_report.json", ".signum/contracts/cp-agent-medium-reduced/reviews/codex.json"], "finalVerdict": "AUTO_OK", "releaseVerdict": "AUTO_OK", "reviewCoverage": {"codex": "ready", "gemini": "timeout"}}
+  },
+  "caseId": "agent-review-medium-risk-reduced-auto-ok-violation",
+  "category": "agent_review_coverage",
+  "description": "Medium-risk work must not claim AUTO_OK when agent review coverage is materially reduced.",
+  "expected": {"allowedVerdicts": ["AUTO_OK", "HUMAN_REVIEW", "AUTO_BLOCK"], "expectedViolations": ["agent_review.reduced_coverage_auto_ok"], "forbiddenVerdicts": [], "mustHaveApproval": true, "mustKeepArtifacts": false, "mustNotClaimAutoOk": false, "mustNotCreateRootRuntimeArtifacts": true, "mustUseCanonicalArtifactRoot": true},
+  "flags": {"expectedHardStop": false, "nonTrivial": true, "policySensitive": false, "reducedAuditCoverage": true},
+  "riskLevel": "medium"
+}

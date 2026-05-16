@@ -44,6 +44,7 @@ required = {
     "unexpectedViolationCount",
     "missingExpectedViolationCount",
     "contractDisciplineFailures",
+    "agentReviewCoverageFailures",
     "approvalGateFailures",
     "artifactRootFailures",
     "auditDecisionFailures",

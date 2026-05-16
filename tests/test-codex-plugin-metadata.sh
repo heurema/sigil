@@ -129,6 +129,9 @@ if [ -f "$CODEX_SKILL" ]; then
   assert_contains "Codex skill packages iterative audit proof" "$CODEX_SKILL" "iterativeAudit"
   assert_contains "Codex skill emits release verdict" "$CODEX_SKILL" "releaseVerdict"
   assert_contains "Codex skill emits review coverage" "$CODEX_SKILL" "reviewCoverage"
+  assert_contains "Codex skill emits agent review coverage" "$CODEX_SKILL" "agentReviewCoverage"
+  assert_contains "Codex skill records agent review artifacts" "$CODEX_SKILL" "agentReviewArtifacts"
+  assert_contains "Codex skill does not use final human review as audit review" "$CODEX_SKILL" "final human PR review is not a substitute"
   assert_contains "Codex skill emits reuse summary" "$CODEX_SKILL" "reuse_summary.json"
   assert_contains "Codex skill keeps project cache out of proofpack" "$CODEX_SKILL" 'Do not pack project-level `.signum/cache/` scanner cache files by default.'
   assert_contains "Codex skill emits anti-entropy report" "$CODEX_SKILL" "anti_entropy_report.json"

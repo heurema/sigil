@@ -19,6 +19,7 @@ It does not execute Codex, does not call external reviewers, and does not change
 - Canonical artifact root discipline.
 - Audit verdict correctness.
 - External reviewer degradation handling.
+- Agent review coverage before medium/high-risk `AUTO_OK`.
 - Proofpack consistency.
 - Scope and policy-sensitive gating.
 - Adversarial test planning for tooling, eval harness, archive writer, prompt orchestration, and scanner policy changes.
@@ -42,6 +43,7 @@ It does not execute Codex, does not call external reviewers, and does not change
 - `fixtures/artifact_discipline/` covers canonical artifact storage rules.
 - `fixtures/audit_decision/` covers verdict and proofpack consistency.
 - `fixtures/external_review_degradation/` covers optional reviewer degradation states.
+- `fixtures/agent_review_coverage/` covers agent review evidence required before medium/high-risk `AUTO_OK`.
 - `fixtures/scope_policy/` covers policy-sensitive and scope-boundary behavior.
 - `fixtures/test_plan/` covers adversarial test planning gates.
 
@@ -103,7 +105,7 @@ Each fixture is a JSON file:
 ```json
 {
   "caseId": "string",
-  "category": "contract_discipline|artifact_discipline|audit_decision|external_review_degradation|scope_policy",
+  "category": "agent_review_coverage|contract_discipline|artifact_discipline|audit_decision|external_review_degradation|scope_policy|test_plan",
   "description": "string",
   "riskLevel": "low|medium|high",
   "changeType": "cli_tooling|eval_harness|file_archive_writer|prompt_orchestration|scanner_policy",
@@ -137,6 +139,27 @@ Each fixture is a JSON file:
 The checker does not need a real model response. It derives observed violation IDs from fixture artifacts and compares them to `expected.expectedViolations`.
 
 `changeType` and `artifacts.testPlan` are optional for older invariant categories. When present on medium/high-risk fixtures, missing required adversarial coverage must prevent `AUTO_OK`.
+
+`artifacts.auditSummary.agentReviewCoverage` and `artifacts.auditSummary.agentReviewArtifacts` model review evidence produced inside the Signum AUDIT phase. Final human PR review is not treated as a substitute for these artifacts.
+
+For medium/high-risk `AUTO_OK`, the checker expects:
+
+- at least one ready agent reviewer in `agentReviewCoverage`
+- at least one non-empty reviewer ID with `ready` state
+- at least one concrete review artifact under the active contract `reviews/` root and recorded in `artifactLayout.artifactRefs`
+- no materially reduced audit coverage, including degraded `agentReviewCoverage` provider states
+
+Missing review evidence is reported as:
+
+```text
+agent_review.missing_for_auto_ok
+```
+
+Reduced review coverage with `AUTO_OK` is reported as:
+
+```text
+agent_review.reduced_coverage_auto_ok
+```
 
 ## Adversarial Test Planning
 
@@ -226,6 +249,7 @@ Hard-gated invariant classes include:
 - no false `AUTO_OK` when contracts have missing required inputs or unresolved open questions
 - no false `AUTO_OK` for high-risk reduced audit coverage
 - no false `AUTO_OK` when critical findings or mechanic regressions exist
+- no medium/high-risk `AUTO_OK` without agent review coverage and review artifacts
 - no missing approval for non-trivial approved execution
 - no root contract, proofpack, or policy-scan compatibility view paths as normal runtime artifacts
 - no proofpack final verdict mismatch with audit summary
@@ -238,6 +262,7 @@ Comparison hard gates:
 - candidate `hardGatePassed` must be `true`
 - candidate `unexpectedFalseAutoOkCount` must be `0`
 - `invariantPassRate` must not drop
+- no new unexpected agent review coverage failure
 - no new unexpected approval gate failure
 - no new unexpected artifact root failure
 - no new unexpected proofpack consistency failure
@@ -275,30 +300,33 @@ Do not update the baseline only to hide a regression. Baseline changes redefine 
 
 ## Current Baseline
 
-Local v0 baseline on 2026-05-13:
+Local baseline after agent review coverage review-fix fixtures:
 
 ```json
 {
+  "agentReviewCoverageFailures": 15,
   "approvalGateFailures": 1,
   "artifactRootFailures": 3,
   "auditDecisionFailures": 10,
   "contractDisciplineFailures": 2,
-  "detectedFalseAutoOkCount": 12,
-  "detectedViolationCount": 24,
+  "detectedFalseAutoOkCount": 27,
+  "detectedViolationCount": 39,
+  "expectedAgentReviewCoverageFailures": 15,
   "externalReviewDegradationFailures": 1,
-  "expectedFalseAutoOkCount": 12,
+  "expectedFalseAutoOkCount": 27,
   "expectedTestPlanFailures": 4,
-  "expectedViolationCount": 24,
+  "expectedViolationCount": 39,
   "failed": 0,
-  "falseAutoOkCount": 12,
-  "fixtureCount": 33,
+  "falseAutoOkCount": 27,
+  "fixtureCount": 41,
   "hardGatePassed": true,
   "invariantPassRate": 1.0,
   "missingExpectedViolationCount": 0,
-  "passed": 33,
+  "passed": 41,
   "proofpackConsistencyFailures": 1,
   "scopePolicyFailures": 2,
   "testPlanFailures": 4,
+  "unexpectedAgentReviewCoverageFailures": 0,
   "unexpectedFalseAutoOkCount": 0,
   "unexpectedTestPlanFailures": 0,
   "unexpectedViolationCount": 0

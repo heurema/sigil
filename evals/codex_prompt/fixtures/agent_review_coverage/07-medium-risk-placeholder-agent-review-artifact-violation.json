@@ -1,0 +1,89 @@
+{
+  "artifacts": {
+    "approval": {
+      "status": "approved"
+    },
+    "artifactLayout": {
+      "activeContractRoot": ".signum/contracts/cp-agent-medium-placeholder-artifact/",
+      "artifactRefs": [
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/contract.json",
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/audit_summary.json",
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/mechanic_report.json"
+      ],
+      "completedRunOverwritten": false,
+      "contractId": "cp-agent-medium-placeholder-artifact",
+      "executionStarted": true,
+      "previousProofpackExists": false,
+      "runtimeArtifacts": [
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/proofpack.json"
+      ]
+    },
+    "auditSummary": {
+      "agentReviewArtifacts": [
+        "dummy"
+      ],
+      "agentReviewCoverage": {
+        "codex": "ready"
+      },
+      "criticalFindings": [],
+      "externalAuditCoverage": {
+        "codex": "ready"
+      },
+      "failedHoldouts": [],
+      "majorFindings": [],
+      "mixedEvidence": false,
+      "providerRetries": {},
+      "reducedAuditCoverage": false,
+      "regressions": [],
+      "verdict": "AUTO_OK",
+      "verifiedSuccess": true
+    },
+    "contract": {
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "proofpack": {
+      "artifactRefs": [
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/contract.json",
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/audit_summary.json",
+        ".signum/contracts/cp-agent-medium-placeholder-artifact/mechanic_report.json"
+      ],
+      "finalVerdict": "AUTO_OK",
+      "releaseVerdict": "AUTO_OK",
+      "reviewCoverage": {
+        "codex": "ready"
+      }
+    }
+  },
+  "caseId": "agent-review-medium-risk-placeholder-artifact-auto-ok-violation",
+  "category": "agent_review_coverage",
+  "description": "Medium-risk work must not claim AUTO_OK when agent review evidence is only a placeholder artifact path.",
+  "expected": {
+    "allowedVerdicts": [
+      "AUTO_OK",
+      "HUMAN_REVIEW",
+      "AUTO_BLOCK"
+    ],
+    "expectedViolations": [
+      "agent_review.missing_for_auto_ok"
+    ],
+    "forbiddenVerdicts": [],
+    "mustHaveApproval": true,
+    "mustKeepArtifacts": false,
+    "mustNotClaimAutoOk": false,
+    "mustNotCreateRootRuntimeArtifacts": true,
+    "mustUseCanonicalArtifactRoot": true
+  },
+  "flags": {
+    "expectedHardStop": false,
+    "nonTrivial": true,
+    "policySensitive": false,
+    "reducedAuditCoverage": false
+  },
+  "riskLevel": "medium"
+}
