@@ -143,6 +143,10 @@ Run the deterministic test suite:
 bash scripts/run-deterministic-tests.sh
 ```
 
+The suite includes `scripts/check_version_bump.py`, which fails runtime/plugin
+surface changes unless `.claude-plugin/plugin.json` increases the Signum plugin
+version.
+
 Useful focused checks while editing docs:
 
 ```bash

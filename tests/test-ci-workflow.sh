@@ -94,6 +94,15 @@ assert_true(
     "workflow must call scripts/run-deterministic-tests.sh",
 )
 assert_true(
+    "ci workflow fetches history for version-bump guard",
+    re.search(
+        r"(?ms)uses:\s*actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5\s*\n\s*with:\s*\n\s*fetch-depth:\s*0\s*$",
+        workflow_text,
+    )
+    is not None,
+    "checkout must fetch enough history for scripts/check_version_bump.py to compare against origin/main",
+)
+assert_true(
     "ci workflow does not duplicate clean-room smoke step",
     "run-cleanroom-smoke.sh" not in workflow_text,
     "clean-room smoke should be reached through the deterministic runner, not a second workflow step",

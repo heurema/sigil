@@ -5,6 +5,14 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.8] - 2026-05-16
+
+### Added
+- Deterministic version-bump guard now requires runtime/plugin surface changes to increase the Signum plugin version.
+
+### Changed
+- Signum plugin metadata and proofpack fixtures now report version `4.21.8`.
+
 ## [4.21.7] - 2026-05-08
 
 ### Added
