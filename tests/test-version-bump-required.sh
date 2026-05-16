@@ -107,6 +107,101 @@ fi
 assert_json_eq "missing base ref status is skipped" "$UNKNOWN_REPORT" ".status" "skipped"
 assert_json_eq "missing base ref hard gate passes" "$UNKNOWN_REPORT" ".hardGatePassed" "true"
 
+MERGE_BASE_REPO="$TMP_DIR/merge-base-repo"
+git init -q -b main "$MERGE_BASE_REPO"
+cd "$MERGE_BASE_REPO"
+git config user.name "Signum Test"
+git config user.email "signum-test@example.invalid"
+mkdir -p .claude-plugin
+cat > .claude-plugin/plugin.json <<'JSON'
+{
+  "name": "signum",
+  "version": "1.0.0"
+}
+JSON
+git add .claude-plugin/plugin.json
+git commit -q -m "initial"
+git switch -q -c feature
+git switch -q main
+mkdir -p lib
+printf '#!/usr/bin/env bash\n' > lib/base-only.sh
+git add lib/base-only.sh
+git commit -q -m "main runtime change"
+git switch -q feature
+mkdir -p docs
+printf 'feature docs\n' > docs/readme.md
+MERGE_BASE_REPORT="$TMP_DIR/merge-base.json"
+if run_checker "$MERGE_BASE_REPO" main "$MERGE_BASE_REPORT"; then
+  pass "branch comparison ignores base-only sensitive changes"
+else
+  fail "branch comparison ignores base-only sensitive changes" "checker failed"
+fi
+assert_json_eq "merge-base comparison uses merge-base mode" "$MERGE_BASE_REPORT" ".baseMode" "merge_base"
+assert_json_eq "merge-base comparison does not require bump for docs-only feature" "$MERGE_BASE_REPORT" ".versionBumpRequired" "false"
+
+MULTI_COMMIT_REPO="$TMP_DIR/multi-commit-repo"
+git init -q -b main "$MULTI_COMMIT_REPO"
+cd "$MULTI_COMMIT_REPO"
+git config user.name "Signum Test"
+git config user.email "signum-test@example.invalid"
+mkdir -p .claude-plugin
+cat > .claude-plugin/plugin.json <<'JSON'
+{
+  "name": "signum",
+  "version": "1.0.0"
+}
+JSON
+git add .claude-plugin/plugin.json
+git commit -q -m "initial"
+git switch -q -c feature
+mkdir -p lib
+printf '#!/usr/bin/env bash\n' > lib/runtime.sh
+git add lib/runtime.sh
+git commit -q -m "runtime change"
+mkdir -p docs
+printf 'follow-up docs\n' > docs/readme.md
+git add docs/readme.md
+git commit -q -m "docs follow-up"
+MULTI_COMMIT_REPORT="$TMP_DIR/multi-commit.json"
+if run_checker "$MULTI_COMMIT_REPO" main "$MULTI_COMMIT_REPORT"; then
+  fail "branch comparison catches earlier sensitive commit" "checker unexpectedly passed"
+else
+  pass "branch comparison catches earlier sensitive commit"
+fi
+assert_json_eq "multi-commit branch requires bump" "$MULTI_COMMIT_REPORT" ".versionBumpRequired" "true"
+assert_json_eq "multi-commit branch reports bump violation" "$MULTI_COMMIT_REPORT" ".violations[0].id" "version.bump_required"
+
+PUSH_REPO="$TMP_DIR/push-repo"
+git init -q -b main "$PUSH_REPO"
+cd "$PUSH_REPO"
+git config user.name "Signum Test"
+git config user.email "signum-test@example.invalid"
+mkdir -p .claude-plugin
+cat > .claude-plugin/plugin.json <<'JSON'
+{
+  "name": "signum",
+  "version": "1.0.0"
+}
+JSON
+git add .claude-plugin/plugin.json
+git commit -q -m "initial"
+PUSH_BEFORE="$(git rev-parse HEAD)"
+mkdir -p lib
+printf '#!/usr/bin/env bash\n' > lib/runtime.sh
+git add lib/runtime.sh
+git commit -q -m "runtime change"
+PUSH_EVENT="$TMP_DIR/push-event.json"
+printf '{"before":"%s"}\n' "$PUSH_BEFORE" > "$PUSH_EVENT"
+PUSH_REPORT="$TMP_DIR/push.json"
+if GITHUB_EVENT_NAME=push GITHUB_EVENT_PATH="$PUSH_EVENT" python3 "$CHECKER" --repo-root "$PUSH_REPO" --json-output "$PUSH_REPORT"; then
+  fail "push event comparison catches sensitive commit" "checker unexpectedly passed"
+else
+  pass "push event comparison catches sensitive commit"
+fi
+assert_json_eq "push event uses previous sha source" "$PUSH_REPORT" ".baseSource" "github_push_before"
+assert_json_eq "push event uses direct diff mode" "$PUSH_REPORT" ".baseMode" "direct"
+assert_json_eq "push event reports bump violation" "$PUSH_REPORT" ".violations[0].id" "version.bump_required"
+
 CURRENT_REPORT="$TMP_DIR/current-repo.json"
 if python3 "$CHECKER" --repo-root "$REPO_ROOT" --json-output "$CURRENT_REPORT"; then
   pass "current repository version-bump guard passes"

@@ -10,7 +10,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, NamedTuple
 
 
 SCHEMA_VERSION = "1.0"
@@ -33,6 +33,15 @@ SENSITIVE_EXACT = {
     "platforms/claude-code/.claude-plugin/plugin.json",
 }
 SEMVER_RE = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
+ZERO_SHA_RE = re.compile(r"^0+$")
+
+
+class BaseSelection(NamedTuple):
+    display_ref: str | None
+    comparison_ref: str | None
+    mode: str | None
+    source: str | None
+    skip_reason: str | None
 
 
 def run_git(repo_root: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -56,21 +65,64 @@ def repo_rel(path: str) -> str:
     return normalized
 
 
-def resolve_base_ref(repo_root: Path, explicit: str | None) -> tuple[str | None, str | None]:
+def verify_commit(repo_root: Path, ref: str) -> bool:
+    result = run_git(repo_root, ["rev-parse", "--verify", f"{ref}^{{commit}}"], check=False)
+    return result.returncode == 0
+
+
+def merge_base(repo_root: Path, ref: str) -> str | None:
+    result = run_git(repo_root, ["merge-base", ref, "HEAD"], check=False)
+    if result.returncode != 0:
+        return None
+    value = result.stdout.strip()
+    return value or None
+
+
+def push_event_before_ref(repo_root: Path) -> str | None:
+    if os.environ.get("GITHUB_EVENT_NAME") != "push":
+        return None
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+    try:
+        event = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    before = event.get("before")
+    if not isinstance(before, str) or not before or ZERO_SHA_RE.match(before):
+        return None
+    return before if verify_commit(repo_root, before) else None
+
+
+def branch_base_selection(repo_root: Path, ref: str, source: str) -> BaseSelection:
+    if not verify_commit(repo_root, ref):
+        return BaseSelection(ref, None, None, source, "base_ref_unavailable")
+    base = merge_base(repo_root, ref)
+    if base is None:
+        return BaseSelection(ref, None, None, source, "base_ref_unavailable")
+    return BaseSelection(ref, base, "merge_base", source, None)
+
+
+def resolve_base_ref(repo_root: Path, explicit: str | None) -> BaseSelection:
     if explicit:
-        result = run_git(repo_root, ["rev-parse", "--verify", f"{explicit}^{{commit}}"], check=False)
-        return (explicit, None) if result.returncode == 0 else (explicit, "base_ref_unavailable")
+        return branch_base_selection(repo_root, explicit, "argument")
 
     env_ref = os.environ.get("SIGNUM_VERSION_BUMP_BASE")
     if env_ref:
-        result = run_git(repo_root, ["rev-parse", "--verify", f"{env_ref}^{{commit}}"], check=False)
-        return (env_ref, None) if result.returncode == 0 else (env_ref, "base_ref_unavailable")
+        return branch_base_selection(repo_root, env_ref, "environment")
 
-    for ref in ("origin/main", "HEAD^"):
-        result = run_git(repo_root, ["rev-parse", "--verify", f"{ref}^{{commit}}"], check=False)
-        if result.returncode == 0:
-            return ref, None
-    return None, "base_ref_unavailable"
+    push_before = push_event_before_ref(repo_root)
+    if push_before:
+        return BaseSelection(push_before, push_before, "direct", "github_push_before", None)
+
+    if os.environ.get("GITHUB_EVENT_NAME") == "push" and os.environ.get("GITHUB_EVENT_PATH"):
+        return BaseSelection(None, None, None, "github_push_before", "base_ref_unavailable")
+
+    for ref in ("origin/main", "main"):
+        selection = branch_base_selection(repo_root, ref, "default_branch")
+        if selection.skip_reason is None:
+            return selection
+    return BaseSelection(None, None, None, None, "base_ref_unavailable")
 
 
 def load_current_version(repo_root: Path) -> str | None:
@@ -106,8 +158,8 @@ def parse_semver(version: str | None) -> tuple[int, int, int] | None:
     return tuple(int(part) for part in match.groups())
 
 
-def changed_files(repo_root: Path, base_ref: str) -> list[str]:
-    result = run_git(repo_root, ["diff", "--name-only", base_ref, "--"])
+def changed_files(repo_root: Path, comparison_ref: str) -> list[str]:
+    result = run_git(repo_root, ["diff", "--name-only", comparison_ref, "--"])
     files = {repo_rel(line) for line in result.stdout.splitlines() if line.strip()}
     untracked = run_git(repo_root, ["ls-files", "--others", "--exclude-standard"])
     files.update(repo_rel(line) for line in untracked.stdout.splitlines() if line.strip())
@@ -119,12 +171,14 @@ def is_sensitive(path: str) -> bool:
 
 
 def check(repo_root: Path, base_ref_arg: str | None) -> dict:
-    base_ref, skip_reason = resolve_base_ref(repo_root, base_ref_arg)
+    base = resolve_base_ref(repo_root, base_ref_arg)
     current_version = load_current_version(repo_root)
     report = {
         "schemaVersion": SCHEMA_VERSION,
         "status": "ok",
-        "baseRef": base_ref,
+        "baseRef": base.display_ref,
+        "baseMode": base.mode,
+        "baseSource": base.source,
         "baseVersion": None,
         "currentVersion": current_version,
         "versionBumpRequired": False,
@@ -133,14 +187,14 @@ def check(repo_root: Path, base_ref_arg: str | None) -> dict:
         "violations": [],
     }
 
-    if skip_reason is not None:
+    if base.skip_reason is not None or base.comparison_ref is None:
         report["status"] = "skipped"
         report["violations"] = []
-        report["skipReason"] = skip_reason
+        report["skipReason"] = base.skip_reason or "base_ref_unavailable"
         return report
 
-    base_version = load_base_version(repo_root, base_ref)
-    sensitive = [path for path in changed_files(repo_root, base_ref) if is_sensitive(path)]
+    base_version = load_base_version(repo_root, base.comparison_ref)
+    sensitive = [path for path in changed_files(repo_root, base.comparison_ref) if is_sensitive(path)]
     report["baseVersion"] = base_version
     report["sensitiveChangedFiles"] = sensitive
     report["versionBumpRequired"] = bool(sensitive)
@@ -153,7 +207,12 @@ def check(repo_root: Path, base_ref_arg: str | None) -> dict:
     violations: list[dict[str, str]] = []
 
     if base_semver is None:
-        violations.append({"id": "version.base_unreadable", "message": f"cannot read semver from {base_ref}:{PLUGIN_MANIFEST}"})
+        violations.append(
+            {
+                "id": "version.base_unreadable",
+                "message": f"cannot read semver from {base.display_ref}:{PLUGIN_MANIFEST}",
+            }
+        )
     if current_semver is None:
         violations.append({"id": "version.current_unreadable", "message": f"cannot read semver from {PLUGIN_MANIFEST}"})
     if base_semver is not None and current_semver is not None and current_semver <= base_semver:
