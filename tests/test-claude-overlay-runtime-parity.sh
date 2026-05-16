@@ -83,6 +83,7 @@ for rel in \
   "lib/terminology-check.sh" \
   "lib/tool-versions.env" \
   "lib/transition-verifier.sh" \
+  "scripts/check_codex_agent_review.py" \
   "scripts/init_scanner.py" \
   "scripts/render_signum_command.py" \
   "scripts/validate_proofpack.py"

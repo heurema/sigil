@@ -15,6 +15,7 @@
 #   SIGNUM_AUDIT_MAX_ITERATIONS - max audit fix iterations (default: 20, inherited by pipeline)
 #   SIGNUM_CI_RELAXED    - if "true", HUMAN_REVIEW maps to exit 0 (pass with warning)
 #   SIGNUM_PROOFPACK_VALIDATOR - optional path to validate_proofpack.py
+#   SIGNUM_CODEX_AGENT_REVIEW_CHECKER - optional path to check_codex_agent_review.py
 
 set -euo pipefail
 
@@ -151,6 +152,35 @@ resolve_ci_proofpack_validator() {
   return 1
 }
 
+resolve_ci_codex_agent_review_checker() {
+  local project_root="${1:-}"
+  local script_dir=""
+  local candidate=""
+
+  if [ -n "${SIGNUM_CODEX_AGENT_REVIEW_CHECKER:-}" ]; then
+    if [ -f "$SIGNUM_CODEX_AGENT_REVIEW_CHECKER" ]; then
+      printf '%s\n' "$SIGNUM_CODEX_AGENT_REVIEW_CHECKER"
+      return 0
+    fi
+    echo "resolve_ci_codex_agent_review_checker: configured checker not found: $SIGNUM_CODEX_AGENT_REVIEW_CHECKER" >&2
+    return 1
+  fi
+
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  for candidate in \
+    "$script_dir/../scripts/check_codex_agent_review.py" \
+    "$script_dir/../../scripts/check_codex_agent_review.py" \
+    "$project_root/scripts/check_codex_agent_review.py"; do
+    if [ -f "$candidate" ]; then
+      printf '%s/%s\n' "$(cd "$(dirname "$candidate")" && pwd)" "$(basename "$candidate")"
+      return 0
+    fi
+  done
+
+  echo "resolve_ci_codex_agent_review_checker: check_codex_agent_review.py not found" >&2
+  return 1
+}
+
 signum_ci_main() {
   local contract="${SIGNUM_CONTRACT_PATH:-}"
   local input_contract_id=""
@@ -164,6 +194,7 @@ signum_ci_main() {
   local run_id=""
   local pp_hash=""
   local validator_script=""
+  local codex_review_checker=""
   local validator_args=()
 
   if [ -z "$contract" ]; then
@@ -230,6 +261,20 @@ signum_ci_main() {
   fi
   if ! python3 "$validator_script" "${validator_args[@]}"; then
     echo "ERROR: proofpack validation failed: $proofpack_path" >&2
+    exit 1
+  fi
+
+  codex_review_checker=$(resolve_ci_codex_agent_review_checker "$project_root" 2>/dev/null || true)
+  if [ -z "$codex_review_checker" ]; then
+    echo "ERROR: Codex agent review checker not found" >&2
+    exit 1
+  fi
+  if [ -z "$artifact_root" ] || [ ! -d "$artifact_root" ]; then
+    echo "ERROR: artifact root not found for Codex agent review check" >&2
+    exit 1
+  fi
+  if ! python3 "$codex_review_checker" --repo-root "$project_root" --contract-root "$artifact_root"; then
+    echo "ERROR: Codex agent review evidence check failed: $artifact_root" >&2
     exit 1
   fi
 
