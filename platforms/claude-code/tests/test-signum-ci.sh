@@ -5,6 +5,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CI_SCRIPT="$SCRIPT_DIR/../lib/signum-ci.sh"
+PROOFPACK_FIXTURES="$SCRIPT_DIR/fixtures/proofpack"
+if [ ! -d "$PROOFPACK_FIXTURES" ]; then
+  PROOFPACK_FIXTURES="$SCRIPT_DIR/../../../tests/fixtures/proofpack"
+fi
 source "$CI_SCRIPT"
 
 passed=0
@@ -130,6 +134,9 @@ assert_contains "CI script documents Phase 1 file import mode" \
 assert_contains "CI script invokes proofpack validator" \
   'validate_proofpack.py' \
   "$(cat "$CI_SCRIPT")"
+assert_contains "CI script invokes Codex agent review checker" \
+  'check_codex_agent_review.py' \
+  "$(cat "$CI_SCRIPT")"
 
 if grep -Fq 'cp "$contract" "$project_root/.signum/contract.json"' "$CI_SCRIPT"; then
   printf '  FAIL: CI script still copies pre-approved contract into root .signum/contract.json\n'
@@ -219,6 +226,24 @@ assert_equals "proofpack resolver keeps legacy root proofpack as final fallback"
   "$ROOT_FALLBACK/.signum/proofpack.json"
 
 echo ""
+echo "=== Codex agent review checker discovery ==="
+
+assert_equals "Codex agent review checker resolves from Signum install" \
+  "$(resolve_ci_codex_agent_review_checker "$WORK")" \
+  "$(cd "$SCRIPT_DIR/.." && pwd)/scripts/check_codex_agent_review.py"
+
+CUSTOM_CHECKER="$WORK/custom-check-codex-review.py"
+printf '#!/usr/bin/env python3\n' > "$CUSTOM_CHECKER"
+assert_equals "Codex agent review checker honors explicit env override" \
+  "$(SIGNUM_CODEX_AGENT_REVIEW_CHECKER="$CUSTOM_CHECKER" resolve_ci_codex_agent_review_checker "$WORK")" \
+  "$CUSTOM_CHECKER"
+
+assert_exit_contains "Codex agent review checker fails closed for missing override" 1 \
+  "configured checker not found" \
+  env SIGNUM_CODEX_AGENT_REVIEW_CHECKER="$WORK/missing-checker.py" bash -c \
+    'source "$1"; resolve_ci_codex_agent_review_checker "$2"' bash "$CI_SCRIPT" "$WORK"
+
+echo ""
 echo "=== Proofpack validation integration ==="
 
 VALIDATION_PROJECT="$WORK/validation-project"
@@ -250,6 +275,99 @@ assert_exit_contains "validator failure causes CI failure" 1 "proofpack validati
   env PATH="$FAKEBIN:$PATH" \
       SIGNUM_CONTRACT_PATH="$WORK/validation-contract.json" \
       SIGNUM_PROJECT_ROOT="$VALIDATION_PROJECT" \
+      bash "$CI_SCRIPT"
+
+CODEX_REVIEW_PROJECT="$WORK/codex-review-project"
+CODEX_REVIEW_FIXTURES="$WORK/codex-review-fixtures"
+mkdir -p "$CODEX_REVIEW_PROJECT" "$CODEX_REVIEW_FIXTURES"
+cat > "$WORK/codex-review-contract.json" <<'EOF'
+{
+  "schemaVersion": "3.2",
+  "contractId": "sig-ci-codex-review",
+  "goal": "Codex review gate test",
+  "inScope": ["test.py"],
+  "acceptanceCriteria": [{"id": "AC1", "description": "Test", "visibility": "visible"}],
+  "riskLevel": "medium"
+}
+EOF
+jq '
+  .contractId = "sig-ci-codex-review"
+  | .riskLevel = "medium"
+  | .checks.reviews.codex = {
+      "content": {
+        "provider": "codex",
+        "reviewerType": "local_agent",
+        "state": "ready",
+        "verdict": "APPROVE",
+        "findings": [],
+        "summary": "No blocking findings."
+      },
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sizeBytes": 160,
+      "status": "present"
+    }
+  | .artifactRefs = [{"path": "reviews/codex.json"}]
+' "$PROOFPACK_FIXTURES/valid-minimal.json" > "$CODEX_REVIEW_FIXTURES/proofpack-with-codex.json"
+jq '
+  .contractId = "sig-ci-codex-review"
+  | .riskLevel = "medium"
+  | .checks.reviews = {"claude": .checks.reviews.claude}
+  | del(.artifactRefs)
+' "$PROOFPACK_FIXTURES/valid-minimal.json" > "$CODEX_REVIEW_FIXTURES/proofpack-without-codex.json"
+cat > "$CODEX_REVIEW_FIXTURES/audit-with-codex.json" <<'EOF'
+{
+  "decision": "AUTO_OK",
+  "riskLevel": "medium",
+  "agentReviewCoverage": {"codex": "ready"},
+  "agentReviewArtifacts": [".signum/contracts/sig-ci-codex-review/reviews/codex.json"]
+}
+EOF
+cat > "$CODEX_REVIEW_FIXTURES/audit-without-codex.json" <<'EOF'
+{
+  "decision": "AUTO_OK",
+  "riskLevel": "medium"
+}
+EOF
+cat > "$CODEX_REVIEW_FIXTURES/codex.json" <<'EOF'
+{
+  "provider": "codex",
+  "reviewerType": "local_agent",
+  "state": "ready",
+  "verdict": "APPROVE",
+  "findings": [],
+  "summary": "No blocking findings."
+}
+EOF
+cat > "$FAKEBIN/claude" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+root=".signum/contracts/sig-ci-codex-review"
+mkdir -p "$root/reviews"
+cp "$SIGNUM_FAKE_PROOFPACK_SOURCE" "$root/proofpack.json"
+cp "$SIGNUM_FAKE_AUDIT_SOURCE" "$root/audit_summary.json"
+if [ -n "${SIGNUM_FAKE_CODEX_REVIEW_SOURCE:-}" ]; then
+  cp "$SIGNUM_FAKE_CODEX_REVIEW_SOURCE" "$root/reviews/codex.json"
+fi
+EOF
+chmod +x "$FAKEBIN/claude"
+
+assert_exit "Codex agent review gate passes with review evidence" 0 \
+  env PATH="$FAKEBIN:$PATH" \
+      SIGNUM_CONTRACT_PATH="$WORK/codex-review-contract.json" \
+      SIGNUM_PROJECT_ROOT="$CODEX_REVIEW_PROJECT" \
+      SIGNUM_FAKE_PROOFPACK_SOURCE="$CODEX_REVIEW_FIXTURES/proofpack-with-codex.json" \
+      SIGNUM_FAKE_AUDIT_SOURCE="$CODEX_REVIEW_FIXTURES/audit-with-codex.json" \
+      SIGNUM_FAKE_CODEX_REVIEW_SOURCE="$CODEX_REVIEW_FIXTURES/codex.json" \
+      bash "$CI_SCRIPT"
+
+rm -rf "$CODEX_REVIEW_PROJECT/.signum"
+assert_exit_contains "Codex agent review gate fails medium AUTO_OK without review evidence" 1 \
+  "Codex agent review evidence check failed" \
+  env PATH="$FAKEBIN:$PATH" \
+      SIGNUM_CONTRACT_PATH="$WORK/codex-review-contract.json" \
+      SIGNUM_PROJECT_ROOT="$CODEX_REVIEW_PROJECT" \
+      SIGNUM_FAKE_PROOFPACK_SOURCE="$CODEX_REVIEW_FIXTURES/proofpack-without-codex.json" \
+      SIGNUM_FAKE_AUDIT_SOURCE="$CODEX_REVIEW_FIXTURES/audit-without-codex.json" \
       bash "$CI_SCRIPT"
 
 echo ""
