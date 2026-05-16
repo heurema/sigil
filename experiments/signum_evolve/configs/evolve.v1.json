@@ -1,0 +1,17 @@
+{
+  "allowedPrefixes": [
+    "docs/",
+    "examples/",
+    "fixtures/",
+    "tests/",
+    "test/",
+    "generated/"
+  ],
+  "baselineCatalog": "lib/policy-rules.json",
+  "baselineScorecard": "evals/policy_scanner/baselines/current.json",
+  "maxMutationDepth": 2,
+  "operators": [
+    "add_excluded_path_prefix"
+  ],
+  "schemaVersion": "1.0"
+}

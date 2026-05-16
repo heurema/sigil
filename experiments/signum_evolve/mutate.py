@@ -1,4 +1,4 @@
-"""Mutation policy helpers for signum-evolve v0."""
+"""Mutation policy helpers for signum-evolve."""
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
@@ -44,6 +44,13 @@ def mutation_summary(candidate: Dict[str, Any]) -> str:
     mutation = candidate.get("mutation", {})
     if not isinstance(mutation, dict):
         return "unknown mutation"
+    if isinstance(mutation.get("prefixes"), list):
+        prefixes = ",".join(str(prefix) for prefix in mutation["prefixes"])
+        return "{operator} {ruleId} {prefixes}".format(
+            operator=mutation.get("operator", "unknown"),
+            ruleId=mutation.get("ruleId", "unknown"),
+            prefixes=prefixes,
+        ).strip()
     return "{operator} {ruleId} {prefix}".format(
         operator=mutation.get("operator", "unknown"),
         ruleId=mutation.get("ruleId", "unknown"),

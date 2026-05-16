@@ -1,4 +1,4 @@
-"""Adoption bundle export for signum-evolve v0."""
+"""Adoption bundle export for signum-evolve."""
 from __future__ import annotations
 
 import shutil
@@ -27,6 +27,11 @@ def copy_required(candidate_dir: Path, out_dir: Path) -> Dict[str, Path]:
         replay_target = out_dir / "historical_replay.json"
         shutil.copyfile(replay_source, replay_target)
         mapping["historicalReplay"] = (replay_source, replay_target)
+    diff_source = candidate_dir / "catalog_diff.json"
+    if diff_source.exists():
+        diff_target = out_dir / "catalog_diff.json"
+        shutil.copyfile(diff_source, diff_target)
+        mapping["catalogDiff"] = (diff_source, diff_target)
     return {key: target for key, (_source, target) in mapping.items()}
 
 
@@ -68,6 +73,7 @@ def write_report(
     candidate: Dict[str, Any],
     compare: Dict[str, Any],
     replay: Optional[Dict[str, Any]],
+    catalog_diff: Optional[Dict[str, Any]],
 ) -> None:
     decision = decision_with_replay(compare, replay)
     lines = [
@@ -80,7 +86,9 @@ def write_report(
         f"- Hard gate passed: `{compare.get('hardGatePassed')}`",
         f"- Improvements: `{len(compare.get('improvements', []))}`",
         f"- Regressions: `{len(compare.get('regressions', []))}`",
+        f"- Mutation count: `{candidate.get('mutationCount', len(candidate.get('mutations', [])))}`",
         "",
+        *catalog_diff_lines(catalog_diff),
         *historical_replay_lines(replay),
         "## Expected Files To Change If Adopted",
         "",
@@ -96,11 +104,38 @@ def write_report(
     (out_dir / "report.md").write_text("\n".join(lines), encoding="utf-8")
 
 
+def catalog_diff_lines(catalog_diff: Optional[Dict[str, Any]]) -> list[str]:
+    if catalog_diff is None:
+        return []
+    lines = [
+        "## Catalog Diff",
+        "",
+        f"- Changed rules: `{catalog_diff.get('changedRuleCount', 0)}`",
+        f"- Critical rule changes: `{catalog_diff.get('criticalRuleChangesCount', 0)}`",
+    ]
+    for change in catalog_diff.get("changes", []):
+        if not isinstance(change, dict):
+            continue
+        added = ", ".join(change.get("addedExcludedPathPrefixes", [])) or "none"
+        removed = ", ".join(change.get("removedExcludedPathPrefixes", [])) or "none"
+        lines.append(
+            "- `{rule}` ({severity}): add excluded prefixes `{added}`, remove `{removed}`".format(
+                added=added,
+                removed=removed,
+                rule=change.get("ruleId"),
+                severity=change.get("severity"),
+            )
+        )
+    lines.append("")
+    return lines
+
+
 def write_checklist(out_dir: Path) -> None:
     lines = [
         "# Adoption Checklist",
         "",
         "- [ ] Candidate generated offline.",
+        "- [ ] Catalog diff reviewed.",
         "- [ ] No CRITICAL rules changed.",
         "- [ ] Hard gates passed.",
         "- [ ] Comparison reviewed.",
@@ -123,6 +158,8 @@ def export_bundle(run_dir: Path, candidate_id: str, out_dir: Path) -> Path:
     compare = load_json(candidate_dir / "compare.json")
     replay_path = candidate_dir / "historical_replay.json"
     replay = load_json(replay_path) if replay_path.exists() else None
-    write_report(out_dir, candidate, compare, replay)
+    diff_path = candidate_dir / "catalog_diff.json"
+    catalog_diff = load_json(diff_path) if diff_path.exists() else None
+    write_report(out_dir, candidate, compare, replay, catalog_diff)
     write_checklist(out_dir)
     return out_dir

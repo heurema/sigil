@@ -1,7 +1,8 @@
-"""Candidate catalog construction for signum-evolve v0."""
+"""Candidate catalog construction for signum-evolve."""
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
@@ -52,38 +53,53 @@ def build_candidate(
     base_catalog: Dict[str, Any],
     index: int,
     seed: int,
-    operator: str,
     rule_id: str,
-    prefix: str,
+    prefixes: Sequence[str],
 ) -> Dict[str, Any]:
     catalog = copy.deepcopy(base_catalog)
-    changed = False
+    prefixes_to_add = list(prefixes)
+    changed_prefixes: List[str] = []
     for rule in catalog["rules"]:
         if rule.get("ruleId") != rule_id:
             continue
         if rule.get("severity") == "CRITICAL":
             raise ValueError(f"critical rule cannot be mutated: {rule_id}")
-        prefixes = list(rule.get("excludedPathPrefixes", []))
-        if operator == "add_excluded_path_prefix":
-            if prefix not in prefixes:
-                prefixes.append(prefix)
-                rule["excludedPathPrefixes"] = prefixes
-                changed = True
-        else:
-            raise ValueError(f"unsupported mutation operator: {operator}")
+        rule_prefixes = list(rule.get("excludedPathPrefixes", []))
+        for prefix in prefixes_to_add:
+            if prefix not in rule_prefixes:
+                rule_prefixes.append(prefix)
+                changed_prefixes.append(prefix)
+        if changed_prefixes:
+            rule["excludedPathPrefixes"] = rule_prefixes
         break
-    if not changed:
-        raise ValueError(f"mutation produced no catalog change: {rule_id} {prefix}")
+    if not changed_prefixes:
+        raise ValueError(f"mutation produced no catalog change: {rule_id} {list(prefixes_to_add)}")
+
+    mutations = [
+        {
+            "operator": "add_excluded_path_prefix",
+            "prefix": prefix,
+            "ruleId": rule_id,
+        }
+        for prefix in changed_prefixes
+    ]
+    mutation: Dict[str, Any]
+    if len(mutations) == 1:
+        mutation = dict(mutations[0])
+    else:
+        mutation = {
+            "operator": "add_excluded_path_prefix_set",
+            "prefixes": changed_prefixes,
+            "ruleId": rule_id,
+        }
 
     return {
         "candidateId": candidate_id(index),
         "catalog": catalog,
         "createdAt": None,
-        "mutation": {
-            "operator": operator,
-            "prefix": prefix,
-            "ruleId": rule_id,
-        },
+        "mutation": mutation,
+        "mutationCount": len(mutations),
+        "mutations": mutations,
         "parentId": "baseline",
         "schemaVersion": "1.0",
         "seed": seed,
@@ -96,28 +112,29 @@ def generate_candidates(
     max_candidates: int,
     seed: int,
     allowed_prefixes: Sequence[str] = DEFAULT_ALLOWED_PREFIXES,
+    max_mutation_depth: int = 1,
 ) -> List[Dict[str, Any]]:
     candidates: List[Dict[str, Any]] = []
-    if max_candidates <= 0:
+    if max_candidates <= 0 or max_mutation_depth <= 0:
         return candidates
     next_index = 1
     for rule in noncritical_rules(catalog):
         rule_id = str(rule.get("ruleId"))
         existing_prefixes = set(rule.get("excludedPathPrefixes", []))
-        for prefix in allowed_prefixes:
-            if prefix in existing_prefixes:
-                continue
-            candidates.append(
-                build_candidate(
-                    base_catalog=catalog,
-                    index=next_index,
-                    seed=seed,
-                    operator="add_excluded_path_prefix",
-                    rule_id=rule_id,
-                    prefix=prefix,
+        missing_prefixes = [prefix for prefix in allowed_prefixes if prefix not in existing_prefixes]
+        max_depth = min(max_mutation_depth, len(missing_prefixes))
+        for depth in range(1, max_depth + 1):
+            for prefix_set in itertools.combinations(missing_prefixes, depth):
+                candidates.append(
+                    build_candidate(
+                        base_catalog=catalog,
+                        index=next_index,
+                        seed=seed,
+                        rule_id=rule_id,
+                        prefixes=prefix_set,
+                    )
                 )
-            )
-            next_index += 1
-            if len(candidates) >= max_candidates:
-                return candidates
+                next_index += 1
+                if len(candidates) >= max_candidates:
+                    return candidates
     return candidates

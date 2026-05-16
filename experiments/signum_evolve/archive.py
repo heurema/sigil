@@ -1,4 +1,4 @@
-"""Run archive helpers for signum-evolve v0."""
+"""Run archive helpers for signum-evolve."""
 from __future__ import annotations
 
 import shutil
@@ -31,6 +31,7 @@ def write_run_manifest(
     config_path: Path,
     seed: int,
     max_candidates: int,
+    max_mutation_depth: int,
     candidate_count: int,
     baseline_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -40,6 +41,7 @@ def write_run_manifest(
         "config": config_path.as_posix(),
         "createdAt": None,
         "maxCandidates": max_candidates,
+        "maxMutationDepth": max_mutation_depth,
         "runId": run_id,
         "schemaVersion": "1.0",
         "seed": seed,
