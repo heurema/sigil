@@ -13,6 +13,7 @@ review_cadence: quarterly
 | --- | --- | --- | --- |
 | Run `/signum <task>` end-to-end | Core product promise | `commands/signum.md`, `agents/`, `lib/`, schemas | README + reference docs + deterministic shell tests |
 | Fresh marketplace install resolves current Signum release | Users should not install a stale registry target after a version bump | `.claude-plugin/plugin.json`, `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md`, `heurema/emporium/.claude-plugin/marketplace.json`, `lib/update-emporium-marketplace.sh`, `lib/check-emporium-sync.sh`, `.github/workflows/release-guardrails.yml` | `bash lib/release-smoke.sh`, `bash tests/test-emporium-sync.sh`, `bash tests/test-update-emporium-marketplace.sh`, `bash tests/test-codex-plugin-metadata.sh`; CI syncs first, then verifies |
+| Runtime/plugin changes carry a visible release version | Marketplace installs and proofpacks should not silently drift after behavior or plugin surface changes | `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `commands/`, `agents/`, `lib/`, `scripts/`, platform overlays | `python3 scripts/check_version_bump.py --repo-root .`, `bash tests/test-version-bump-required.sh` |
 | Generate correct runtime artifacts in `.signum/` | Needed for auditability and CI gating | `commands/signum.md`, `lib/`, `.signum/` artifact contract | `docs/reference.md`, `docs/how-it-works.md` |
 | Bootstrap project context with `/signum init` | Reduces missing-context failures in downstream repos | `commands/init.md`, `agents/init-synthesizer.md`, `lib/init-scanner.sh`, `lib/init-harness-scaffold.sh` | `tests/test-init.sh`, `tests/test-init-harness-scaffold.sh` |
 | Keep root docs and overlays aligned | Prevents trust loss from doc drift | `docs/reference.md`, `docs/overlay-deviations.json`, `lib/doc-parity-check.sh` | `tests/test-doc-parity.sh`, `.github/workflows/doc-parity.yml` |
@@ -29,6 +30,7 @@ review_cadence: quarterly
 | --- | --- | --- |
 | Canonical docs drift from actual behavior | `lib/doc-parity-check.sh` warnings | Fix docs or record a documented deviation |
 | Deterministic script regression | Failing `tests/test-*.sh` | Reproduce in shell, patch script, add/update regression test |
+| Runtime/plugin surface changed without plugin version bump | `scripts/check_version_bump.py` through deterministic tests | Increase `.claude-plugin/plugin.json` and matching Codex/overlay plugin metadata, then update generated command/proofpack fixtures |
 | Emporium registry drifts from Signum release metadata | `bash lib/release-smoke.sh`, `.github/workflows/release-guardrails.yml` | Let `Sync Emporium marketplace entry` update the registry automatically; if drift remains, update `heurema/emporium/.claude-plugin/marketplace.json` so `version` and `source.ref` match the local release |
 | Init/bootstrap drift | `tests/test-init.sh`, `tests/test-init-harness-scaffold.sh` | Keep scanner/scaffold deterministic, avoid LLM-only behavior for structure |
 | Overlay divergence becomes accidental | Parity warnings and deviation review | Promote to root, remove from overlay, or document in `docs/overlay-deviations.json` |
@@ -36,6 +38,8 @@ review_cadence: quarterly
 
 ## Operational Checks
 - `bash lib/release-smoke.sh`
+- `python3 scripts/check_version_bump.py --repo-root .`
+- `bash tests/test-version-bump-required.sh`
 - `bash tests/test-codex-plugin-metadata.sh`
 - `bash tests/test-emporium-sync.sh`
 - `bash tests/test-update-emporium-marketplace.sh`
