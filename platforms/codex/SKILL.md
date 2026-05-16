@@ -300,7 +300,33 @@ For risk-proportional review:
 
 Build `review_context.json` from changed-file history and issue references when available. Keep external Codex/Gemini-style prompts diff-focused; do not send hidden holdout details.
 
-For medium/high risk work, record `agentReviewCoverage` and `agentReviewArtifacts` in `audit_summary.json`. `AUTO_OK` requires at least one ready agent reviewer plus a concrete review artifact under `reviews/`.
+### Codex local agent review
+
+Codex must produce an internal local agent-review artifact before synthesis for non-trivial medium/high risk work.
+
+This is not final human PR review. It is an AUDIT-phase review pass with a fresh reviewer posture after EXECUTE.
+
+Write the local Codex review to:
+
+- `.signum/contracts/<contractId>/reviews/codex.json`
+
+The JSON object should include at least:
+
+- `provider`: `codex`
+- `reviewerType`: `local_agent`
+- `state`: `ready`, `runtime_error`, or another recognized coverage state
+- `verdict`: `APPROVE`, `CONDITIONAL`, `REJECT`, or `UNAVAILABLE`
+- `findings`: array
+- `summary`: string
+
+For a ready local review, add:
+
+- `agentReviewCoverage.codex = "ready"`
+- `.signum/contracts/<contractId>/reviews/codex.json` to `agentReviewArtifacts`
+
+If Codex cannot complete the local review pass, still write `reviews/codex.json` as an unavailable/degraded stub, record the degraded state in `agentReviewCoverage.codex`, and treat audit coverage as reduced.
+
+For medium/high risk work, record `agentReviewCoverage` and `agentReviewArtifacts` in `audit_summary.json`. `AUTO_OK` requires at least one ready agent reviewer with a non-empty reviewer ID plus a concrete review artifact under the active contract `reviews/` directory. The review artifact must also be referenced by the active artifact layout/proofpack.
 
 If provider CLIs are unavailable, continue with deterministic audit and Codex-only analysis, record degraded coverage, and avoid `AUTO_OK` for medium/high risk work when agent review evidence is missing or materially reduced.
 If the current execution context has no usable outbound network or DNS, classify external reviewers as `network_error` and skip them immediately instead of waiting for long timeouts.

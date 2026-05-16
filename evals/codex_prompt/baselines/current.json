@@ -65,6 +65,37 @@
       }
     },
     {
+      "caseId": "agent-review-medium-risk-codex-local-auto-ok",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work can claim AUTO_OK with deterministic checks and a valid local Codex agent-review artifact without requiring external reviewer CLIs.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 1,
+        "agentReviewCoverage": {
+          "codex": "ready"
+        },
+        "agentReviewValidArtifactCount": 1,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "agent_review_coverage/09-medium-risk-codex-local-review-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
       "caseId": "agent-review-medium-risk-complete-auto-ok",
       "category": "agent_review_coverage",
       "description": "Medium-risk work can claim AUTO_OK when agent review coverage and artifacts are present.",
@@ -1390,12 +1421,12 @@
     "externalReviewDegradationFailures": 1,
     "failed": 0,
     "falseAutoOkCount": 27,
-    "fixtureCount": 41,
+    "fixtureCount": 42,
     "hardGateFailures": [],
     "hardGatePassed": true,
     "invariantPassRate": 1.0,
     "missingExpectedViolationCount": 0,
-    "passed": 41,
+    "passed": 42,
     "proofpackConsistencyFailures": 1,
     "scopePolicyFailures": 2,
     "testPlanFailures": 4,
