@@ -1,0 +1,14 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-examples-generated-requirements-no-trigger",
+  "description": "Generated dependency examples under examples should remain excluded by examples/ path scope.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/examples/generated/requirements.txt b/examples/generated/requirements.txt\n@@ -0,0 +1,1 @@\n+requests==2.31.0\n",
+  "tags": [
+    "dependency",
+    "generated",
+    "examples",
+    "negative"
+  ]
+}

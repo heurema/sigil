@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-generated-client-package-json-current-behavior",
+  "description": "Nested generated package.json paths are still treated as manifest dependency findings by current scanner behavior.",
+  "expectedFindings": [
+    {
+      "file": "generated/client/package.json",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_NEW_NPM_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/generated/client/package.json b/generated/client/package.json\n@@ -0,0 +1,1 @@\n+\"sdk-runtime\": \"^2.0.0\"\n",
+  "tags": [
+    "dependency",
+    "generated",
+    "current-behavior",
+    "supply-chain"
+  ]
+}

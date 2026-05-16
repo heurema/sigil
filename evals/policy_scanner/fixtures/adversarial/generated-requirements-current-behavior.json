@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-generated-requirements-current-behavior",
+  "description": "Generated requirements.txt paths are still treated as manifest dependency findings by current scanner behavior.",
+  "expectedFindings": [
+    {
+      "file": "generated/requirements.txt",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_NEW_PYTHON_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/generated/requirements.txt b/generated/requirements.txt\n@@ -0,0 +1,1 @@\n+requests==2.31.0\n",
+  "tags": [
+    "dependency",
+    "generated",
+    "current-behavior",
+    "supply-chain"
+  ]
+}

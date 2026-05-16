@@ -1,9 +1,9 @@
 {
-  "fixtureCount": 75,
+  "fixtureCount": 82,
   "generatedFrom": {
     "command": "python3 evals/policy_scanner/run_policy_scanner_eval.py --repo-root . --json-output <candidate.json>",
     "fixturesDir": "evals/policy_scanner/fixtures",
-    "note": "Frozen from the expanded policy scanner eval corpus v1; no timestamps or temp paths included.",
+    "note": "Frozen from the expanded policy scanner eval corpus with generated-path audit cases; no timestamps or temp paths included.",
     "repeat": 2
   },
   "harnessName": "policy_scanner",
@@ -16,17 +16,17 @@
     "failed": 0,
     "falseNegatives": 0,
     "falsePositives": 0,
-    "fixtureCount": 75,
+    "fixtureCount": 82,
     "hardGateFailures": [],
     "hardGatePassed": true,
     "knownBaselineFailures": 0,
-    "passed": 75,
+    "passed": 82,
     "precision": 1.0,
     "recall": 1.0,
-    "runtimeMsP50": 160.184458,
-    "runtimeMsP95": 280.426723,
+    "runtimeMsP50": 248.451375,
+    "runtimeMsP95": 455.602164,
     "severityMismatches": 0,
-    "truePositives": 55,
+    "truePositives": 58,
     "unexpectedCriticalFindings": 0
   },
   "schemaVersion": "1.0"

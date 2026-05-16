@@ -1,0 +1,14 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-tests-generated-go-mod-no-trigger",
+  "description": "Generated dependency examples under tests should remain excluded by tests/ path scope.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/tests/generated/go.mod b/tests/generated/go.mod\n@@ -0,0 +1,1 @@\n+github.com/acme/sdk v1.2.3\n",
+  "tags": [
+    "dependency",
+    "generated",
+    "tests",
+    "negative"
+  ]
+}

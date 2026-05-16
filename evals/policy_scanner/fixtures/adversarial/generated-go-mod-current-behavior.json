@@ -1,0 +1,22 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "adversarial-generated-go-mod-current-behavior",
+  "description": "Generated go.mod paths are still treated as manifest dependency findings by current scanner behavior.",
+  "expectedFindings": [
+    {
+      "file": "generated/go.mod",
+      "line": 1,
+      "mustBlock": false,
+      "ruleId": "POLICY_NEW_GO_DEPENDENCY",
+      "severity": "MAJOR"
+    }
+  ],
+  "kind": "adversarial",
+  "patch": "diff --git a/generated/go.mod b/generated/go.mod\n@@ -0,0 +1,1 @@\n+github.com/acme/sdk v1.2.3\n",
+  "tags": [
+    "dependency",
+    "generated",
+    "current-behavior",
+    "supply-chain"
+  ]
+}
