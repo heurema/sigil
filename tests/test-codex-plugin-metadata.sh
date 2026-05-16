@@ -134,6 +134,7 @@ if [ -f "$CODEX_SKILL" ]; then
   assert_contains "Codex skill requires local Codex agent review artifact" "$CODEX_SKILL" "Codex must produce an internal local agent-review artifact"
   assert_contains "Codex skill writes local Codex review artifact" "$CODEX_SKILL" ".signum/contracts/<contractId>/reviews/codex.json"
   assert_contains "Codex skill records local reviewer type" "$CODEX_SKILL" "reviewerType"
+  assert_contains "Codex skill runs local review gate" "$CODEX_SKILL" "scripts/check_codex_agent_review.py"
   assert_contains "Codex skill does not use final human review as audit review" "$CODEX_SKILL" "final human PR review is not a substitute"
   assert_contains "Codex skill emits reuse summary" "$CODEX_SKILL" "reuse_summary.json"
   assert_contains "Codex skill keeps project cache out of proofpack" "$CODEX_SKILL" 'Do not pack project-level `.signum/cache/` scanner cache files by default.'

@@ -328,6 +328,15 @@ If Codex cannot complete the local review pass, still write `reviews/codex.json`
 
 For medium/high risk work, record `agentReviewCoverage` and `agentReviewArtifacts` in `audit_summary.json`. `AUTO_OK` requires at least one ready agent reviewer with a non-empty reviewer ID plus a concrete review artifact under the active contract `reviews/` directory. The review artifact must also be referenced by the active artifact layout/proofpack.
 
+Before accepting a medium/high-risk `AUTO_OK`, run the deterministic local review gate:
+
+```bash
+python3 scripts/check_codex_agent_review.py \
+  --contract-root .signum/contracts/<contractId>
+```
+
+If this checker fails, do not claim `AUTO_OK`; downgrade to `HUMAN_REVIEW` or repair the missing local review evidence first.
+
 If provider CLIs are unavailable, continue with deterministic audit and Codex-only analysis, record degraded coverage, and avoid `AUTO_OK` for medium/high risk work when agent review evidence is missing or materially reduced.
 If the current execution context has no usable outbound network or DNS, classify external reviewers as `network_error` and skip them immediately instead of waiting for long timeouts.
 If a provider returns a transient upstream failure, retry once with a short backoff, then mark reduced coverage.
