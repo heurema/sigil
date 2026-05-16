@@ -5,6 +5,14 @@
 ### Changed
 - PR Intake Gate now auto-passes trusted maintainers/admins, enforces external contributor context/no-code/Issue-or-Discussion intake, and treats label/comment write failures as non-fatal warnings.
 
+## [4.21.9] - 2026-05-16
+
+### Fixed
+- Version-bump guard now compares feature branches from the merge base and push events from the GitHub `before` SHA, avoiding base-tip and last-commit blind spots.
+
+### Changed
+- Signum plugin metadata and proofpack fixtures now report version `4.21.9`.
+
 ## [4.21.8] - 2026-05-16
 
 ### Added
