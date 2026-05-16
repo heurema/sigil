@@ -1,59 +1,1401 @@
 {
-  "expectedViolations": {
-    "byViolationId": {
-      "agent_review.missing_for_auto_ok": 10,
-      "agent_review.reduced_coverage_auto_ok": 2,
-      "approval.missing": 1,
-      "artifact.completed_run_overwritten": 1,
-      "artifact.root_runtime_file": 2,
-      "audit.false_auto_ok.contract_gap": 2,
-      "contract.acceptance_criteria_missing": 1,
-      "contract.missing": 1,
-      "decision.must_not_claim_auto_ok": 4,
-      "decision.verdict_not_allowed": 4,
-      "external.false_auto_ok.high_risk_reduced_coverage": 1,
-      "proofpack.final_verdict_mismatch": 1,
-      "scope.hidden_holdout_leak": 1,
-      "scope.policy_sensitive_auto_ok": 1,
-      "test_plan.missing_adversarial_coverage": 4
+  "results": [
+    {
+      "caseId": "agent-review-high-risk-missing-auto-ok-violation",
+      "category": "agent_review_coverage",
+      "description": "High-risk work must not claim AUTO_OK without agent review artifacts.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "fixturePath": "agent_review_coverage/05-high-risk-missing-agent-review-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "riskLevel": "high",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
     },
-    "total": 36
-  },
-  "fixtureCount": 38,
-  "generatedFrom": {
-    "command": "python3 evals/codex_prompt/run_codex_prompt_eval.py --json-output <candidate.json>",
-    "fixturesDir": "evals/codex_prompt/fixtures",
-    "note": "Frozen from the current offline Codex prompt eval harness output without timestamps or absolute paths."
-  },
-  "harnessName": "codex_prompt",
-  "metrics": {
-    "agentReviewCoverageFailures": 12,
+    {
+      "caseId": "agent-review-low-risk-local-review-auto-ok",
+      "category": "agent_review_coverage",
+      "description": "Low-risk work may land on AUTO_OK with local Codex agent review evidence.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 1,
+        "agentReviewCoverage": {
+          "codex": "ready"
+        },
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "agent_review_coverage/01-low-risk-codex-local-review-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "low",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "agent-review-medium-risk-complete-auto-ok",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work can claim AUTO_OK when agent review coverage and artifacts are present.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 2,
+        "agentReviewCoverage": {
+          "claude": "ready",
+          "codex": "ready"
+        },
+        "agentReviewValidArtifactCount": 2,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "agent_review_coverage/03-medium-risk-agent-review-complete-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "agent-review-medium-risk-degraded-flag-omitted-auto-ok-violation",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work must not claim AUTO_OK when agent review provider state is degraded even if reducedAuditCoverage is omitted or false.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 1,
+        "agentReviewCoverage": {
+          "codex": "ready",
+          "gemini": "timeout"
+        },
+        "agentReviewValidArtifactCount": 1,
+        "degradedAgentReviewProviders": [
+          "gemini"
+        ],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.reduced_coverage_auto_ok"
+      ],
+      "fixturePath": "agent_review_coverage/06-medium-risk-degraded-agent-review-flag-omitted-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.reduced_coverage_auto_ok"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "agent-review-medium-risk-empty-provider-auto-ok-violation",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work must not claim AUTO_OK when ready agent review coverage lacks a concrete reviewer ID.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 1,
+        "agentReviewCoverage": {
+          "": "ready"
+        },
+        "agentReviewValidArtifactCount": 1,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "fixturePath": "agent_review_coverage/08-medium-risk-empty-agent-review-provider-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "agent-review-medium-risk-missing-auto-ok-violation",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work must not claim AUTO_OK without agent review artifacts.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "fixturePath": "agent_review_coverage/02-medium-risk-missing-agent-review-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "agent-review-medium-risk-placeholder-artifact-auto-ok-violation",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work must not claim AUTO_OK when agent review evidence is only a placeholder artifact path.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 1,
+        "agentReviewCoverage": {
+          "codex": "ready"
+        },
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "fixturePath": "agent_review_coverage/07-medium-risk-placeholder-agent-review-artifact-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "agent-review-medium-risk-reduced-auto-ok-violation",
+      "category": "agent_review_coverage",
+      "description": "Medium-risk work must not claim AUTO_OK when agent review coverage is materially reduced.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 1,
+        "agentReviewCoverage": {
+          "codex": "ready",
+          "gemini": "timeout"
+        },
+        "agentReviewValidArtifactCount": 1,
+        "degradedAgentReviewProviders": [
+          "gemini"
+        ],
+        "degradedProviders": [
+          "gemini"
+        ],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": true
+      },
+      "expectedViolations": [
+        "agent_review.reduced_coverage_auto_ok"
+      ],
+      "fixturePath": "agent_review_coverage/04-medium-risk-reduced-agent-review-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.reduced_coverage_auto_ok"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "artifact-active-contract-resume-valid-root",
+      "category": "artifact_discipline",
+      "description": "Resume path keeps artifacts under the active contract root.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "artifact_discipline/05-active-contract-resume-valid-root.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "artifact-completed-previous-run-overwritten",
+      "category": "artifact_discipline",
+      "description": "A completed previous proofpack must not be silently overwritten.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "artifact.completed_run_overwritten"
+      ],
+      "fixturePath": "artifact_discipline/04-completed-previous-run-overwritten.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "artifact.completed_run_overwritten"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "artifact-fresh-canonical-root-pass",
+      "category": "artifact_discipline",
+      "description": "Fresh run uses only the canonical active contract root.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "artifact_discipline/01-fresh-canonical-artifact-root.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "low",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "artifact-root-contract-runtime-violation",
+      "category": "artifact_discipline",
+      "description": "Root contract compatibility view is not a normal runtime artifact.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "artifact.root_runtime_file"
+      ],
+      "fixturePath": "artifact_discipline/02-root-contract-runtime-artifact-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "artifact.root_runtime_file"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "artifact-root-proofpack-runtime-violation",
+      "category": "artifact_discipline",
+      "description": "Root proofpack compatibility view is not a normal runtime artifact.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "artifact.root_runtime_file"
+      ],
+      "fixturePath": "artifact_discipline/03-root-proofpack-runtime-artifact-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "artifact.root_runtime_file"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-clean-low-risk-auto-ok",
+      "category": "audit_decision",
+      "description": "Clean low-risk audit may produce AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "audit_decision/01-clean-low-risk-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "low",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-critical-policy-finding-auto-block",
+      "category": "audit_decision",
+      "description": "Critical policy finding blocks.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "audit_decision/02-critical-policy-finding-auto-block.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_BLOCK",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-failed-holdout-not-auto-ok",
+      "category": "audit_decision",
+      "description": "Failed holdout must not land on AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "audit_decision/05-failed-holdout-not-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-major-review-finding-human-review",
+      "category": "audit_decision",
+      "description": "Major review finding remains human review, not AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "audit_decision/04-major-review-finding-human-review.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-mechanic-regression-auto-block",
+      "category": "audit_decision",
+      "description": "Mechanic regression blocks.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "audit_decision/03-mechanic-regression-auto-block.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_BLOCK",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-mixed-evidence-human-review",
+      "category": "audit_decision",
+      "description": "Mixed evidence remains human review.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "audit_decision/06-mixed-evidence-human-review.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "audit-proofpack-final-verdict-mismatch",
+      "category": "audit_decision",
+      "description": "Proofpack finalVerdict must match auditSummary verdict.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "proofpack.final_verdict_mismatch"
+      ],
+      "fixturePath": "audit_decision/07-proofpack-final-verdict-mismatch.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "proofpack.final_verdict_mismatch"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "contract-clean-low-risk-auto-ok",
+      "category": "contract_discipline",
+      "description": "Clean low-risk contract with approval may land on AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "contract_discipline/01-clean-low-risk-contract-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "low",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "contract-high-risk-migration-incomplete",
+      "category": "contract_discipline",
+      "description": "High-risk migration without approval and acceptance criteria must be detected.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "approval.missing",
+        "contract.acceptance_criteria_missing"
+      ],
+      "fixturePath": "contract_discipline/04-high-risk-migration-incomplete.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "approval.missing",
+        "contract.acceptance_criteria_missing"
+      ],
+      "riskLevel": "high",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 2,
+        "expected": 2,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "contract-missing-required-inputs-auto-ok-violation",
+      "category": "contract_discipline",
+      "description": "Missing required inputs must prevent AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "audit.false_auto_ok.contract_gap",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed"
+      ],
+      "fixturePath": "contract_discipline/03-missing-required-inputs-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "audit.false_auto_ok.contract_gap",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 4,
+        "expected": 4,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "contract-user-skips-contract-no-contract",
+      "category": "contract_discipline",
+      "description": "Artifacts with no contract must fail contract-first discipline.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "contract.missing"
+      ],
+      "fixturePath": "contract_discipline/05-skip-contract-no-contract.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "contract.missing"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "contract-vague-open-questions-auto-ok-violation",
+      "category": "contract_discipline",
+      "description": "Unresolved open questions must prevent AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "audit.false_auto_ok.contract_gap",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed"
+      ],
+      "fixturePath": "contract_discipline/02-vague-open-questions-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "audit.false_auto_ok.contract_gap",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 4,
+        "expected": 4,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "external-auth-error-no-auto-retry-pass",
+      "category": "external_review_degradation",
+      "description": "auth_error is degraded coverage and is not silently retried.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [
+          "codex"
+        ],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": true
+      },
+      "expectedViolations": [],
+      "fixturePath": "external_review_degradation/03-auth-error-no-auto-retry-pass.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "external-high-risk-reduced-coverage-auto-ok-violation",
+      "category": "external_review_degradation",
+      "description": "High-risk reduced coverage must not claim AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [
+          "gemini"
+        ],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": true
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "agent_review.reduced_coverage_auto_ok",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed",
+        "external.false_auto_ok.high_risk_reduced_coverage"
+      ],
+      "fixturePath": "external_review_degradation/05-high-risk-reduced-coverage-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "agent_review.reduced_coverage_auto_ok",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed",
+        "external.false_auto_ok.high_risk_reduced_coverage"
+      ],
+      "riskLevel": "high",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 5,
+        "expected": 5,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "external-missing-reviewers-low-risk-degraded-pass",
+      "category": "external_review_degradation",
+      "description": "Low-risk case can degrade gracefully when external reviewer CLIs are missing.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [
+          "codex",
+          "gemini"
+        ],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": true
+      },
+      "expectedViolations": [],
+      "fixturePath": "external_review_degradation/01-missing-reviewers-low-risk-degraded-pass.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "low",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "external-network-error-medium-risk-reduced-pass",
+      "category": "external_review_degradation",
+      "description": "Network error is graceful degradation, not a fatal crash.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [
+          "gemini"
+        ],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": true
+      },
+      "expectedViolations": [],
+      "fixturePath": "external_review_degradation/02-network-error-medium-risk-reduced-pass.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "external-timeout-degraded-coverage-pass",
+      "category": "external_review_degradation",
+      "description": "Timeout records reduced audit coverage.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [
+          "gemini"
+        ],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": true
+      },
+      "expectedViolations": [],
+      "fixturePath": "external_review_degradation/04-timeout-degraded-coverage-pass.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "scope-dependency-addition-human-review-pass",
+      "category": "scope_policy",
+      "description": "Dependency addition requires review or block, not AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "scope_policy/05-dependency-addition-human-review-pass.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "scope-hidden-holdout-leaked-violation",
+      "category": "scope_policy",
+      "description": "Hidden holdout details must not leak into implementation-facing or external review contexts.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "scope.hidden_holdout_leak"
+      ],
+      "fixturePath": "scope_policy/04-hidden-holdout-leaked-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [
+        "scope.hidden_holdout_leak"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 1,
+        "expected": 1,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "scope-out-of-scope-modification-not-auto-ok",
+      "category": "scope_policy",
+      "description": "Out-of-scope modification is not AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "scope_policy/03-out-of-scope-modification-not-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "scope-policy-sensitive-auto-ok-violation",
+      "category": "scope_policy",
+      "description": "Policy-sensitive case must not silently land on AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": true,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed",
+        "scope.policy_sensitive_auto_ok"
+      ],
+      "fixturePath": "scope_policy/02-policy-sensitive-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "decision.must_not_claim_auto_ok",
+        "decision.verdict_not_allowed",
+        "scope.policy_sensitive_auto_ok"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 4,
+        "expected": 4,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "scope-policy-sensitive-human-review-pass",
+      "category": "scope_policy",
+      "description": "Policy-sensitive workflow change remains human review.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": true,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "scope_policy/01-policy-sensitive-human-review-pass.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "test-plan-cli-tooling-adversarial-coverage-auto-ok-allowed",
+      "category": "test_plan",
+      "description": "Medium-risk CLI tooling change can be AUTO_OK when all required adversarial classes are covered.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 2,
+        "agentReviewCoverage": {
+          "codex": "ready",
+          "gemini": "ready"
+        },
+        "agentReviewValidArtifactCount": 2,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "test_plan/02-cli-tooling-adversarial-coverage-auto-ok-allowed.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "test-plan-cli-tooling-happy-path-only-auto-ok-violation",
+      "category": "test_plan",
+      "description": "Medium-risk CLI tooling change with only happy-path checks must not land on AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [
+          "boundary_value",
+          "config_source_of_truth",
+          "generated_output_isolation",
+          "idempotency",
+          "path_handling"
+        ],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "fixturePath": "test_plan/01-cli-tooling-happy-path-only-auto-ok-violation.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 2,
+        "expected": 2,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "test-plan-eval-harness-missing-malformed-fixture-coverage",
+      "category": "test_plan",
+      "description": "Eval harness changes need malformed fixture and expected-violation adversarial coverage before AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [
+          "expected_violation_logic",
+          "fixture_count_change",
+          "malformed_fixture"
+        ],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "fixturePath": "test_plan/04-eval-harness-missing-malformed-fixture-coverage.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 2,
+        "expected": 2,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "test-plan-file-archive-writer-missing-stale-output-coverage",
+      "category": "test_plan",
+      "description": "Archive writers need stale-output and overwrite adversarial coverage before AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [
+          "overwrite_behavior",
+          "relative_absolute_paths",
+          "stale_output"
+        ],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "fixturePath": "test_plan/05-file-archive-writer-missing-stale-output-coverage.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 2,
+        "expected": 2,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "test-plan-high-risk-tooling-missing-adversarial-not-auto-ok",
+      "category": "test_plan",
+      "description": "High-risk tooling change with missing adversarial coverage can pass only when it stays in HUMAN_REVIEW.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [
+          "boundary_value",
+          "config_source_of_truth",
+          "generated_output_isolation",
+          "idempotency",
+          "path_handling"
+        ],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [],
+      "fixturePath": "test_plan/03-high-risk-tooling-missing-adversarial-not-auto-ok.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "HUMAN_REVIEW",
+      "observedViolations": [],
+      "riskLevel": "high",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 0,
+        "expected": 0,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "caseId": "test-plan-scanner-policy-requires-suppression-and-critical-fn-coverage",
+      "category": "test_plan",
+      "description": "Scanner policy changes need critical false-negative and suppression adversarial coverage before AUTO_OK.",
+      "diagnostics": {
+        "agentReviewArtifactCount": 0,
+        "agentReviewCoverage": {},
+        "agentReviewValidArtifactCount": 0,
+        "degradedAgentReviewProviders": [],
+        "degradedProviders": [],
+        "missingAdversarialCoverage": [
+          "critical_false_negative",
+          "suppression_semantics"
+        ],
+        "policySensitive": false,
+        "reducedAuditCoverage": false
+      },
+      "expectedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "fixturePath": "test_plan/06-scanner-policy-requires-suppression-and-critical-fn-coverage.json",
+      "missingExpectedViolations": [],
+      "observedVerdict": "AUTO_OK",
+      "observedViolations": [
+        "agent_review.missing_for_auto_ok",
+        "test_plan.missing_adversarial_coverage"
+      ],
+      "riskLevel": "medium",
+      "status": "passed",
+      "unexpectedViolations": [],
+      "violationCounts": {
+        "detected": 2,
+        "expected": 2,
+        "missingExpected": 0,
+        "unexpected": 0
+      }
+    }
+  ],
+  "summary": {
+    "agentReviewCoverageFailures": 15,
     "approvalGateFailures": 1,
     "artifactRootFailures": 3,
     "auditDecisionFailures": 10,
     "contractDisciplineFailures": 2,
-    "detectedFalseAutoOkCount": 24,
-    "detectedViolationCount": 36,
-    "expectedAgentReviewCoverageFailures": 12,
+    "detectedFalseAutoOkCount": 27,
+    "detectedViolationCount": 39,
+    "expectedAgentReviewCoverageFailures": 15,
     "expectedApprovalGateFailures": 1,
     "expectedArtifactRootFailures": 3,
     "expectedAuditDecisionFailures": 10,
     "expectedContractDisciplineFailures": 2,
     "expectedExternalReviewDegradationFailures": 1,
-    "expectedFalseAutoOkCount": 24,
+    "expectedFalseAutoOkCount": 27,
     "expectedProofpackConsistencyFailures": 1,
     "expectedScopePolicyFailures": 2,
     "expectedTestPlanFailures": 4,
-    "expectedViolationCount": 36,
+    "expectedViolationCount": 39,
     "externalReviewDegradationFailures": 1,
     "failed": 0,
-    "falseAutoOkCount": 24,
-    "fixtureCount": 38,
+    "falseAutoOkCount": 27,
+    "fixtureCount": 41,
     "hardGateFailures": [],
     "hardGatePassed": true,
     "invariantPassRate": 1.0,
     "missingExpectedViolationCount": 0,
-    "passed": 38,
+    "passed": 41,
     "proofpackConsistencyFailures": 1,
     "scopePolicyFailures": 2,
     "testPlanFailures": 4,
@@ -69,6 +1411,5 @@
     "unexpectedScopePolicyFailures": 0,
     "unexpectedTestPlanFailures": 0,
     "unexpectedViolationCount": 0
-  },
-  "schemaVersion": "1.0"
+  }
 }

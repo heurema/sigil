@@ -298,11 +298,29 @@ def _collect_external_review_violations(fixture: Dict[str, Any], audit: Dict[str
     return violations
 
 
-def _collect_agent_review_violations(audit: Dict[str, Any], risk_level: Any) -> Set[str]:
+def _valid_agent_review_artifact_paths(artifacts: Dict[str, Any], audit: Dict[str, Any]) -> List[str]:
+    layout = _as_dict(artifacts.get("artifactLayout"))
+    active_root = layout.get("activeContractRoot")
+    review_root = active_root + "reviews/" if isinstance(active_root, str) else None
+    artifact_refs = {ref for ref in _as_list(layout.get("artifactRefs")) if isinstance(ref, str)}
+    valid_paths: List[str] = []
+    for path in _as_list(audit.get("agentReviewArtifacts")):
+        if not isinstance(path, str) or not path:
+            continue
+        if not isinstance(review_root, str) or not path.startswith(review_root):
+            continue
+        if path not in artifact_refs:
+            continue
+        valid_paths.append(path)
+    return sorted(set(valid_paths))
+
+
+def _collect_agent_review_violations(artifacts: Dict[str, Any], audit: Dict[str, Any], risk_level: Any) -> Set[str]:
     violations: Set[str] = set()
     coverage = audit.get("agentReviewCoverage")
-    review_artifacts = _as_list(audit.get("agentReviewArtifacts"))
+    valid_review_artifacts = _valid_agent_review_artifact_paths(artifacts, audit)
     verdict = audit.get("verdict")
+    degraded_providers: List[str] = []
 
     if isinstance(coverage, dict):
         _add(
@@ -310,12 +328,20 @@ def _collect_agent_review_violations(audit: Dict[str, Any], risk_level: Any) -> 
             any(state not in ALLOWED_EXTERNAL_STATES for state in coverage.values()),
             "agent_review.invalid_state",
         )
+        degraded_providers = sorted(
+            provider
+            for provider, state in coverage.items()
+            if isinstance(provider, str) and provider and state != "ready"
+        )
 
     if risk_level not in {"medium", "high"} or verdict != "AUTO_OK":
         return violations
 
-    ready_provider_exists = isinstance(coverage, dict) and any(state == "ready" for state in coverage.values())
-    artifact_exists = any(isinstance(path, str) and path for path in review_artifacts)
+    ready_provider_exists = isinstance(coverage, dict) and any(
+        isinstance(provider, str) and bool(provider.strip()) and state == "ready"
+        for provider, state in coverage.items()
+    )
+    artifact_exists = bool(valid_review_artifacts)
     _add(
         violations,
         not ready_provider_exists or not artifact_exists,
@@ -323,7 +349,7 @@ def _collect_agent_review_violations(audit: Dict[str, Any], risk_level: Any) -> 
     )
     _add(
         violations,
-        audit.get("reducedAuditCoverage") is True,
+        audit.get("reducedAuditCoverage") is True or bool(degraded_providers),
         "agent_review.reduced_coverage_auto_ok",
     )
     return violations
@@ -442,7 +468,7 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
         violations.update(_collect_artifact_violations(artifacts, expected))
         violations.update(_collect_audit_violations(fixture, audit, expected))
         violations.update(_collect_external_review_violations(fixture, audit))
-        violations.update(_collect_agent_review_violations(audit, fixture.get("riskLevel")))
+        violations.update(_collect_agent_review_violations(artifacts, audit, fixture.get("riskLevel")))
         violations.update(_collect_proofpack_violations(artifacts, audit))
         violations.update(_collect_scope_policy_violations(fixture, artifacts, audit, expected))
         violations.update(_collect_test_plan_violations(fixture, artifacts, audit))
@@ -492,6 +518,7 @@ def evaluate_fixture(fixture: Dict[str, Any]) -> Dict[str, Any]:
             "agentReviewArtifactCount": len(
                 [path for path in _as_list(audit.get("agentReviewArtifacts")) if isinstance(path, str) and path]
             ),
+            "agentReviewValidArtifactCount": len(_valid_agent_review_artifact_paths(artifacts, audit)),
             "agentReviewCoverage": dict(sorted(agent_review_coverage.items())),
             "degradedAgentReviewProviders": degraded_agent_review_providers,
             "degradedProviders": degraded_providers,

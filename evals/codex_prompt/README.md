@@ -145,8 +145,9 @@ The checker does not need a real model response. It derives observed violation I
 For medium/high-risk `AUTO_OK`, the checker expects:
 
 - at least one ready agent reviewer in `agentReviewCoverage`
-- at least one concrete review artifact in `agentReviewArtifacts`
-- no materially reduced audit coverage
+- at least one non-empty reviewer ID with `ready` state
+- at least one concrete review artifact under the active contract `reviews/` root and recorded in `artifactLayout.artifactRefs`
+- no materially reduced audit coverage, including degraded `agentReviewCoverage` provider states
 
 Missing review evidence is reported as:
 
@@ -299,29 +300,29 @@ Do not update the baseline only to hide a regression. Baseline changes redefine 
 
 ## Current Baseline
 
-Local baseline after agent review coverage fixtures:
+Local baseline after agent review coverage review-fix fixtures:
 
 ```json
 {
-  "agentReviewCoverageFailures": 12,
+  "agentReviewCoverageFailures": 15,
   "approvalGateFailures": 1,
   "artifactRootFailures": 3,
   "auditDecisionFailures": 10,
   "contractDisciplineFailures": 2,
-  "detectedFalseAutoOkCount": 24,
-  "detectedViolationCount": 36,
-  "expectedAgentReviewCoverageFailures": 12,
+  "detectedFalseAutoOkCount": 27,
+  "detectedViolationCount": 39,
+  "expectedAgentReviewCoverageFailures": 15,
   "externalReviewDegradationFailures": 1,
-  "expectedFalseAutoOkCount": 24,
+  "expectedFalseAutoOkCount": 27,
   "expectedTestPlanFailures": 4,
-  "expectedViolationCount": 36,
+  "expectedViolationCount": 39,
   "failed": 0,
-  "falseAutoOkCount": 24,
-  "fixtureCount": 38,
+  "falseAutoOkCount": 27,
+  "fixtureCount": 41,
   "hardGatePassed": true,
   "invariantPassRate": 1.0,
   "missingExpectedViolationCount": 0,
-  "passed": 38,
+  "passed": 41,
   "proofpackConsistencyFailures": 1,
   "scopePolicyFailures": 2,
   "testPlanFailures": 4,
