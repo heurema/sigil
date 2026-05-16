@@ -1,6 +1,6 @@
-# signum-evolve v0
+# signum-evolve v1
 
-`signum-evolve v0` is a deterministic offline experiment harness for policy scanner rule catalogs.
+`signum-evolve` is a deterministic offline experiment harness for policy scanner rule catalogs.
 
 It does not change scanner behavior, mutate source catalogs, call LLMs, or apply candidate rules. It generates candidate `policy-rules.json` catalogs under `experiments/signum_evolve/out/`, evaluates them with the existing policy scanner eval harness, compares them against the frozen baseline, and exports adoption bundles for human review.
 
@@ -21,6 +21,23 @@ When `--historical-root` is provided, `generate` discovers historical contract d
 
 Historical replay is only a review signal. It is not treated as labeled ground truth and does not auto-apply or rewrite candidate catalogs. Missing historical roots are skipped gracefully.
 
+## What v1 Adds
+
+v1 keeps the same safe mutation boundary and adds adoption-grade review evidence:
+
+- Bounded multi-prefix candidates for one non-critical rule.
+- Per-candidate `catalog_diff.json`.
+- Leaderboard `rank`, `score`, `mutationCount`, and compact catalog diff metadata.
+- Adoption bundle catalog diff copy and report section.
+
+The default v1 config is:
+
+```text
+experiments/signum_evolve/configs/evolve.v1.json
+```
+
+It sets `maxMutationDepth` to `2`, which means a candidate may add one or two excluded path prefixes to the same non-critical rule. It still cannot mutate CRITICAL rules, regexes, severities, rule IDs, or source catalogs.
+
 ## What v0 Does Not Do
 
 - No OpenEvolve.
@@ -39,6 +56,8 @@ Historical replay is only a review signal. It is not treated as labeled ground t
 Allowed mutation operator:
 
 - `add_excluded_path_prefix` on non-CRITICAL rules only.
+
+v1 may group multiple `add_excluded_path_prefix` mutations for the same rule into one candidate, bounded by `maxMutationDepth`.
 
 Allowed prefixes:
 
@@ -64,7 +83,7 @@ Immutable fields:
 ```bash
 python3 -m experiments.signum_evolve.cli generate \
   --repo-root . \
-  --config experiments/signum_evolve/configs/evolve.v0.json \
+  --config experiments/signum_evolve/configs/evolve.v1.json \
   --run-id smoke \
   --max-candidates 5 \
   --seed 42
@@ -83,7 +102,7 @@ To add optional historical replay:
 ```bash
 python3 -m experiments.signum_evolve.cli generate \
   --repo-root . \
-  --config experiments/signum_evolve/configs/evolve.v0.json \
+  --config experiments/signum_evolve/configs/evolve.v1.json \
   --run-id replay-smoke \
   --max-candidates 5 \
   --seed 42 \
@@ -134,6 +153,13 @@ python3 -m experiments.signum_evolve.cli leaderboard \
 
 The leaderboard reports candidate decision, status, hard gate result, improvements, regressions, and mutation metadata. A candidate does not need to beat the current baseline to be useful; the current baseline is intentionally strong.
 
+v1 leaderboards also include:
+
+- `rank`: deterministic review order
+- `score`: compact ranking inputs
+- `mutationCount`: number of scoped catalog edits in the candidate
+- `catalogDiff`: changed rule and critical-rule change counts
+
 When replay is enabled, each leaderboard candidate also includes compact historical replay data:
 
 ```json
@@ -163,6 +189,7 @@ The bundle contains:
 
 - `candidate.json`
 - `policy-rules.candidate.json`
+- `catalog_diff.json`
 - `eval.json`
 - `compare.json`
 - `historical_replay.json`, when replay was enabled

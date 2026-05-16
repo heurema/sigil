@@ -1,4 +1,4 @@
-"""CLI for signum-evolve v0."""
+"""CLI for signum-evolve."""
 from __future__ import annotations
 
 import argparse
@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Sequence
 
 from .archive import archive_candidate, prepare_run_dir, write_run_manifest
 from .candidate import DEFAULT_ALLOWED_PREFIXES, canonical_json, generate_candidates, load_catalog, load_json
+from .catalog_diff import diff_catalogs, write_catalog_diff
 from .export import export_bundle
 from .mutate import validate_scope_only_mutation
 from .report import baseline_summary_from_scorecard, write_leaderboard
@@ -46,6 +47,7 @@ def command_generate(args: argparse.Namespace) -> int:
     ).resolve()
     historical_root = repo_path(repo_root, args.historical_root).resolve() if args.historical_root else None
     allowed_prefixes = tuple(config.get("allowedPrefixes", DEFAULT_ALLOWED_PREFIXES))
+    max_mutation_depth = int(config.get("maxMutationDepth", 1))
 
     catalog = load_catalog(catalog_path)
     baseline_scorecard = load_json(baseline_path)
@@ -54,6 +56,7 @@ def command_generate(args: argparse.Namespace) -> int:
         max_candidates=args.max_candidates,
         seed=args.seed,
         allowed_prefixes=allowed_prefixes,
+        max_mutation_depth=max_mutation_depth,
     )
     if not candidates:
         raise RuntimeError("no candidates generated")
@@ -64,6 +67,7 @@ def command_generate(args: argparse.Namespace) -> int:
         if errors:
             raise RuntimeError(f"{candidate['candidateId']} failed mutation validation: {errors}")
         candidate_dir = archive_candidate(run_dir, candidate)
+        write_catalog_diff(candidate_dir, diff_catalogs(catalog, candidate["catalog"]))
         evaluate_candidate(repo_root, candidate_dir, baseline_path)
         if historical_root is not None:
             replay = run_historical_replay(
@@ -81,6 +85,7 @@ def command_generate(args: argparse.Namespace) -> int:
         config_path=manifest_path_ref(repo_root, config_path),
         seed=args.seed,
         max_candidates=args.max_candidates,
+        max_mutation_depth=max_mutation_depth,
         candidate_count=len(candidates),
         baseline_summary=baseline_summary_from_scorecard(baseline_scorecard),
     )
@@ -102,7 +107,7 @@ def command_export(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Offline Signum evolve v0 candidate generator.")
+    parser = argparse.ArgumentParser(description="Offline Signum evolve candidate generator.")
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     generate = subcommands.add_parser("generate", help="Generate and evaluate candidate catalogs.")
