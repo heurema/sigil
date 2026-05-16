@@ -16,12 +16,12 @@ The scanner is intentionally unchanged by this harness. The goal is to measure c
 - `fixtures/suppression/*.json` covers suppression acceptance and rejection behavior.
 - `fixtures/adversarial/*.json` covers brittle formatting and close-call cases.
 
-The expanded corpus v1 contains 75 fixtures:
+The expanded corpus contains 82 fixtures:
 
 - `positive`: 34
-- `negative`: 14
+- `negative`: 18
 - `suppression`: 15
-- `adversarial`: 12
+- `adversarial`: 15
 
 The harness is read-only with respect to scanner behavior. It creates temporary directories, writes each fixture patch to `combined.patch`, invokes:
 
@@ -201,7 +201,7 @@ Do not update the baseline only to hide a regression. Baseline changes should be
 
 ## Current baseline sample
 
-Local expanded-corpus baseline run on 2026-05-09:
+Local expanded-corpus baseline run with generated-path audit cases:
 
 ```json
 {
@@ -212,14 +212,14 @@ Local expanded-corpus baseline run on 2026-05-09:
   "failed": 0,
   "falseNegatives": 0,
   "falsePositives": 0,
-  "fixtureCount": 75,
+  "fixtureCount": 82,
   "hardGatePassed": true,
   "knownBaselineFailures": 0,
-  "passed": 75,
+  "passed": 82,
   "precision": 1.0,
   "recall": 1.0,
   "severityMismatches": 0,
-  "truePositives": 55,
+  "truePositives": 58,
   "unexpectedCriticalFindings": 0
 }
 ```
@@ -233,3 +233,4 @@ Local expanded-corpus baseline run on 2026-05-09:
 ## Current behavior notes
 
 - `adversarial-generated-package-json-current-behavior`: generated-like `generated/package.json` paths are still treated as manifest dependency findings by current scanner behavior. This corpus records that behavior without changing scanner scope.
+- Generated manifest files under top-level `generated/` remain dependency review signals in the current corpus because they may still affect runtime or supply-chain surfaces. Generated dependency examples under already non-production prefixes such as `docs/`, `examples/`, and `tests/` remain excluded by path scope.

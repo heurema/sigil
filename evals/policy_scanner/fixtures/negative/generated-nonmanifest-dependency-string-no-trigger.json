@@ -1,0 +1,14 @@
+{
+  "allowedExtraFindings": [],
+  "caseId": "negative-generated-nonmanifest-dependency-string-no-trigger",
+  "description": "Dependency-looking strings in generated non-manifest files should not trigger dependency findings.",
+  "expectedFindings": [],
+  "kind": "negative",
+  "patch": "diff --git a/generated/metadata.txt b/generated/metadata.txt\n@@ -0,0 +1,1 @@\n+\"left-pad\": \"^1.3.0\"\n",
+  "tags": [
+    "dependency",
+    "generated",
+    "nonmanifest",
+    "negative"
+  ]
+}
