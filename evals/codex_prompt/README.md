@@ -142,6 +142,8 @@ The checker does not need a real model response. It derives observed violation I
 
 `artifacts.auditSummary.agentReviewCoverage` and `artifacts.auditSummary.agentReviewArtifacts` model review evidence produced inside the Signum AUDIT phase. Final human PR review is not treated as a substitute for these artifacts.
 
+For Codex runs, local Codex review is modeled as an internal AUDIT-phase agent review artifact, normally `.signum/contracts/<contractId>/reviews/codex.json`. This is separate from GitHub PR review after the run.
+
 For medium/high-risk `AUTO_OK`, the checker expects:
 
 - at least one ready agent reviewer in `agentReviewCoverage`
@@ -300,7 +302,7 @@ Do not update the baseline only to hide a regression. Baseline changes redefine 
 
 ## Current Baseline
 
-Local baseline after agent review coverage review-fix fixtures:
+Local baseline after Codex local review protocol fixtures:
 
 ```json
 {
@@ -318,11 +320,11 @@ Local baseline after agent review coverage review-fix fixtures:
   "expectedViolationCount": 39,
   "failed": 0,
   "falseAutoOkCount": 27,
-  "fixtureCount": 41,
+  "fixtureCount": 42,
   "hardGatePassed": true,
   "invariantPassRate": 1.0,
   "missingExpectedViolationCount": 0,
-  "passed": 41,
+  "passed": 42,
   "proofpackConsistencyFailures": 1,
   "scopePolicyFailures": 2,
   "testPlanFailures": 4,

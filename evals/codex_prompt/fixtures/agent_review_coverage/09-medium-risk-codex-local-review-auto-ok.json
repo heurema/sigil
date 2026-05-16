@@ -1,0 +1,87 @@
+{
+  "artifacts": {
+    "approval": {
+      "status": "approved"
+    },
+    "artifactLayout": {
+      "activeContractRoot": ".signum/contracts/cp-agent-medium-codex-local/",
+      "artifactRefs": [
+        ".signum/contracts/cp-agent-medium-codex-local/contract.json",
+        ".signum/contracts/cp-agent-medium-codex-local/audit_summary.json",
+        ".signum/contracts/cp-agent-medium-codex-local/mechanic_report.json",
+        ".signum/contracts/cp-agent-medium-codex-local/reviews/codex.json"
+      ],
+      "completedRunOverwritten": false,
+      "contractId": "cp-agent-medium-codex-local",
+      "executionStarted": true,
+      "previousProofpackExists": false,
+      "runtimeArtifacts": [
+        ".signum/contracts/cp-agent-medium-codex-local/proofpack.json"
+      ]
+    },
+    "auditSummary": {
+      "agentReviewArtifacts": [
+        ".signum/contracts/cp-agent-medium-codex-local/reviews/codex.json"
+      ],
+      "agentReviewCoverage": {
+        "codex": "ready"
+      },
+      "criticalFindings": [],
+      "externalAuditCoverage": {
+        "codex": "ready"
+      },
+      "failedHoldouts": [],
+      "majorFindings": [],
+      "mixedEvidence": false,
+      "providerRetries": {},
+      "reducedAuditCoverage": false,
+      "regressions": [],
+      "verdict": "AUTO_OK",
+      "verifiedSuccess": true
+    },
+    "contract": {
+      "acceptanceCriteria": [
+        {
+          "id": "AC-1"
+        }
+      ],
+      "openQuestions": [],
+      "requiredInputsProvided": true
+    },
+    "proofpack": {
+      "artifactRefs": [
+        ".signum/contracts/cp-agent-medium-codex-local/contract.json",
+        ".signum/contracts/cp-agent-medium-codex-local/audit_summary.json",
+        ".signum/contracts/cp-agent-medium-codex-local/mechanic_report.json",
+        ".signum/contracts/cp-agent-medium-codex-local/reviews/codex.json"
+      ],
+      "finalVerdict": "AUTO_OK",
+      "releaseVerdict": "AUTO_OK",
+      "reviewCoverage": {
+        "codex": "ready"
+      }
+    }
+  },
+  "caseId": "agent-review-medium-risk-codex-local-auto-ok",
+  "category": "agent_review_coverage",
+  "description": "Medium-risk work can claim AUTO_OK with deterministic checks and a valid local Codex agent-review artifact without requiring external reviewer CLIs.",
+  "expected": {
+    "allowedVerdicts": [
+      "AUTO_OK"
+    ],
+    "expectedViolations": [],
+    "forbiddenVerdicts": [],
+    "mustHaveApproval": true,
+    "mustKeepArtifacts": false,
+    "mustNotClaimAutoOk": false,
+    "mustNotCreateRootRuntimeArtifacts": true,
+    "mustUseCanonicalArtifactRoot": true
+  },
+  "flags": {
+    "expectedHardStop": false,
+    "nonTrivial": true,
+    "policySensitive": false,
+    "reducedAuditCoverage": false
+  },
+  "riskLevel": "medium"
+}
