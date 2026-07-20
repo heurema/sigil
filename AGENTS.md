@@ -23,6 +23,7 @@ review_cadence: quarterly
 | Schemas and contracts | `lib/schemas/` | Contract / proofpack / modules schemas | `@vi` | Treat schema changes as compatibility-sensitive |
 | Platform overlays | `platforms/` | Surface-specific command/docs variants | `@vi` | Root command/docs remain canonical unless an overlay deviation is explicitly documented |
 | Codex plugin metadata | `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md` | Codex App marketplace, install manifest, and skill entry point | `@vi` | Keep version aligned with `.claude-plugin/plugin.json`; Codex skill remains an overlay |
+| OpenSpec workflow | `openspec/config.yaml`, `.claude/commands/opsx/`, `.claude/skills/openspec-*/`, `.codex/skills/openspec-*/` | Spec-driven change workflow and generated agent entry points | `@vi` | Regenerate managed instructions with `openspec update`; review config changes before regeneration |
 | Verification surface | `tests/` | Shell tests for deterministic behavior | `@vi` | If a deterministic behavior changes, add/update a test |
 
 ## Repo-Specific Rules
@@ -41,6 +42,7 @@ review_cadence: quarterly
 - `lib/contract-injection-scan.sh` — prompt/contract injection defense
 - `lib/schemas/*.json` — compatibility-sensitive contract/proofpack formats
 - `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md` — Codex App marketplace, install, and orchestration surface
+- `openspec/config.yaml`, `.claude/commands/opsx/`, `.claude/skills/openspec-*/`, `.codex/skills/openspec-*/` — OpenSpec workflow configuration and generated orchestration prompts
 
 ## First Reads By Task Type
 - **Understand the product**: `README.md`, `project.intent.md`, `docs/how-it-works.md`
@@ -48,6 +50,7 @@ review_cadence: quarterly
 - **Change init/bootstrap behavior**: `commands/init.md`, `agents/init-synthesizer.md`, `lib/init-scanner.sh`, `lib/init-harness-scaffold.sh`, `tests/test-init*.sh`
 - **Change docs/parity policy**: `docs/reference.md`, `docs/overlay-deviations.json`, `lib/doc-parity-check.sh`, `tests/test-doc-parity.sh`
 - **Change Codex App plugin support**: `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, `platforms/codex/.codex-plugin/plugin.json`, `platforms/codex/SKILL.md`, `tests/test-codex-plugin-metadata.sh`
+- **Change OpenSpec workflow support**: `openspec/config.yaml`, generated `.claude/` and `.codex/` OpenSpec entries; run `openspec update` and `openspec doctor --json`
 - **Change future architecture direction**: `docs/plans/2026-03-15-large-project-support-roadmap.md`, `docs/thin-cli-extraction-plan.md`
 
 ## Update Protocol
